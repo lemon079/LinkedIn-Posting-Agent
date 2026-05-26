@@ -1,0 +1,27 @@
+import { Annotation } from "@langchain/langgraph";
+
+export const AgentState = Annotation.Root({
+  topic: Annotation<string>(),
+  context: Annotation<string>({
+    reducer: (x, y) => y,
+    default: () => "",
+  }),
+  postContent: Annotation<string | null>({
+    reducer: (x, y) => y,
+    default: () => null,
+  }),
+  postUrl: Annotation<string | null>({
+    reducer: (x, y) => y,
+    default: () => null,
+  }),
+  retries: Annotation<number>({
+    reducer: (x, y) => y,
+    default: () => 0,
+  }),
+  error: Annotation<string | null>({
+    reducer: (x, y) => y,
+    default: () => null,
+  }),
+});
+
+export type State = typeof AgentState.State;
