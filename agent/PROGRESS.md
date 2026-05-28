@@ -9,7 +9,7 @@
   - Split flat `/src` directory into `config`, `core`, `services`, and `graph` subdirectories.
   - Placed LangGraph nodes in their own individual files.
 - **[x] Web Search & Human-in-the-Loop**
-  - **[x] Web Search**: Gemini natively bound to the `googleSearch` tool for real-time information retrieval based on `TOPIC` and `CONTEXT`.
+  - **[x] Web Search**: Integrated LangChain's `TavilySearch` tool to dynamically fetch real-time facts when drafting posts.
   - **[x] Agent State**: `CONTEXT` added to state and extracted gracefully from `.env`.
   - **[x] Genre Randomization**: Transitioned from strict topics to an autonomous random genre selector in `scheduler.ts` (Computer Science, AI, Machine Learning, etc.).
   - **[x] Human-in-the-Loop**: Integrated `MemorySaver` checkpointer and `interruptBefore` breakpoint at the `publishPost` node. `scheduler.ts` prompts the user for CLI approval before finalizing the post.
@@ -28,6 +28,7 @@
 
 ## Verification
 - **[x]** Successfully verified TypeScript types check. All type issues resolved.
+- **[x]** Configured and passed ESLint (`eslint`, `typescript-eslint`). Code is clean and warning-free.
 
 ## Next Steps
 - Fill out the `.env` file with a valid `TOPIC` and optional `CONTEXT`.

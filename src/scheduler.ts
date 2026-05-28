@@ -1,6 +1,4 @@
 import cron from "node-cron";
-import * as fs from "fs";
-import * as path from "path";
 import readline from "readline";
 import { agent } from "./graph/index.js";
 import { config } from "./config/env.js";
@@ -11,7 +9,6 @@ export const getTopic = (): string => {
   }
   
   const genres = [
-    "Computer Science", 
     "AI", 
     "Machine Learning", 
     "Generative AI", 
