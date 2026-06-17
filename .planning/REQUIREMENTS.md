@@ -1,0 +1,63 @@
+# Requirements: LinkedIn Daily Posting Agent
+
+**Defined:** 2026-06-17
+**Core Value:** Empower the user to draft and publish high-quality, technically accurate, and styled LinkedIn posts on-demand or on a schedule with complete manual editing control.
+
+## v1 Requirements
+
+### Express REST API Backend
+
+- [ ] **API-01**: Expose `GET /api/topics` to retrieve pre-defined genres and current topics.
+- [ ] **API-02**: Expose `POST /api/draft` which triggers a new LangGraph run for a given topic/context and pauses at the `publishPost` breakpoint, returning the thread ID and generated draft.
+- [ ] **API-03**: Expose `POST /api/publish` which takes the client-edited post content, updates the LangGraph thread state, and resumes execution to trigger the final LinkedIn posting API call.
+
+### Web Dashboard Frontend UI
+
+- [ ] **UI-01**: User can trigger drafts by selecting a default topic/genre from a list or entering a custom topic and optional context.
+- [ ] **UI-02**: User can review the generated draft post inside a visual layout mimicking a LinkedIn feed interface.
+- [ ] **UI-03**: User can edit the draft post text manually in a live editor text field prior to publishing.
+- [ ] **UI-04**: User can toggle dry-run mode using a checkbox that maps to the backend API.
+
+### Prompt Optimization
+
+- [ ] **PRMPT-01**: User receives highly styled drafts from Gemini 2.5 Flash using few-shot technical post examples embedded directly in `prompts.ts`.
+
+## v2 Requirements
+
+### Frontend Dashboard Enhancements
+
+- **UI-05**: User can view a real-time character count tracker in the text editor with warnings when the limit exceeds 3000 characters.
+
+### Notifications
+
+- **NOTF-01**: User receives notifications with quick-approve action buttons via a messaging app integration (e.g. Telegram or Slack Webhooks).
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| React Native Mobile App | Avoid high compilation, developer registration, and local keystore overhead. Responsive mobile-web UI is sufficient. |
+| In-App OAuth login flows | Static access keys configured via `.env` are sufficient for personal usage. |
+| Image/Media Uploads | Visual tech LinkedIn posts prioritize plain text whiteboard commentary over generic AI-generated images. |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| API-01 | Phase 1 | Pending |
+| API-02 | Phase 1 | Pending |
+| API-03 | Phase 1 | Pending |
+| UI-01 | Phase 2 | Pending |
+| UI-02 | Phase 2 | Pending |
+| UI-03 | Phase 2 | Pending |
+| UI-04 | Phase 2 | Pending |
+| PRMPT-01 | Phase 3 | Pending |
+
+**Coverage:**
+- v1 requirements: 8 total
+- Mapped to phases: 8
+- Unmapped: 0 ✓
+
+---
+*Requirements defined: 2026-06-17*
+*Last updated: 2026-06-17 after initial definition*
