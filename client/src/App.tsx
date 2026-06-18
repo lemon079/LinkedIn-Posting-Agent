@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/button";
 import { ControlPanel } from "./components/ControlPanel.js";
 import { LinkedInFeed } from "./components/LinkedInFeed.js";
 import { EditorPanel } from "./components/EditorPanel.js";
+import { SettingsPanel } from "./components/SettingsPanel.js";
+import { Header } from "./components/Header.js";
 import { useAgent } from "./hooks/useAgent.js";
 import { FileText, Eye, Edit3, Image } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
@@ -12,22 +14,15 @@ export default function App() {
   const {
     topics, selectedTopic, customTopic, context, dryRun,
     draftText, postUrl, isGenerating, isPublishing, error, activeTab,
-    imageUrl, isGeneratingImage,
+    imageUrl, isGeneratingImage, provider, apiKey, liToken, liUrn, isSettingsOpen,
     setSelectedTopic, setCustomTopic, setContext, setDryRun, setDraftText,
     setActiveTab, handleGenerate, handlePublish, handleGenerateImage, setImageUrl,
+    setProvider, setApiKey, setLiToken, setLiUrn, setIsSettingsOpen,
   } = agentState;
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col antialiased selection:bg-brand-blue/20">
-      <header className="border-b border-border p-5 bg-card sticky top-0 z-50 flex items-center justify-between shadow-sm animate-fade-in-up">
-        <h1 className="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2">
-          <span className="text-brand-blue">LinkedIn</span> Posting Agent
-        </h1>
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-pulse shadow-sm shadow-emerald-600/30" />
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Node Online</span>
-        </div>
-      </header>
+      <Header onOpenSettings={() => setIsSettingsOpen(true)} />
       <main className="flex-1 p-6 max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
         <div className="lg:col-span-2">
           <ControlPanel
@@ -80,6 +75,13 @@ export default function App() {
           )}
         </div>
       </main>
+      <SettingsPanel
+        isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)}
+        provider={provider} setProvider={setProvider}
+        apiKey={apiKey} setApiKey={setApiKey}
+        liToken={liToken} setLiToken={setLiToken}
+        liUrn={liUrn} setLiUrn={setLiUrn}
+      />
     </div>
   );
 }

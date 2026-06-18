@@ -13,6 +13,12 @@ export const generateDraft = async (req: Request, res: Response): Promise<void> 
     const selectedTopic = topic || genres[Math.floor(Math.random() * genres.length)];
     const threadId = Date.now().toString();
     const threadConfig = { configurable: { thread_id: threadId } };
+    
+    const provider = req.headers["x-llm-provider"] as string | undefined;
+    const apiKey = req.headers["x-llm-api-key"] as string | undefined;
+    const linkedinToken = req.headers["x-linkedin-token"] as string | undefined;
+    const linkedinUrn = req.headers["x-linkedin-urn"] as string | undefined;
+
     const initialState = {
       topic: selectedTopic,
       context: context !== undefined ? context : config.CONTEXT,
@@ -21,6 +27,10 @@ export const generateDraft = async (req: Request, res: Response): Promise<void> 
       retries: 0,
       error: null,
       dryRun: dryRun === true,
+      llmProvider: provider || null,
+      llmApiKey: apiKey || null,
+      linkedinToken: linkedinToken || null,
+      linkedinUrn: linkedinUrn || null,
     };
 
     console.log(`[API] Drafting: "${selectedTopic}" (ID: ${threadId}, Dry Run: ${dryRun === true})`);
@@ -40,39 +50,6 @@ export const generateDraft = async (req: Request, res: Response): Promise<void> 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     console.error(`[API] Draft failed: ${msg}`);
-    res.status(500).json({ error: msg });
-  }
-};
-
-export const publishDraft = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { threadId, draft, dryRun } = req.body;
-    if (!threadId || !draft) {
-      res.status(400).json({ error: "Missing threadId or draft" });
-      return;
-    }
-    const threadConfig = { configurable: { thread_id: threadId } };
-    const state = await agent.getState(threadConfig);
-    const nextNode = state.next?.[0];
-
-    if (!state.values || nextNode !== "publishPost") {
-      res.status(400).json({ error: "Invalid thread or post already published" });
-      return;
-    }
-
-    console.log(`[API] Resuming thread ID ${threadId} (Dry Run Override: ${dryRun === true})...`);
-    await agent.updateState(threadConfig, { postContent: draft, dryRun: dryRun === true });
-    const finalState = await agent.invoke(null, threadConfig);
-
-    if (finalState.error) {
-      res.status(500).json({ error: finalState.error });
-      return;
-    }
-    console.log(`[API] Post published! URL: ${finalState.postUrl}`);
-    res.status(200).json({ postUrl: finalState.postUrl });
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    console.error(`[API] Publishing failed: ${msg}`);
     res.status(500).json({ error: msg });
   }
 };

@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { getTopics, generateDraft, publishDraft } from "../controllers/posts.js";
+import { getTopics, generateDraft } from "../controllers/posts.js";
+import { publishDraft } from "../controllers/publish.js";
 import { generateImagePrompt } from "../controllers/images.js";
 
 const router = Router();

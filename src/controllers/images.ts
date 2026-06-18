@@ -9,7 +9,9 @@ export const generateImagePrompt = async (req: Request, res: Response): Promise<
       res.status(400).json({ error: "Missing draft content" });
       return;
     }
-    const llm = createLLM();
+    const provider = req.headers["x-llm-provider"] as string | undefined;
+    const apiKey = req.headers["x-llm-api-key"] as string | undefined;
+    const llm = createLLM(provider, apiKey);
     const prompt = `Based on this LinkedIn post, generate a short, detailed, single-sentence image generation prompt representing its technical concept in a modern, clean, minimalist 3D vector illustration or abstract tech style. Avoid introductory text, quotes, or formatting. Just output the prompt text.
 
 Post content:

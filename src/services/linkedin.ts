@@ -5,7 +5,12 @@ export interface PublishPostResponse {
   error?: string;
 }
 
-export async function publishLinkedInPost(postContent: string, dryRunOverride?: boolean): Promise<PublishPostResponse> {
+export async function publishLinkedInPost(
+  postContent: string, 
+  dryRunOverride?: boolean,
+  customToken?: string,
+  customUrn?: string
+): Promise<PublishPostResponse> {
   const isDryRun = dryRunOverride !== undefined ? dryRunOverride : config.DRY_RUN;
   if (isDryRun) {
     console.log("[DRY RUN] Would have published to LinkedIn:", postContent);
@@ -13,9 +18,11 @@ export async function publishLinkedInPost(postContent: string, dryRunOverride?: 
   }
 
   const url = "https://api.linkedin.com/v2/ugcPosts";
+  const authorUrn = customUrn || config.LINKEDIN_PERSON_URN;
+  const token = customToken || config.LINKEDIN_ACCESS_TOKEN;
   
   const payload = {
-    author: config.LINKEDIN_PERSON_URN,
+    author: authorUrn,
     lifecycleState: "PUBLISHED",
     specificContent: {
       "com.linkedin.ugc.ShareContent": {
@@ -32,7 +39,7 @@ export async function publishLinkedInPost(postContent: string, dryRunOverride?: 
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${config.LINKEDIN_ACCESS_TOKEN}`,
+        "Authorization": `Bearer ${token}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify(payload)

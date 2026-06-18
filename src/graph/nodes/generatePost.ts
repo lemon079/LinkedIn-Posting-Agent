@@ -7,7 +7,7 @@ import { TavilySearch } from "@langchain/tavily";
 
 export const generatePost = async (state: State): Promise<Partial<State>> => {
   try {
-    const llm = createLLM();
+    const llm = createLLM(state.llmProvider || undefined, state.llmApiKey || undefined);
     let userPrompt = `Write a LinkedIn post about: ${state.topic}`;
     
     if (state.context) {

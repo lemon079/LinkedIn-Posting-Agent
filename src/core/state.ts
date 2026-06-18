@@ -26,6 +26,22 @@ export const AgentState = Annotation.Root({
     reducer: (x, y) => y,
     default: () => false,
   }),
+  linkedinToken: Annotation<string | null>({
+    reducer: (x, y) => y,
+    default: () => null,
+  }),
+  linkedinUrn: Annotation<string | null>({
+    reducer: (x, y) => y,
+    default: () => null,
+  }),
+  llmProvider: Annotation<string | null>({
+    reducer: (x, y) => y,
+    default: () => null,
+  }),
+  llmApiKey: Annotation<string | null>({
+    reducer: (x, y) => y,
+    default: () => null,
+  }),
 });
 
 export type State = typeof AgentState.State;
