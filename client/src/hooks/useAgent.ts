@@ -10,71 +10,49 @@ export function useAgent() {
   const [draftText, setDraftText] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [postUrl, setPostUrl] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isPublishing, setIsPublishing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"preview" | "edit">("preview");
+  const [status, setStatus] = useState({ gen: false, pub: false, err: null as string | null });
 
   useEffect(() => {
-    fetchTopics()
-      .then(setTopics)
-      .catch((err) => console.error("Error loading topics:", err));
+    fetchTopics().then(setTopics).catch((e) => console.error("Load topics err:", e));
   }, []);
 
   const handleGenerate = async () => {
-    setIsGenerating(true);
-    setError(null);
+    setStatus({ gen: true, pub: false, err: null });
     setDraftText(null);
     setPostUrl(null);
     try {
       const topic = selectedTopic || customTopic;
-      const data = await generateDraft(topic, context);
+      const data = await generateDraft(topic, context, dryRun);
       setDraftText(data.draft);
       setThreadId(data.threadId);
       setActiveTab("edit");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      setStatus(p => ({ ...p, err: err instanceof Error ? err.message : "Unknown error" }));
     } finally {
-      setIsGenerating(false);
+      setStatus(p => ({ ...p, gen: false }));
     }
   };
 
   const handlePublish = async () => {
     if (!threadId || !draftText) return;
-    setIsPublishing(true);
-    setError(null);
+    setStatus({ gen: false, pub: true, err: null });
     try {
       const data = await publishPost(threadId, draftText, dryRun);
       setPostUrl(data.postUrl);
       setDraftText(null);
       setThreadId(null);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      setStatus(p => ({ ...p, err: err instanceof Error ? err.message : "Unknown error" }));
     } finally {
-      setIsPublishing(false);
+      setStatus(p => ({ ...p, pub: false }));
     }
   };
 
   return {
-    topics,
-    selectedTopic,
-    customTopic,
-    context,
-    dryRun,
-    draftText,
-    threadId,
-    postUrl,
-    isGenerating,
-    isPublishing,
-    error,
-    activeTab,
-    setSelectedTopic,
-    setCustomTopic,
-    setContext,
-    setDryRun,
-    setDraftText,
-    setActiveTab,
-    handleGenerate,
-    handlePublish,
+    topics, selectedTopic, customTopic, context, dryRun, draftText, threadId, postUrl, activeTab,
+    isGenerating: status.gen, isPublishing: status.pub, error: status.err,
+    setSelectedTopic, setCustomTopic, setContext, setDryRun, setDraftText, setActiveTab,
+    handleGenerate, handlePublish,
   };
 }

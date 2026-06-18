@@ -15,12 +15,13 @@ export async function fetchTopics(): Promise<string[]> {
 
 export async function generateDraft(
   topic: string,
-  context: string
+  context: string,
+  dryRun?: boolean
 ): Promise<DraftResponse> {
   const res = await fetch("/api/draft", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ topic, context }),
+    body: JSON.stringify({ topic, context, dryRun }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Failed to generate draft");

@@ -44,9 +44,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <Label htmlFor="custom-topic" className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Custom Topic</Label>
           <input
             id="custom-topic"
-            className="w-full bg-card border border-border text-slate-900 p-2.5 rounded-lg focus:border-brand-blue focus:ring-1 focus:ring-brand-blue/40 outline-none transition placeholder-slate-400 text-sm"
-            placeholder="Enter custom post topic..." value={customTopic}
+            className="w-full bg-card border border-border text-slate-900 p-2.5 rounded-lg focus:border-brand-blue focus:ring-1 focus:ring-brand-blue/40 outline-none transition placeholder-slate-400 text-sm disabled:opacity-50 disabled:bg-slate-50"
+            placeholder={selectedTopic ? "Default genre selected above..." : "Enter custom post topic..."}
+            value={customTopic}
             onChange={(e) => setCustomTopic(e.target.value)}
+            disabled={selectedTopic !== ""}
           />
         </div>
         <div className="space-y-1.5">

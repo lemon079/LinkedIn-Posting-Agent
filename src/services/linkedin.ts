@@ -39,7 +39,7 @@ export async function publishLinkedInPost(postContent: string, dryRunOverride?: 
     });
 
     if (response.status === 201) {
-      const linkedinId = response.headers.get("x-linkedin-id");
+      const linkedinId = response.headers.get("x-restli-id") || response.headers.get("x-linkedin-id");
       const postUrl = linkedinId 
         ? `https://www.linkedin.com/feed/update/${linkedinId}` 
         : "https://www.linkedin.com/";
