@@ -5,9 +5,12 @@ import { ThumbsUp, MessageSquare, Repeat2, Send } from "lucide-react";
 interface LinkedInFeedProps {
   draftText: string | null;
   imageUrl?: string | null;
+  isGeneratingImage?: boolean;
 }
 
-export const LinkedInFeed: React.FC<LinkedInFeedProps> = ({ draftText, imageUrl }) => {
+export const LinkedInFeed: React.FC<LinkedInFeedProps> = ({
+  draftText, imageUrl, isGeneratingImage
+}) => {
   if (!draftText) return null;
 
   return (
@@ -24,7 +27,13 @@ export const LinkedInFeed: React.FC<LinkedInFeedProps> = ({ draftText, imageUrl 
       <CardContent className="p-0 text-sm leading-relaxed text-slate-800 whitespace-pre-wrap select-text font-sans selection:bg-brand-blue/10">
         {draftText}
       </CardContent>
-      {imageUrl && (
+      {isGeneratingImage && (
+        <div className="border border-border border-dashed rounded-xl p-8 flex flex-col items-center justify-center bg-slate-50 gap-2 animate-pulse">
+          <div className="w-6 h-6 border-2 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
+          <p className="text-xs text-slate-500 font-medium">Generating AI Graphic...</p>
+        </div>
+      )}
+      {imageUrl && !isGeneratingImage && (
         <div className="border border-border rounded-xl overflow-hidden bg-slate-50">
           <img src={imageUrl} alt="AI Generated Post Graphic" className="w-full h-auto object-cover max-h-[320px]" />
         </div>

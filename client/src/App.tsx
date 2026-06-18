@@ -4,6 +4,8 @@ import { LinkedInFeed } from "./components/LinkedInFeed.js";
 import { EditorPanel } from "./components/EditorPanel.js";
 import { useAgent } from "./hooks/useAgent.js";
 import { FileText, Eye, Edit3, Image } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 export default function App() {
   const agentState = useAgent();
@@ -12,7 +14,7 @@ export default function App() {
     draftText, postUrl, isGenerating, isPublishing, error, activeTab,
     imageUrl, isGeneratingImage,
     setSelectedTopic, setCustomTopic, setContext, setDryRun, setDraftText,
-    setActiveTab, handleGenerate, handlePublish, handleGenerateImage,
+    setActiveTab, handleGenerate, handlePublish, handleGenerateImage, setImageUrl,
   } = agentState;
 
   return (
@@ -62,11 +64,18 @@ export default function App() {
                   <Button className={`px-4 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1.5 ${activeTab === "preview" ? "bg-brand-blue text-white" : "bg-transparent text-slate-500 hover:text-slate-700"}`} onClick={() => setActiveTab("preview")}><Eye className="size-3.5" /> LinkedIn Mockup</Button>
                   <Button className={`px-4 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1.5 ${activeTab === "edit" ? "bg-brand-blue text-white" : "bg-transparent text-slate-500 hover:text-slate-700"}`} onClick={() => setActiveTab("edit")}><Edit3 className="size-3.5" /> Interactive Editor</Button>
                 </div>
-                <Button onClick={handleGenerateImage} disabled={isGeneratingImage} className="text-xs font-bold px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition flex items-center gap-1.5 shadow-sm">
-                  <Image className="size-3.5" /> {isGeneratingImage ? "Generating Graphic..." : "Generate AI Graphic"}
-                </Button>
+                <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg border border-border">
+                  <Switch
+                    id="toggle-image" checked={!!imageUrl} disabled={isGeneratingImage}
+                    onCheckedChange={(val) => val ? handleGenerateImage() : setImageUrl(null)}
+                  />
+                  <Label htmlFor="toggle-image" className="text-xs font-bold text-slate-700 cursor-pointer flex items-center gap-1.5 select-none">
+                    <Image className="size-3.5 text-indigo-600" />
+                    {isGeneratingImage ? "Generating AI Graphic..." : "Include AI Graphic"}
+                  </Label>
+                </div>
               </div>
-              {activeTab === "preview" ? <LinkedInFeed draftText={draftText} imageUrl={imageUrl} /> : <EditorPanel draftText={draftText} isPublishing={isPublishing} onChange={setDraftText} onPublish={handlePublish} />}
+              {activeTab === "preview" ? <LinkedInFeed draftText={draftText} imageUrl={imageUrl} isGeneratingImage={isGeneratingImage} /> : <EditorPanel draftText={draftText} isPublishing={isPublishing} onChange={setDraftText} onPublish={handlePublish} />}
             </div>
           )}
         </div>
