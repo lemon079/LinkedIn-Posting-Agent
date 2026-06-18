@@ -3,15 +3,16 @@ import { ControlPanel } from "./components/ControlPanel.js";
 import { LinkedInFeed } from "./components/LinkedInFeed.js";
 import { EditorPanel } from "./components/EditorPanel.js";
 import { useAgent } from "./hooks/useAgent.js";
-import { FileText, Eye, Edit3 } from "lucide-react";
+import { FileText, Eye, Edit3, Image } from "lucide-react";
 
 export default function App() {
   const agentState = useAgent();
   const {
     topics, selectedTopic, customTopic, context, dryRun,
     draftText, postUrl, isGenerating, isPublishing, error, activeTab,
+    imageUrl, isGeneratingImage,
     setSelectedTopic, setCustomTopic, setContext, setDryRun, setDraftText,
-    setActiveTab, handleGenerate, handlePublish,
+    setActiveTab, handleGenerate, handlePublish, handleGenerateImage,
   } = agentState;
 
   return (
@@ -56,11 +57,16 @@ export default function App() {
           )}
           {draftText !== null && !isGenerating && (
             <div className="space-y-4 animate-fade-in-up">
-              <div className="flex bg-slate-200/50 p-1 rounded-lg border border-border w-fit">
-                <Button className={`px-4 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1.5 ${activeTab === "preview" ? "bg-brand-blue text-white" : "bg-transparent text-slate-500 hover:text-slate-700"}`} onClick={() => setActiveTab("preview")}><Eye className="size-3.5" /> LinkedIn Mockup</Button>
-                <Button className={`px-4 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1.5 ${activeTab === "edit" ? "bg-brand-blue text-white" : "bg-transparent text-slate-500 hover:text-slate-700"}`} onClick={() => setActiveTab("edit")}><Edit3 className="size-3.5" /> Interactive Editor</Button>
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex bg-slate-200/50 p-1 rounded-lg border border-border w-fit">
+                  <Button className={`px-4 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1.5 ${activeTab === "preview" ? "bg-brand-blue text-white" : "bg-transparent text-slate-500 hover:text-slate-700"}`} onClick={() => setActiveTab("preview")}><Eye className="size-3.5" /> LinkedIn Mockup</Button>
+                  <Button className={`px-4 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1.5 ${activeTab === "edit" ? "bg-brand-blue text-white" : "bg-transparent text-slate-500 hover:text-slate-700"}`} onClick={() => setActiveTab("edit")}><Edit3 className="size-3.5" /> Interactive Editor</Button>
+                </div>
+                <Button onClick={handleGenerateImage} disabled={isGeneratingImage} className="text-xs font-bold px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition flex items-center gap-1.5 shadow-sm">
+                  <Image className="size-3.5" /> {isGeneratingImage ? "Generating Graphic..." : "Generate AI Graphic"}
+                </Button>
               </div>
-              {activeTab === "preview" ? <LinkedInFeed draftText={draftText} /> : <EditorPanel draftText={draftText} isPublishing={isPublishing} onChange={setDraftText} onPublish={handlePublish} />}
+              {activeTab === "preview" ? <LinkedInFeed draftText={draftText} imageUrl={imageUrl} /> : <EditorPanel draftText={draftText} isPublishing={isPublishing} onChange={setDraftText} onPublish={handlePublish} />}
             </div>
           )}
         </div>

@@ -42,3 +42,16 @@ export async function publishPost(
   if (!res.ok) throw new Error(data.error || "Failed to publish");
   return data;
 }
+
+export async function generateImage(
+  draft: string
+): Promise<{ imageUrl: string }> {
+  const res = await fetch("/api/generate-image", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ draft }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Failed to generate image");
+  return data;
+}

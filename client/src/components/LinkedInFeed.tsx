@@ -4,9 +4,10 @@ import { ThumbsUp, MessageSquare, Repeat2, Send } from "lucide-react";
 
 interface LinkedInFeedProps {
   draftText: string | null;
+  imageUrl?: string | null;
 }
 
-export const LinkedInFeed: React.FC<LinkedInFeedProps> = ({ draftText }) => {
+export const LinkedInFeed: React.FC<LinkedInFeedProps> = ({ draftText, imageUrl }) => {
   if (!draftText) return null;
 
   return (
@@ -23,6 +24,11 @@ export const LinkedInFeed: React.FC<LinkedInFeedProps> = ({ draftText }) => {
       <CardContent className="p-0 text-sm leading-relaxed text-slate-800 whitespace-pre-wrap select-text font-sans selection:bg-brand-blue/10">
         {draftText}
       </CardContent>
+      {imageUrl && (
+        <div className="border border-border rounded-xl overflow-hidden bg-slate-50">
+          <img src={imageUrl} alt="AI Generated Post Graphic" className="w-full h-auto object-cover max-h-[320px]" />
+        </div>
+      )}
       <div className="flex justify-between border-t border-border pt-3 text-xs text-slate-500 font-medium">
         <button className="flex items-center gap-1.5 hover:text-slate-800 transition px-2.5 py-1.5 rounded-md hover:bg-slate-50 cursor-pointer" type="button">
           <ThumbsUp className="size-4" /> Like

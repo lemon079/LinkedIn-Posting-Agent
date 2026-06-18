@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { fetchTopics, generateDraft, publishPost } from "../lib/api.js";
+import { fetchTopics, generateDraft, publishPost, generateImage } from "../lib/api.js";
 
 export function useAgent() {
   const [topics, setTopics] = useState<string[]>([]);
@@ -10,17 +10,19 @@ export function useAgent() {
   const [draftText, setDraftText] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [postUrl, setPostUrl] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"preview" | "edit">("preview");
-  const [status, setStatus] = useState({ gen: false, pub: false, err: null as string | null });
+  const [status, setStatus] = useState({ gen: false, pub: false, img: false, err: null as string | null });
 
   useEffect(() => {
     fetchTopics().then(setTopics).catch((e) => console.error("Load topics err:", e));
   }, []);
 
   const handleGenerate = async () => {
-    setStatus({ gen: true, pub: false, err: null });
+    setStatus({ gen: true, pub: false, img: false, err: null });
     setDraftText(null);
     setPostUrl(null);
+    setImageUrl(null);
     try {
       const topic = selectedTopic || customTopic;
       const data = await generateDraft(topic, context, dryRun);
@@ -36,7 +38,7 @@ export function useAgent() {
 
   const handlePublish = async () => {
     if (!threadId || !draftText) return;
-    setStatus({ gen: false, pub: true, err: null });
+    setStatus({ gen: false, pub: true, img: false, err: null });
     try {
       const data = await publishPost(threadId, draftText, dryRun);
       setPostUrl(data.postUrl);
@@ -49,10 +51,23 @@ export function useAgent() {
     }
   };
 
+  const handleGenerateImage = async () => {
+    if (!draftText) return;
+    setStatus(p => ({ ...p, img: true, err: null }));
+    try {
+      const data = await generateImage(draftText);
+      setImageUrl(data.imageUrl);
+    } catch (err: unknown) {
+      setStatus(p => ({ ...p, err: err instanceof Error ? err.message : "Image generation failed" }));
+    } finally {
+      setStatus(p => ({ ...p, img: false }));
+    }
+  };
+
   return {
-    topics, selectedTopic, customTopic, context, dryRun, draftText, threadId, postUrl, activeTab,
-    isGenerating: status.gen, isPublishing: status.pub, error: status.err,
-    setSelectedTopic, setCustomTopic, setContext, setDryRun, setDraftText, setActiveTab,
-    handleGenerate, handlePublish,
+    topics, selectedTopic, customTopic, context, dryRun, draftText, threadId, postUrl, activeTab, imageUrl,
+    isGenerating: status.gen, isPublishing: status.pub, isGeneratingImage: status.img, error: status.err,
+    setSelectedTopic, setCustomTopic, setContext, setDryRun, setDraftText, setActiveTab, setImageUrl,
+    handleGenerate, handlePublish, handleGenerateImage,
   };
 }
