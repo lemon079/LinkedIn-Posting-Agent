@@ -44,7 +44,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <Label htmlFor="custom-topic" className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Custom Topic</Label>
           <input
             id="custom-topic"
-            className="w-full bg-card border border-border text-slate-900 p-2.5 rounded-lg focus:border-brand-blue focus:ring-1 focus:ring-brand-blue/40 outline-none transition placeholder-slate-400 text-sm focus:scale-[1.005]"
+            className="w-full bg-card border border-border text-slate-900 p-2.5 rounded-lg focus:border-brand-blue focus:ring-1 focus:ring-brand-blue/40 outline-none transition placeholder-slate-400 text-sm"
             placeholder="Enter custom post topic..." value={customTopic}
             onChange={(e) => setCustomTopic(e.target.value)}
           />
@@ -53,7 +53,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <Label htmlFor="context-input" className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Additional Context</Label>
           <Textarea
             id="context-input"
-            className="w-full bg-card border-border min-h-[90px] rounded-lg focus-visible:ring-brand-blue/40 text-sm placeholder-slate-400 text-slate-900 transition-all duration-300 focus-visible:scale-[1.005]"
+            className="w-full bg-card border-border min-h-[90px] rounded-lg focus-visible:ring-brand-blue/40 text-sm placeholder-slate-400 text-slate-900 transition-colors duration-200"
             placeholder="Paste code blocks, docs references, or tone limits..." value={context}
             onChange={(e) => setContext(e.target.value)}
           />
@@ -63,7 +63,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <Switch id="dry-run" checked={dryRun} onCheckedChange={setDryRun} className="transition" />
         </div>
         <Button
-          className="w-full bg-brand-blue hover:bg-brand-blue-hover text-white font-semibold transition py-5 rounded-lg hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2 shadow-sm duration-200"
+          className="w-full bg-brand-blue hover:bg-brand-blue-hover text-white font-semibold transition py-5 rounded-lg flex items-center justify-center gap-2 shadow-sm duration-200"
           onClick={onGenerate} disabled={isGenerating || (!selectedTopic && !customTopic)}
         >
           {isGenerating ? "Drafting Post..." : <><Sparkles className="size-4 animate-pulse" /> Generate Draft</>}

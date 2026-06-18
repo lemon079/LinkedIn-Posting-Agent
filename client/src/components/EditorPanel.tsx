@@ -19,11 +19,11 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   const colorClass = charCount > 3000
     ? "text-red-600 stroke-red-600"
     : charCount > 2800
-    ? "text-yellow-600 stroke-yellow-600"
-    : "text-brand-blue stroke-brand-blue";
+      ? "text-yellow-600 stroke-yellow-600"
+      : "text-brand-blue stroke-brand-blue";
 
   return (
-    <div className="space-y-4 bg-card border border-border p-5 rounded-2xl shadow-sm animate-fade-in-up transition-all duration-300 hover:scale-[1.005] hover:-translate-y-0.5 hover:shadow-md">
+    <div className="space-y-4 bg-card border border-border p-5 rounded-2xl shadow-sm">
       <div className="flex items-center justify-between">
         <Label htmlFor="draft-editor" className="text-sm font-semibold text-slate-700">Live Post Editor</Label>
         <div className="flex items-center gap-2 text-xs">
@@ -42,12 +42,12 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
       </div>
       <Textarea
         id="draft-editor"
-        className="w-full bg-card border-border min-h-[220px] rounded-xl focus-visible:ring-brand-blue/40 text-sm leading-relaxed text-slate-900 transition-all duration-300 focus-visible:scale-[1.005]"
+        className="w-full bg-card border-border min-h-[220px] rounded-xl focus-visible:ring-brand-blue/40 text-sm leading-relaxed text-slate-900 transition-colors duration-200"
         value={draftText} onChange={(e) => onChange(e.target.value)}
         disabled={isPublishing}
       />
       <Button
-        className="w-full bg-brand-blue hover:bg-brand-blue-hover text-white font-semibold py-5 rounded-lg hover:scale-[1.01] active:scale-[0.99] transition flex items-center justify-center gap-2 shadow-sm duration-200"
+        className="w-full bg-brand-blue hover:bg-brand-blue-hover text-white font-semibold py-5 rounded-lg transition flex items-center justify-center gap-2 shadow-sm duration-200"
         onClick={onPublish} disabled={isPublishing || charCount > 3000 || charCount === 0}
       >
         {isPublishing ? "Publishing Post..." : <><Send className="size-4" /> Approve & Publish Post</>}
