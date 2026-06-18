@@ -22,6 +22,10 @@ export const AgentState = Annotation.Root({
     reducer: (x, y) => y,
     default: () => null,
   }),
+  dryRun: Annotation<boolean>({
+    reducer: (x, y) => y,
+    default: () => false,
+  }),
 });
 
 export type State = typeof AgentState.State;

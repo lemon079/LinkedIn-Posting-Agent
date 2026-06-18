@@ -9,7 +9,7 @@ export const getTopics = (req: Request, res: Response): void => {
 
 export const generateDraft = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { topic, context } = req.body;
+    const { topic, context, dryRun } = req.body;
     const selectedTopic = topic || genres[Math.floor(Math.random() * genres.length)];
     const threadId = Date.now().toString();
     const threadConfig = { configurable: { thread_id: threadId } };
@@ -20,9 +20,10 @@ export const generateDraft = async (req: Request, res: Response): Promise<void> 
       postUrl: null,
       retries: 0,
       error: null,
+      dryRun: dryRun === true,
     };
 
-    console.log(`[API] Drafting: "${selectedTopic}" (ID: ${threadId})`);
+    console.log(`[API] Drafting: "${selectedTopic}" (ID: ${threadId}, Dry Run: ${dryRun === true})`);
     await agent.invoke(initialState, threadConfig);
     const state = await agent.getState(threadConfig);
     const nextNode = state.next?.[0];
@@ -45,7 +46,7 @@ export const generateDraft = async (req: Request, res: Response): Promise<void> 
 
 export const publishDraft = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { threadId, draft } = req.body;
+    const { threadId, draft, dryRun } = req.body;
     if (!threadId || !draft) {
       res.status(400).json({ error: "Missing threadId or draft" });
       return;
@@ -59,8 +60,8 @@ export const publishDraft = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    console.log(`[API] Resuming thread ID ${threadId}...`);
-    await agent.updateState(threadConfig, { postContent: draft });
+    console.log(`[API] Resuming thread ID ${threadId} (Dry Run Override: ${dryRun === true})...`);
+    await agent.updateState(threadConfig, { postContent: draft, dryRun: dryRun === true });
     const finalState = await agent.invoke(null, threadConfig);
 
     if (finalState.error) {

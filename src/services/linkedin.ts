@@ -5,8 +5,9 @@ export interface PublishPostResponse {
   error?: string;
 }
 
-export async function publishLinkedInPost(postContent: string): Promise<PublishPostResponse> {
-  if (config.DRY_RUN) {
+export async function publishLinkedInPost(postContent: string, dryRunOverride?: boolean): Promise<PublishPostResponse> {
+  const isDryRun = dryRunOverride !== undefined ? dryRunOverride : config.DRY_RUN;
+  if (isDryRun) {
     console.log("[DRY RUN] Would have published to LinkedIn:", postContent);
     return { postUrl: "https://www.linkedin.com/feed/update/urn:li:activity:mock_dry_run_id" };
   }

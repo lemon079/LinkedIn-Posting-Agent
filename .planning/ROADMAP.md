@@ -7,7 +7,7 @@ This roadmap lays out the path to turn the command-line LinkedIn posting agent i
 ## Phases
 
 - [x] **Phase 1: API Server & LangGraph REST integration** - Expose REST endpoints to trigger and resume LangGraph thread executions.
-- [ ] **Phase 2: React Dashboard UI** - Create a mobile-responsive dashboard to select topics, edit drafts, and trigger publishing.
+- [x] **Phase 2: React Dashboard UI** - Create a mobile-responsive dashboard to select topics, edit drafts, and trigger publishing.
 - [ ] **Phase 3: Prompt Optimization** - Integrate few-shot technical post examples to align Gemini outputs to authentic LinkedIn formats.
 
 ## Phase Details
@@ -38,8 +38,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: React client setup and form inputs layout
-- [ ] 02-02: Rich draft preview, editor field, and trigger integrations
+- [x] 02-01: React client setup and form inputs layout
+- [x] 02-02: Rich draft preview, editor field, and trigger integrations
 
 ### Phase 3: Prompt Optimization
 **Goal**: Optimize ghostwriter prompt quality with high-fidelity few-shot technical writing examples.
@@ -58,7 +58,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. API Server | 2/2 | Completed | 2026-06-18 |
-| 2. Dashboard UI | 0/2 | Not started | - |
+| 2. Dashboard UI | 2/2 | Completed | 2026-06-18 |
 | 3. Prompt Opt | 0/1 | Not started | - |
 
 ---
