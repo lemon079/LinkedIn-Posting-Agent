@@ -16,7 +16,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col antialiased selection:bg-brand-blue/20">
-      <header className="border-b border-border p-5 bg-card sticky top-0 z-50 flex items-center justify-between shadow-sm">
+      <header className="border-b border-border p-5 bg-card sticky top-0 z-50 flex items-center justify-between shadow-sm animate-fade-in-up">
         <h1 className="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2">
           <span className="text-brand-blue">LinkedIn</span> Posting Agent
         </h1>
@@ -35,30 +35,30 @@ export default function App() {
           />
         </div>
         <div className="lg:col-span-3 space-y-6">
-          {error && <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-sm font-medium">⚠️ {error}</div>}
+          {error && <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-sm font-medium animate-fade-in-up">⚠️ {error}</div>}
           {postUrl && (
-            <div className="bg-green-50 border border-green-200 text-green-700 p-4 rounded-xl text-sm space-y-1.5 shadow-sm">
+            <div className="bg-green-50 border border-green-200 text-green-700 p-4 rounded-xl text-sm space-y-1.5 shadow-sm animate-fade-in-up">
               <p className="font-bold">🎉 Post published successfully!</p>
               <a href={postUrl} target="_blank" rel="noopener noreferrer" className="text-brand-blue hover:underline inline-flex items-center gap-1 font-semibold">View live post on LinkedIn →</a>
             </div>
           )}
           {isGenerating && (
-            <div className="flex flex-col items-center justify-center py-20 gap-4 bg-card border border-border rounded-2xl shadow-sm animate-pulse">
+            <div className="flex flex-col items-center justify-center py-20 gap-4 bg-card border border-border rounded-2xl shadow-sm animate-fade-in-up">
               <div className="w-8 h-8 border-3 border-brand-blue/20 border-t-brand-blue rounded-full animate-spin" />
               <p className="text-sm text-slate-500 font-medium">Ghostwriter is researching & drafting post...</p>
             </div>
           )}
           {draftText === null && !isGenerating && (
-            <div className="flex flex-col items-center justify-center py-24 border border-dashed border-border rounded-2xl text-slate-400 space-y-3 bg-card shadow-sm">
-              <FileText className="size-10 text-slate-300" />
+            <div className="flex flex-col items-center justify-center py-24 border border-dashed border-border rounded-2xl text-slate-400 space-y-3 bg-card shadow-sm animate-fade-in-up hover:border-slate-300 transition duration-300">
+              <FileText className="size-10 text-slate-300 animate-bounce duration-1000" />
               <p className="text-sm font-medium text-slate-500">Configure parameters and generate a post draft.</p>
             </div>
           )}
           {draftText !== null && !isGenerating && (
-            <div className="space-y-4">
+            <div className="space-y-4 animate-fade-in-up">
               <div className="flex bg-slate-200/50 p-1 rounded-lg border border-border w-fit">
-                <Button className={`px-4 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1.5 ${activeTab === "preview" ? "bg-brand-blue text-white" : "bg-transparent text-slate-500 hover:text-slate-700"}`} onClick={() => setActiveTab("preview")}><Eye className="size-3.5" /> LinkedIn Mockup</Button>
-                <Button className={`px-4 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1.5 ${activeTab === "edit" ? "bg-brand-blue text-white" : "bg-transparent text-slate-500 hover:text-slate-700"}`} onClick={() => setActiveTab("edit")}><Edit3 className="size-3.5" /> Interactive Editor</Button>
+                <Button className={`px-4 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1.5 active:scale-[0.98] ${activeTab === "preview" ? "bg-brand-blue text-white" : "bg-transparent text-slate-500 hover:text-slate-700"}`} onClick={() => setActiveTab("preview")}><Eye className="size-3.5" /> LinkedIn Mockup</Button>
+                <Button className={`px-4 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1.5 active:scale-[0.98] ${activeTab === "edit" ? "bg-brand-blue text-white" : "bg-transparent text-slate-500 hover:text-slate-700"}`} onClick={() => setActiveTab("edit")}><Edit3 className="size-3.5" /> Interactive Editor</Button>
               </div>
               {activeTab === "preview" ? <LinkedInFeed draftText={draftText} /> : <EditorPanel draftText={draftText} isPublishing={isPublishing} onChange={setDraftText} onPublish={handlePublish} />}
             </div>

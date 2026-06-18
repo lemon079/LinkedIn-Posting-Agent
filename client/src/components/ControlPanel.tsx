@@ -31,10 +31,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         <div className="space-y-1.5">
           <Label htmlFor="topic-select" className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Default Genres</Label>
           <Select onValueChange={(val) => setSelectedTopic(val === "custom" ? "" : val)}>
-            <SelectTrigger id="topic-select" className="w-full bg-card border-border hover:bg-slate-50 transition text-slate-800">
+            <SelectTrigger id="topic-select" className="w-full bg-card border-border hover:bg-slate-50 transition-colors text-slate-800">
               <SelectValue placeholder="Select topic category" />
             </SelectTrigger>
-            <SelectContent className="bg-card border-border text-slate-800">
+            <SelectContent className="bg-card border-border text-slate-800 animate-fade-in-up">
               {topics.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
               <SelectItem value="custom">Custom (Specify Below)</SelectItem>
             </SelectContent>
@@ -44,7 +44,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <Label htmlFor="custom-topic" className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Custom Topic</Label>
           <input
             id="custom-topic"
-            className="w-full bg-card border border-border text-slate-900 p-2.5 rounded-lg focus:border-brand-blue focus:ring-1 focus:ring-brand-blue/40 outline-none transition placeholder-slate-400 text-sm"
+            className="w-full bg-card border border-border text-slate-900 p-2.5 rounded-lg focus:border-brand-blue focus:ring-1 focus:ring-brand-blue/40 outline-none transition placeholder-slate-400 text-sm focus:scale-[1.005]"
             placeholder="Enter custom post topic..." value={customTopic}
             onChange={(e) => setCustomTopic(e.target.value)}
           />
@@ -53,17 +53,17 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <Label htmlFor="context-input" className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Additional Context</Label>
           <Textarea
             id="context-input"
-            className="w-full bg-card border-border min-h-[90px] rounded-lg focus-visible:ring-brand-blue/40 text-sm placeholder-slate-400 text-slate-900"
+            className="w-full bg-card border-border min-h-[90px] rounded-lg focus-visible:ring-brand-blue/40 text-sm placeholder-slate-400 text-slate-900 transition-all duration-300 focus-visible:scale-[1.005]"
             placeholder="Paste code blocks, docs references, or tone limits..." value={context}
             onChange={(e) => setContext(e.target.value)}
           />
         </div>
         <div className="flex items-center justify-between py-2 border-t border-b border-border">
           <Label htmlFor="dry-run" className="text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer">Dry-Run Mode</Label>
-          <Switch id="dry-run" checked={dryRun} onCheckedChange={setDryRun} />
+          <Switch id="dry-run" checked={dryRun} onCheckedChange={setDryRun} className="transition" />
         </div>
         <Button
-          className="w-full bg-brand-blue hover:bg-brand-blue-hover text-white font-semibold transition py-5 rounded-lg hover:scale-[1.01] flex items-center justify-center gap-2 shadow-sm"
+          className="w-full bg-brand-blue hover:bg-brand-blue-hover text-white font-semibold transition py-5 rounded-lg hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2 shadow-sm duration-200"
           onClick={onGenerate} disabled={isGenerating || (!selectedTopic && !customTopic)}
         >
           {isGenerating ? "Drafting Post..." : <><Sparkles className="size-4 animate-pulse" /> Generate Draft</>}
