@@ -18,7 +18,6 @@ export const LinkedInFeed: React.FC<LinkedInFeedProps> = ({ draftText }) => {
         <div className="text-xs">
           <h4 className="font-bold text-slate-800">LinkedIn Agent</h4>
           <p className="text-slate-500 font-normal">Autonomous AI Technical Content Ghostwriter</p>
-          <p className="text-slate-400 mt-0.5">1h • 🌐</p>
         </div>
       </div>
       <CardContent className="p-0 text-sm leading-relaxed text-slate-800 whitespace-pre-wrap select-text font-sans selection:bg-brand-blue/10">
