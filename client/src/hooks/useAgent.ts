@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { fetchTopics, generateDraft, publishPost } from "../lib/api.js";
 
 export function useAgent() {
   const [topics, setTopics] = useState<string[]>([]);
@@ -15,9 +16,8 @@ export function useAgent() {
   const [activeTab, setActiveTab] = useState<"preview" | "edit">("preview");
 
   useEffect(() => {
-    fetch("/api/topics")
-      .then((res) => res.json())
-      .then((data) => setTopics(data))
+    fetchTopics()
+      .then(setTopics)
       .catch((err) => console.error("Error loading topics:", err));
   }, []);
 
@@ -28,13 +28,7 @@ export function useAgent() {
     setPostUrl(null);
     try {
       const topic = selectedTopic || customTopic;
-      const res = await fetch("/api/draft", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, context }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to generate draft");
+      const data = await generateDraft(topic, context);
       setDraftText(data.draft);
       setThreadId(data.threadId);
       setActiveTab("edit");
@@ -46,16 +40,11 @@ export function useAgent() {
   };
 
   const handlePublish = async () => {
+    if (!threadId || !draftText) return;
     setIsPublishing(true);
     setError(null);
     try {
-      const res = await fetch("/api/publish", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threadId, draft: draftText, dryRun }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to publish");
+      const data = await publishPost(threadId, draftText, dryRun);
       setPostUrl(data.postUrl);
       setDraftText(null);
       setThreadId(null);
