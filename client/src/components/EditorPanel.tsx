@@ -2,19 +2,15 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Send } from "lucide-react";
 
 interface EditorPanelProps {
-  draftText: string;
-  isPublishing: boolean;
-  onChange: (value: string) => void;
-  onPublish: () => void;
+  draftText: string; isPublishing: boolean;
+  onChange: (value: string) => void; onPublish: () => void;
 }
 
 export const EditorPanel: React.FC<EditorPanelProps> = ({
-  draftText,
-  isPublishing,
-  onChange,
-  onPublish,
+  draftText, isPublishing, onChange, onPublish,
 }) => {
   const charCount = draftText.length;
   const pct = Math.min((charCount / 3000) * 100, 100);
@@ -24,7 +20,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
     ? "text-red-500 stroke-red-500"
     : charCount > 2800
     ? "text-yellow-500 stroke-yellow-500"
-    : "text-accent stroke-accent";
+    : "text-brand-blue stroke-brand-blue";
 
   return (
     <div className="space-y-4 backdrop-blur-md bg-white/[0.03] border border-white/[0.08] p-5 rounded-2xl">
@@ -35,13 +31,8 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
             <circle className="stroke-white/[0.05]" cx="18" cy="18" r="16" fill="none" strokeWidth="3.5" />
             <circle
               className={`transition-all duration-300 ${colorClass}`}
-              cx="18"
-              cy="18"
-              r="16"
-              fill="none"
-              strokeWidth="3.5"
-              strokeDasharray="100"
-              strokeDashoffset={strokeDashoffset}
+              cx="18" cy="18" r="16" fill="none" strokeWidth="3.5"
+              strokeDasharray="100" strokeDashoffset={strokeDashoffset}
             />
           </svg>
           <span className={`font-mono font-medium ${charCount > 3000 ? "text-red-400" : "text-slate-400"}`}>
@@ -51,17 +42,15 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
       </div>
       <Textarea
         id="draft-editor"
-        className="w-full bg-white/[0.02] border-white/[0.08] min-h-[220px] rounded-xl focus-visible:ring-accent/40 text-sm leading-relaxed"
-        value={draftText}
-        onChange={(e) => onChange(e.target.value)}
+        className="w-full bg-white/[0.02] border-white/[0.08] min-h-[220px] rounded-xl focus-visible:ring-brand-blue/40 text-sm leading-relaxed"
+        value={draftText} onChange={(e) => onChange(e.target.value)}
         disabled={isPublishing}
       />
       <Button
-        className="w-full bg-accent hover:bg-accent-hover text-white font-semibold py-5 rounded-lg hover:scale-[1.01] transition"
-        onClick={onPublish}
-        disabled={isPublishing || charCount > 3000 || charCount === 0}
+        className="w-full bg-brand-blue hover:bg-brand-blue-hover text-white font-semibold py-5 rounded-lg hover:scale-[1.01] transition flex items-center justify-center gap-2"
+        onClick={onPublish} disabled={isPublishing || charCount > 3000 || charCount === 0}
       >
-        {isPublishing ? "Publishing Post..." : "🚀 Approve & Publish Post"}
+        {isPublishing ? "Publishing Post..." : <><Send className="size-4" /> Approve & Publish Post</>}
       </Button>
     </div>
   );

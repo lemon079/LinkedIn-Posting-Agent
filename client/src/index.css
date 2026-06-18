@@ -6,8 +6,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --color-accent: #0a66c2;
-  --color-accent-hover: #004182;
+  --color-brand-blue: #0a66c2;
+  --color-brand-blue-hover: #004182;
   --color-bg-primary: #0b0f19;
   --color-bg-secondary: #111827;
   --color-card-bg: #1f2937;

@@ -3,6 +3,7 @@ import { ControlPanel } from "./components/ControlPanel.js";
 import { LinkedInFeed } from "./components/LinkedInFeed.js";
 import { EditorPanel } from "./components/EditorPanel.js";
 import { useAgent } from "./hooks/useAgent.js";
+import { FileText, Eye, Edit3 } from "lucide-react";
 
 export default function App() {
   const agentState = useAgent();
@@ -14,18 +15,18 @@ export default function App() {
   } = agentState;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-[#0B0F19] to-slate-950 text-slate-100 flex flex-col antialiased selection:bg-accent/40 selection:text-white">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-[#0B0F19] to-slate-950 text-slate-100 flex flex-col antialiased selection:bg-brand-blue/40 selection:text-white">
       <header className="border-b border-white/[0.05] p-6 bg-white/[0.01] backdrop-blur-md sticky top-0 z-50 flex items-center justify-between">
-        <h1 className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent flex items-center gap-2">
-          <span className="text-accent">LinkedIn</span> Posting Agent
+        <h1 className="text-lg font-extrabold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent flex items-center gap-2">
+          <span className="text-brand-blue">LinkedIn</span> Posting Agent
         </h1>
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-sm shadow-emerald-500/50" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Agent Node Online</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-sm shadow-emerald-500/50" />
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Node Online</span>
         </div>
       </header>
       <main className="flex-1 p-8 max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-2">
           <ControlPanel
             topics={topics} selectedTopic={selectedTopic} customTopic={customTopic}
             context={context} dryRun={dryRun} isGenerating={isGenerating}
@@ -38,20 +39,26 @@ export default function App() {
           {postUrl && (
             <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-4 rounded-xl text-sm space-y-1.5 shadow-md">
               <p className="font-bold">🎉 Post published successfully!</p>
-              <a href={postUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline inline-flex items-center gap-1">View live post on LinkedIn →</a>
+              <a href={postUrl} target="_blank" rel="noopener noreferrer" className="text-brand-blue hover:underline inline-flex items-center gap-1">View live post on LinkedIn →</a>
             </div>
           )}
           {isGenerating && (
             <div className="flex flex-col items-center justify-center py-20 gap-4 backdrop-blur-md bg-white/[0.02] border border-white/[0.05] rounded-2xl animate-pulse">
-              <div className="w-8 h-8 border-3 border-accent/20 border-t-accent rounded-full animate-spin" />
+              <div className="w-8 h-8 border-3 border-brand-blue/20 border-t-brand-blue rounded-full animate-spin" />
               <p className="text-sm text-slate-400 font-medium">Ghostwriter is researching & drafting post...</p>
             </div>
           )}
-          {draftText !== null && (
+          {draftText === null && !isGenerating && (
+            <div className="flex flex-col items-center justify-center py-24 border border-dashed border-white/[0.08] rounded-2xl text-slate-500 space-y-3 backdrop-blur-sm bg-white/[0.01]">
+              <FileText className="size-10 text-slate-700 animate-pulse" />
+              <p className="text-sm font-medium">Configure parameters and generate a post draft.</p>
+            </div>
+          )}
+          {draftText !== null && !isGenerating && (
             <div className="space-y-4">
               <div className="flex bg-white/[0.03] p-1 rounded-lg border border-white/[0.05] w-fit">
-                <Button className={`px-4 py-1.5 text-xs font-bold rounded-md transition ${activeTab === "preview" ? "bg-accent text-white" : "bg-transparent text-slate-400 hover:text-slate-200"}`} onClick={() => setActiveTab("preview")}>LinkedIn Mockup</Button>
-                <Button className={`px-4 py-1.5 text-xs font-bold rounded-md transition ${activeTab === "edit" ? "bg-accent text-white" : "bg-transparent text-slate-400 hover:text-slate-200"}`} onClick={() => setActiveTab("edit")}>Interactive Editor</Button>
+                <Button className={`px-4 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1.5 ${activeTab === "preview" ? "bg-brand-blue text-white" : "bg-transparent text-slate-400 hover:text-slate-200"}`} onClick={() => setActiveTab("preview")}><Eye className="size-3.5" /> LinkedIn Mockup</Button>
+                <Button className={`px-4 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1.5 ${activeTab === "edit" ? "bg-brand-blue text-white" : "bg-transparent text-slate-400 hover:text-slate-200"}`} onClick={() => setActiveTab("edit")}><Edit3 className="size-3.5" /> Interactive Editor</Button>
               </div>
               {activeTab === "preview" ? <LinkedInFeed draftText={draftText} /> : <EditorPanel draftText={draftText} isPublishing={isPublishing} onChange={setDraftText} onPublish={handlePublish} />}
             </div>
