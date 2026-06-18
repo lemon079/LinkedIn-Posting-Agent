@@ -1,38 +1,7 @@
 import cron from "node-cron";
-import readline from "readline";
 import { agent } from "./graph/index.js";
 import { config } from "./config/env.js";
-
-export const getTopic = (): string => {
-  if (process.env.TOPIC) {
-    return process.env.TOPIC;
-  }
-  
-  const genres = [
-    "AI", 
-    "Machine Learning", 
-    "Generative AI", 
-    "Frontend", 
-    "Backend", 
-    "System Design", 
-    "Cloud"
-  ];
-  
-  const randomGenre = genres[Math.floor(Math.random() * genres.length)];
-  console.log(`No specific TOPIC provided. Randomly selected genre: ${randomGenre}`);
-  return randomGenre;
-};
-
-const askQuestion = (query: string): Promise<string> => {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-  return new Promise(resolve => rl.question(query, ans => {
-    rl.close();
-    resolve(ans);
-  }));
-};
+import { getTopic, askQuestion } from "./core/utils.js";
 
 export const runAgent = async (isScheduled: boolean): Promise<void> => {
   const topic = getTopic();
@@ -40,18 +9,18 @@ export const runAgent = async (isScheduled: boolean): Promise<void> => {
   console.log(`Starting agent run for topic/genre: ${topic}`);
   try {
     const threadConfig = { configurable: { thread_id: Date.now().toString() } };
-    const initialState = { 
-      topic, 
+    const initialState = {
+      topic,
       context: config.CONTEXT,
-      postContent: null, 
-      postUrl: null, 
-      retries: 0, 
-      error: null 
+      postContent: null,
+      postUrl: null,
+      retries: 0,
+      error: null,
     };
-    
+
     // Run the graph until the interruptBefore breakpoint
     await agent.invoke(initialState, threadConfig);
-    
+
     const state = await agent.getState(threadConfig);
     const nextNode = state.next?.[0];
     const generatedDraft = state.values.postContent;
