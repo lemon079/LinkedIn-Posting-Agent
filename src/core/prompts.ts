@@ -46,3 +46,25 @@ Example 3 (Frontend):
 ${REACT_EXAMPLE}
 
 Return only the post text. No preamble, no explanation, no quotes.`;
+
+export const IMAGE_GENERATION_PROMPT = `You are a professional visual art director specializing in LinkedIn content.
+
+Based on the following LinkedIn post, generate a single detailed, high-quality text description (an image generation prompt) representing its core message. This text description will be sent directly to an AI image generator.
+
+LinkedIn Post:
+{linkedin_post}
+
+The prompt description must follow these image requirements:
+- Capture the central theme and emotional tone of the post
+- Professional and polished — suitable for a LinkedIn audience
+- No text, captions, watermarks, or overlays in the image
+- Realistic lighting with a clean, modern composition
+- Color palette should feel aspirational and on-brand (deep blues, whites, warm neutrals)
+- If the post is about people/teams: show diverse professionals in a collaborative or achievement setting
+- If the post is about growth/milestones: use upward motion, light, open space as visual metaphors
+- If the post is about ideas/innovation: abstract tech-forward visuals, circuits, clean geometry
+- If the post is about leadership/mindset: solitary confident figure, dramatic lighting, wide perspective
+
+Constraints:
+- Output ONLY the single-sentence image description prompt.
+- Avoid any introductory text, labels, quotes, explanations, or formatting.`;

@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { createLLM } from "../services/llm.js";
 import { HumanMessage } from "@langchain/core/messages";
+import { IMAGE_GENERATION_PROMPT } from "../core/prompts.js";
 
 export const generateImagePrompt = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -13,7 +14,7 @@ export const generateImagePrompt = async (req: Request, res: Response): Promise<
     const ollamaUrl = req.headers["x-ollama-base-url"] as string | undefined;
     const llm = createLLM({ provider, apiKey, model, ollamaBaseUrl: ollamaUrl });
 
-    const prompt = `Based on this LinkedIn post, generate a short, detailed, single-sentence image generation prompt representing its technical concept in a modern, clean, minimalist 3D vector illustration or abstract tech style. Avoid introductory text, quotes, or formatting. Just output the prompt text.\n\nPost content:\n${draft}`;
+    const prompt = IMAGE_GENERATION_PROMPT.replace("{linkedin_post}", draft);
 
     const response = await llm.invoke([new HumanMessage(prompt)]);
     const cleanPrompt = (response.content as string).replace(/["']/g, "").trim();
