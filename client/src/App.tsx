@@ -12,10 +12,11 @@ export default function App() {
   const {
     topics, selectedTopic, customTopic, context, dryRun,
     draftText, postUrl, isGenerating, isPublishing, error, activeTab,
-    imageUrl, isGeneratingImage, provider, apiKey, liToken, liUrn, isSettingsOpen,
+    imageUrl, isGeneratingImage, provider, apiKey, modelName, ollamaBaseUrl, tavilyKey, liToken, liUrn, isSettingsOpen,
     setSelectedTopic, setCustomTopic, setContext, setDryRun, setDraftText,
     setActiveTab, handleGenerate, handlePublish, handleGenerateImage, setImageUrl,
-    setProvider, setApiKey, setLiToken, setLiUrn, setIsSettingsOpen,
+    setProvider, setApiKey, setModelName, setOllamaBaseUrl, setTavilyKey,
+    setLiToken, setLiUrn, setIsSettingsOpen,
   } = agentState;
 
   return (
@@ -66,6 +67,9 @@ export default function App() {
         isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)}
         provider={provider} setProvider={setProvider}
         apiKey={apiKey} setApiKey={setApiKey}
+        modelName={modelName} setModelName={setModelName}
+        ollamaBaseUrl={ollamaBaseUrl} setOllamaBaseUrl={setOllamaBaseUrl}
+        tavilyKey={tavilyKey} setTavilyKey={setTavilyKey}
         liToken={liToken} setLiToken={setLiToken}
         liUrn={liUrn} setLiUrn={setLiUrn}
       />

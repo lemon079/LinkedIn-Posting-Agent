@@ -14,20 +14,10 @@ export interface AppConfig {
 export function loadConfig(): AppConfig {
   const { GOOGLE_API_KEY, LINKEDIN_ACCESS_TOKEN, LINKEDIN_PERSON_URN, TOPIC, CONTEXT, DRY_RUN } = process.env;
 
-  if (!GOOGLE_API_KEY) {
-    throw new Error("Missing GOOGLE_API_KEY environment variable.");
-  }
-  if (!LINKEDIN_ACCESS_TOKEN) {
-    throw new Error("Missing LINKEDIN_ACCESS_TOKEN environment variable.");
-  }
-  if (!LINKEDIN_PERSON_URN) {
-    throw new Error("Missing LINKEDIN_PERSON_URN environment variable.");
-  }
-
   return {
-    GOOGLE_API_KEY,
-    LINKEDIN_ACCESS_TOKEN,
-    LINKEDIN_PERSON_URN,
+    GOOGLE_API_KEY: GOOGLE_API_KEY || "",
+    LINKEDIN_ACCESS_TOKEN: LINKEDIN_ACCESS_TOKEN || "",
+    LINKEDIN_PERSON_URN: LINKEDIN_PERSON_URN || "",
     TOPIC,
     CONTEXT: CONTEXT || "",
     DRY_RUN: DRY_RUN === "true",

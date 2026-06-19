@@ -42,6 +42,14 @@ export const AgentState = Annotation.Root({
     reducer: (x, y) => y,
     default: () => null,
   }),
+  llmModel: Annotation<string | null>({
+    reducer: (x, y) => y,
+    default: () => null,
+  }),
+  ollamaBaseUrl: Annotation<string | null>({
+    reducer: (x, y) => y,
+    default: () => null,
+  }),
 });
 
 export type State = typeof AgentState.State;

@@ -4,6 +4,10 @@ import { config } from "./config/env.js";
 import { getTopic, askQuestion } from "./core/utils.js";
 
 export const runAgent = async (isScheduled: boolean): Promise<void> => {
+  if (!config.GOOGLE_API_KEY) {
+    console.error("[Scheduler] No GOOGLE_API_KEY in .env. Configure keys or use the web dashboard with BYOK.");
+    return;
+  }
   const topic = getTopic();
 
   console.log(`Starting agent run for topic/genre: ${topic}`);

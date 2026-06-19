@@ -14,9 +14,11 @@ export function useAgent() {
   const [activeTab, setActiveTab] = useState<"preview" | "edit">("preview");
   const [status, setStatus] = useState({ gen: false, pub: false, img: false, err: null as string | null });
 
-  // Self-hosted configurations
   const [provider, setProvider] = useState(() => localStorage.getItem("llm_provider") || "gemini");
   const [apiKey, setApiKey] = useState(() => localStorage.getItem("llm_api_key") || "");
+  const [modelName, setModelName] = useState(() => localStorage.getItem("llm_model") || "");
+  const [ollamaBaseUrl, setOllamaBaseUrl] = useState(() => localStorage.getItem("ollama_base_url") || "http://localhost:11434");
+  const [tavilyKey, setTavilyKey] = useState(() => localStorage.getItem("tavily_key") || "");
   const [liToken, setLiToken] = useState(() => localStorage.getItem("li_token") || "");
   const [liUrn, setLiUrn] = useState(() => localStorage.getItem("li_urn") || "");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -28,11 +30,14 @@ export function useAgent() {
   useEffect(() => {
     localStorage.setItem("llm_provider", provider);
     localStorage.setItem("llm_api_key", apiKey);
+    localStorage.setItem("llm_model", modelName);
+    localStorage.setItem("ollama_base_url", ollamaBaseUrl);
+    localStorage.setItem("tavily_key", tavilyKey);
     localStorage.setItem("li_token", liToken);
     localStorage.setItem("li_urn", liUrn);
-  }, [provider, apiKey, liToken, liUrn]);
+  }, [provider, apiKey, modelName, ollamaBaseUrl, tavilyKey, liToken, liUrn]);
 
-  const customKeys = { provider, apiKey, liToken, liUrn };
+  const customKeys = { provider, apiKey, liToken, liUrn, modelName, ollamaBaseUrl, tavilyKey };
 
   const handleGenerate = async () => {
     setStatus({ gen: true, pub: false, img: false, err: null });
@@ -77,9 +82,10 @@ export function useAgent() {
   return {
     topics, selectedTopic, customTopic, context, dryRun, draftText, threadId, postUrl, activeTab, imageUrl,
     isGenerating: status.gen, isPublishing: status.pub, isGeneratingImage: status.img, error: status.err,
-    provider, apiKey, liToken, liUrn, isSettingsOpen,
+    provider, apiKey, modelName, ollamaBaseUrl, tavilyKey, liToken, liUrn, isSettingsOpen,
     setSelectedTopic, setCustomTopic, setContext, setDryRun, setDraftText, setActiveTab, setImageUrl,
-    setProvider, setApiKey, setLiToken, setLiUrn, setIsSettingsOpen,
+    setProvider, setApiKey, setModelName, setOllamaBaseUrl, setTavilyKey,
+    setLiToken, setLiUrn, setIsSettingsOpen,
     handleGenerate, handlePublish, handleGenerateImage,
   };
 }

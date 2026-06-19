@@ -19,18 +19,15 @@ export const publishDraft = async (req: Request, res: Response): Promise<void> =
     }
 
     console.log(`[API] Resuming thread ID ${threadId} (Dry Run: ${dryRun === true})...`);
-    await agent.updateState(threadConfig, { 
-      postContent: draft, 
+    await agent.updateState(threadConfig, {
+      postContent: draft,
       dryRun: dryRun === true,
       linkedinToken: token || null,
       linkedinUrn: urn || null,
     });
     const finalState = await agent.invoke(null, threadConfig);
 
-    if (finalState.error) {
-      res.status(500).json({ error: finalState.error });
-      return;
-    }
+    if (finalState.error) { res.status(500).json({ error: finalState.error }); return; }
     console.log(`[API] Post published! URL: ${finalState.postUrl}`);
     res.status(200).json({ postUrl: finalState.postUrl });
   } catch (err: unknown) {

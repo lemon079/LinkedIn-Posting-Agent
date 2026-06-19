@@ -1,8 +1,10 @@
 export interface DraftResponse { draft: string; threadId: string; }
 export interface PublishResponse { postUrl: string; }
+export interface HealthResponse { ok: boolean; error?: string; models?: string[]; }
 
 interface CustomKeys {
   provider: string; apiKey: string; liToken: string; liUrn: string;
+  modelName: string; ollamaBaseUrl: string; tavilyKey: string;
 }
 
 const getHeaders = (keys?: CustomKeys) => {
@@ -10,6 +12,8 @@ const getHeaders = (keys?: CustomKeys) => {
   if (keys) {
     if (keys.provider) h["x-llm-provider"] = keys.provider;
     if (keys.apiKey) h["x-llm-api-key"] = keys.apiKey;
+    if (keys.modelName) h["x-llm-model"] = keys.modelName;
+    if (keys.ollamaBaseUrl) h["x-ollama-base-url"] = keys.ollamaBaseUrl;
     if (keys.liToken) h["x-linkedin-token"] = keys.liToken;
     if (keys.liUrn) h["x-linkedin-urn"] = keys.liUrn;
   }
@@ -26,8 +30,7 @@ export async function generateDraft(
   topic: string, context: string, dryRun?: boolean, keys?: CustomKeys
 ): Promise<DraftResponse> {
   const res = await fetch("/api/draft", {
-    method: "POST",
-    headers: getHeaders(keys),
+    method: "POST", headers: getHeaders(keys),
     body: JSON.stringify({ topic, context, dryRun }),
   });
   const data = await res.json();
@@ -39,8 +42,7 @@ export async function publishPost(
   threadId: string, draft: string, dryRun: boolean, keys?: CustomKeys
 ): Promise<PublishResponse> {
   const res = await fetch("/api/publish", {
-    method: "POST",
-    headers: getHeaders(keys),
+    method: "POST", headers: getHeaders(keys),
     body: JSON.stringify({ threadId, draft, dryRun }),
   });
   const data = await res.json();
@@ -52,11 +54,20 @@ export async function generateImage(
   draft: string, keys?: CustomKeys
 ): Promise<{ imageUrl: string }> {
   const res = await fetch("/api/generate-image", {
-    method: "POST",
-    headers: getHeaders(keys),
+    method: "POST", headers: getHeaders(keys),
     body: JSON.stringify({ draft }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Failed to generate image");
   return data;
+}
+
+export async function healthCheck(
+  provider: string, apiKey?: string, model?: string, ollamaBaseUrl?: string
+): Promise<HealthResponse> {
+  const res = await fetch("/api/health-check", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider, apiKey, model, ollamaBaseUrl }),
+  });
+  return res.json();
 }

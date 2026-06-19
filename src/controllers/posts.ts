@@ -13,37 +13,31 @@ export const generateDraft = async (req: Request, res: Response): Promise<void> 
     const selectedTopic = topic || genres[Math.floor(Math.random() * genres.length)];
     const threadId = Date.now().toString();
     const threadConfig = { configurable: { thread_id: threadId } };
-    
+
     const provider = req.headers["x-llm-provider"] as string | undefined;
     const apiKey = req.headers["x-llm-api-key"] as string | undefined;
-    const linkedinToken = req.headers["x-linkedin-token"] as string | undefined;
-    const linkedinUrn = req.headers["x-linkedin-urn"] as string | undefined;
+    const model = req.headers["x-llm-model"] as string | undefined;
+    const ollamaUrl = req.headers["x-ollama-base-url"] as string | undefined;
+    const liToken = req.headers["x-linkedin-token"] as string | undefined;
+    const liUrn = req.headers["x-linkedin-urn"] as string | undefined;
 
     const initialState = {
       topic: selectedTopic,
       context: context !== undefined ? context : config.CONTEXT,
-      postContent: null,
-      postUrl: null,
-      retries: 0,
-      error: null,
+      postContent: null, postUrl: null, retries: 0, error: null,
       dryRun: dryRun === true,
-      llmProvider: provider || null,
-      llmApiKey: apiKey || null,
-      linkedinToken: linkedinToken || null,
-      linkedinUrn: linkedinUrn || null,
+      llmProvider: provider || null, llmApiKey: apiKey || null,
+      llmModel: model || null, ollamaBaseUrl: ollamaUrl || null,
+      linkedinToken: liToken || null, linkedinUrn: liUrn || null,
     };
 
     console.log(`[API] Drafting: "${selectedTopic}" (ID: ${threadId}, Dry Run: ${dryRun === true})`);
     await agent.invoke(initialState, threadConfig);
     const state = await agent.getState(threadConfig);
-    const nextNode = state.next?.[0];
 
-    if (state.values.error) {
-      res.status(500).json({ error: state.values.error });
-      return;
-    }
-    if (nextNode !== "publishPost") {
-      res.status(500).json({ error: `Agent stopped unexpectedly. Next node: ${nextNode}` });
+    if (state.values.error) { res.status(500).json({ error: state.values.error }); return; }
+    if (state.next?.[0] !== "publishPost") {
+      res.status(500).json({ error: `Agent stopped unexpectedly. Next: ${state.next?.[0]}` });
       return;
     }
     res.status(200).json({ threadId, draft: state.values.postContent, status: "needs_approval" });

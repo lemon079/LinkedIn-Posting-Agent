@@ -5,15 +5,34 @@ import type { State } from "../../core/state.js";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { TavilySearch } from "@langchain/tavily";
 
+const buildPrompt = (state: State): string => {
+  let userPrompt = `Write a LinkedIn post about: ${state.topic}`;
+  if (state.context) {
+    userPrompt += `\n\nAdditional Context/Instructions:\n${state.context}\n\nPlease search the internet for the latest information on this topic if appropriate.`;
+  } else {
+    userPrompt += `\n\nPlease search the internet for the latest information on this topic to ensure accuracy.`;
+  }
+  return userPrompt;
+};
+
+const getLLMOpts = (state: State) => ({
+  provider: state.llmProvider || undefined,
+  apiKey: state.llmApiKey || undefined,
+  model: state.llmModel || undefined,
+  ollamaBaseUrl: state.ollamaBaseUrl || undefined,
+});
+
 export const generatePost = async (state: State): Promise<Partial<State>> => {
   try {
-    const llm = createLLM(state.llmProvider || undefined, state.llmApiKey || undefined);
-    let userPrompt = `Write a LinkedIn post about: ${state.topic}`;
-    
-    if (state.context) {
-      userPrompt += `\n\nAdditional Context/Instructions:\n${state.context}\n\nPlease search the internet for the latest information on this topic if appropriate.`;
-    } else {
-      userPrompt += `\n\nPlease search the internet for the latest information on this topic to ensure accuracy.`;
+    const llm = createLLM(getLLMOpts(state));
+    const userPrompt = buildPrompt(state);
+    const isOllama = (state.llmProvider || "gemini") === "ollama";
+
+    if (isOllama) {
+      const res = await llm.invoke([
+        new HumanMessage(`${SYSTEM_PROMPT}\n\n${userPrompt}`),
+      ]);
+      return { postContent: res.content as string };
     }
 
     const searchTool = new TavilySearch({ maxResults: 3, topic: "general" });
@@ -22,11 +41,9 @@ export const generatePost = async (state: State): Promise<Partial<State>> => {
       tools: [searchTool],
       stateModifier: SYSTEM_PROMPT,
     });
-
     const result = await agent.invoke({
-      messages: [new HumanMessage(userPrompt)]
+      messages: [new HumanMessage(userPrompt)],
     });
-
     const lastMessage = result.messages[result.messages.length - 1];
     return { postContent: lastMessage.content as string };
   } catch (error: unknown) {
