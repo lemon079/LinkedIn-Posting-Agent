@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label.js";
 import { Button } from "@/components/ui/button.js";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet.js";
@@ -57,6 +57,44 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     discoveredModels?: string[];
   }>({ status: "idle" });
 
+  const [ollamaModels, setOllamaModels] = useState<string[]>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || provider !== "ollama") return;
+
+    let isMounted = true;
+    const fetchOllamaModels = async () => {
+      setLoadingModels(true);
+      try {
+        const response = await healthCheck("ollama", undefined, undefined, ollamaBaseUrl);
+        if (isMounted) {
+          if (response.ok && response.models) {
+            setOllamaModels(response.models);
+            if (response.models.length > 0 && !modelName) {
+              setModelName(response.models[0]);
+            }
+          } else {
+            setOllamaModels([]);
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setOllamaModels([]);
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingModels(false);
+        }
+      }
+    };
+
+    fetchOllamaModels();
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, provider, ollamaBaseUrl]);
+
   const handleTestConnection = async () => {
     setTestState({ status: "testing" });
     try {
@@ -66,6 +104,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           status: "success",
           discoveredModels: response.models,
         });
+        if (provider === "ollama" && response.models) {
+          setOllamaModels(response.models);
+        }
       } else {
         setTestState({
           status: "error",
@@ -186,33 +227,75 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
                   <span>Model Name</span>
-                  <span className="text-[10px] text-slate-450 font-normal">Optional</span>
+                  <span className="text-[10px] text-slate-450 font-normal">
+                    {provider === "ollama" ? "Select local model" : "Optional"}
+                  </span>
                 </Label>
-                <input 
-                  type="text" 
-                  placeholder={
-                    provider === "gemini" 
-                      ? "gemini-2.5-flash (Default)" 
-                      : provider === "openai" 
-                      ? "gpt-4o" 
-                      : provider === "anthropic" 
-                      ? "claude-3-5-sonnet-latest" 
-                      : "e.g. llama3, mistral"
-                  } 
-                  value={modelName} 
-                  onChange={(e) => {
-                    setModelName(e.target.value);
-                    setTestState({ status: "idle" });
-                  }} 
-                  className="w-full bg-card border border-border text-slate-800 text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
-                />
+                
+                {provider === "ollama" ? (
+                  loadingModels ? (
+                    <div className="flex items-center gap-2 p-3 text-xs text-slate-500 bg-slate-50 border border-border rounded-xl">
+                      <Loader2 className="size-3.5 animate-spin text-brand-blue" />
+                      Fetching local models from Ollama...
+                    </div>
+                  ) : ollamaModels.length > 0 ? (
+                    <select
+                      value={modelName}
+                      onChange={(e) => {
+                        setModelName(e.target.value);
+                        setTestState({ status: "idle" });
+                      }}
+                      className="w-full bg-card border border-border text-slate-800 text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                    >
+                      <option value="">Select a model...</option>
+                      {ollamaModels.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="space-y-2">
+                      <input 
+                        type="text" 
+                        placeholder="e.g. llama3, mistral"
+                        value={modelName} 
+                        onChange={(e) => {
+                          setModelName(e.target.value);
+                          setTestState({ status: "idle" });
+                        }} 
+                        className="w-full bg-card border border-border text-slate-800 text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                      />
+                      <p className="text-[10px] text-slate-550">
+                        No local models detected. Make sure Ollama is running and click Test Connection to retry.
+                      </p>
+                    </div>
+                  )
+                ) : (
+                  <input 
+                    type="text" 
+                    placeholder={
+                      provider === "gemini" 
+                        ? "gemini-2.5-flash (Default)" 
+                        : provider === "openai" 
+                        ? "gpt-4o" 
+                        : "claude-3-5-sonnet-latest"
+                    } 
+                    value={modelName} 
+                    onChange={(e) => {
+                      setModelName(e.target.value);
+                      setTestState({ status: "idle" });
+                    }} 
+                    className="w-full bg-card border border-border text-slate-800 text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                  />
+                )}
                 
                 {/* Available models pills (if discovered from Ollama tags) */}
-                {provider === "ollama" && testState.discoveredModels && testState.discoveredModels.length > 0 && (
+                {provider === "ollama" && ollamaModels.length > 0 && (
                   <div className="space-y-1 mt-2">
-                    <span className="text-[10px] text-slate-550 block font-semibold">Discovered Ollama Models:</span>
+                    <span className="text-[10px] text-slate-550 block font-semibold">Quick Select:</span>
                     <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                      {testState.discoveredModels.map((m) => (
+                      {ollamaModels.map((m) => (
                         <button
                           key={m}
                           type="button"
@@ -220,7 +303,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                           className={`text-[10px] px-2 py-0.5 rounded-full border transition duration-150 cursor-pointer ${
                             modelName === m
                               ? "bg-brand-blue border-brand-blue text-white font-semibold"
-                              : "bg-slate-100 border-border text-slate-600 hover:bg-slate-200 hover:border-slate-400"
+                              : "bg-slate-100 border-border text-slate-650 hover:bg-slate-200 hover:border-slate-400"
                           }`}
                         >
                           {m}
