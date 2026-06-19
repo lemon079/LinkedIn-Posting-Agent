@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert";
 import { generateImagePrompt } from "../controllers/images.js";
-import { ChatGoogle } from "@langchain/google";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 test("generateImagePrompt - returns 400 when draft is missing", async () => {
   let statusResult = 0;
@@ -25,7 +25,7 @@ test("generateImagePrompt - returns 400 when draft is missing", async () => {
   assert.strictEqual(jsonResult.error, "Missing draft content", "Should return correct error message");
 });
 
-test("generateImagePrompt - constructs and returns pollinations URL", async () => {
+test("generateImagePrompt - constructs and returns native base64 data URL", async () => {
   let statusResult = 0;
   let jsonResult: any = null;
 
@@ -44,18 +44,37 @@ test("generateImagePrompt - constructs and returns pollinations URL", async () =
     },
   };
 
-  const originalInvoke = ChatGoogle.prototype.invoke;
-  ChatGoogle.prototype.invoke = async function () {
-    return { content: '"Modern abstract 3D vector of TypeScript code"' } as any;
+  const originalGetGenerativeModel = GoogleGenerativeAI.prototype.getGenerativeModel;
+  GoogleGenerativeAI.prototype.getGenerativeModel = function () {
+    return {
+      generateContent: async () => ({
+        response: {
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    inlineData: {
+                      mimeType: "image/png",
+                      data: "MOCK_BASE64_DATA",
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      }),
+    } as any;
   };
 
   try {
     await generateImagePrompt(mockReq, mockRes);
 
     assert.strictEqual(statusResult, 200, "Should return 200 OK");
-    const expectedUrl = `https://image.pollinations.ai/prompt/Modern%20abstract%203D%20vector%20of%20TypeScript%20code?width=800&height=450&nologo=true`;
-    assert.strictEqual(jsonResult.imageUrl, expectedUrl, "Should return correctly formatted and encoded URL");
+    const expectedUrl = "data:image/png;base64,MOCK_BASE64_DATA";
+    assert.strictEqual(jsonResult.imageUrl, expectedUrl, "Should return correctly formatted Base64 data URL");
   } finally {
-    ChatGoogle.prototype.invoke = originalInvoke;
+    GoogleGenerativeAI.prototype.getGenerativeModel = originalGetGenerativeModel;
   }
 });
