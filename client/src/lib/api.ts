@@ -5,6 +5,7 @@ export interface HealthResponse { ok: boolean; error?: string; models?: string[]
 interface CustomKeys {
   provider: string; apiKey: string; liToken: string; liUrn: string;
   modelName: string; ollamaBaseUrl: string; tavilyKey: string;
+  token?: string;
 }
 
 const getHeaders = (keys?: CustomKeys) => {
@@ -16,6 +17,7 @@ const getHeaders = (keys?: CustomKeys) => {
     if (keys.ollamaBaseUrl) h["x-ollama-base-url"] = keys.ollamaBaseUrl;
     if (keys.liToken) h["x-linkedin-token"] = keys.liToken;
     if (keys.liUrn) h["x-linkedin-urn"] = keys.liUrn;
+    if (keys.token) h["Authorization"] = `Bearer ${keys.token}`;
   }
   return h;
 };
@@ -58,5 +60,36 @@ export async function healthCheck(
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ provider, apiKey, model, ollamaBaseUrl }),
   });
+  return res.json();
+}
+
+export interface UserSettings {
+  provider?: string;
+  apiKey?: string;
+  modelName?: string;
+  ollamaBaseUrl?: string;
+  tavilyKey?: string;
+  liToken?: string;
+  liUrn?: string;
+}
+
+export async function fetchUserSettings(token: string): Promise<UserSettings> {
+  const res = await fetch("/api/user/settings", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error("Failed to load user settings");
+  return res.json();
+}
+
+export async function saveUserSettings(settings: UserSettings, token: string): Promise<{ ok: boolean }> {
+  const res = await fetch("/api/user/settings", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(settings),
+  });
+  if (!res.ok) throw new Error("Failed to save settings");
   return res.json();
 }

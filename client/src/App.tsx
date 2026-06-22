@@ -12,10 +12,11 @@ export default function App() {
   const {
     topics, selectedTopic, customTopic, context, dryRun,
     draftText, postUrl, isGenerating, isPublishing, error, activeTab,
-    provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, isSettingsOpen,
+    provider, apiKey, modelName, ollamaBaseUrl, tavilyKey, liToken, liUrn, isSettingsOpen,
+    user,
     setSelectedTopic, setCustomTopic, setContext, setDryRun, setDraftText,
     setActiveTab, handleGenerate, handlePublish,
-    setProvider, setApiKey, setModelName, setOllamaBaseUrl,
+    setProvider, setApiKey, setModelName, setOllamaBaseUrl, setTavilyKey,
     setLiToken, setLiUrn, setIsSettingsOpen,
   } = agentState;
 
@@ -67,8 +68,10 @@ export default function App() {
         apiKey={apiKey} setApiKey={setApiKey}
         modelName={modelName} setModelName={setModelName}
         ollamaBaseUrl={ollamaBaseUrl} setOllamaBaseUrl={setOllamaBaseUrl}
+        tavilyKey={tavilyKey} setTavilyKey={setTavilyKey}
         liToken={liToken} setLiToken={setLiToken}
         liUrn={liUrn} setLiUrn={setLiUrn}
+        user={user}
       />
     </div>
   );

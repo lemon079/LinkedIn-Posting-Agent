@@ -5,6 +5,9 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet.js";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer.js";
 import { useMedia } from "use-media";
 import { healthCheck } from "../lib/api.js";
+import { AuthForm } from "./AuthForm.js";
+import { supabase } from "../lib/supabase.js";
+import type { User } from "@supabase/supabase-js";
 import {
   CheckCircle2,
   XCircle,
@@ -12,7 +15,10 @@ import {
   Settings2,
   Sparkles,
   Layers,
-  Link2
+  Link2,
+  Globe,
+  User as UserIcon,
+  LogOut
 } from "lucide-react";
 
 interface SettingsPanelProps {
@@ -26,10 +32,13 @@ interface SettingsPanelProps {
   setModelName: (val: string) => void;
   ollamaBaseUrl: string;
   setOllamaBaseUrl: (val: string) => void;
+  tavilyKey: string;
+  setTavilyKey: (val: string) => void;
   liToken: string;
   setLiToken: (val: string) => void;
   liUrn: string;
   setLiUrn: (val: string) => void;
+  user: User | null;
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
@@ -43,10 +52,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   setModelName,
   ollamaBaseUrl,
   setOllamaBaseUrl,
+  tavilyKey,
+  setTavilyKey,
   liToken,
   setLiToken,
   liUrn,
   setLiUrn,
+  user,
 }) => {
   const [testState, setTestState] = useState<{
     status: "idle" | "testing" | "success" | "error";
@@ -152,6 +164,50 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
       {/* Scrollable Form Area */}
       <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar text-slate-900 select-text">
+        {/* Section: Cloud Sync Account */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 pb-1.5 border-b border-border">
+            <UserIcon className="size-4 text-brand-blue" />
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Cloud Sync Profile
+            </h3>
+          </div>
+
+          {user ? (
+            <div className="bg-slate-50 border border-border p-4 rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-xs font-semibold text-slate-500">Signed In As</p>
+                  <p className="text-sm font-bold text-slate-800">{user.email}</p>
+                </div>
+                <Button
+                  onClick={async () => {
+                    if (supabase) {
+                      await supabase.auth.signOut();
+                    }
+                  }}
+                  className="bg-white hover:bg-slate-50 border border-border text-slate-700 hover:text-rose-600 hover:border-rose-200 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition duration-150 cursor-pointer"
+                >
+                  <LogOut className="size-3.5" />
+                  Sign Out
+                </Button>
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                ✓ Cloud sync is active. Your settings are encrypted and securely synced to your private database profile.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-slate-50 border border-border p-4 rounded-xl space-y-4">
+              <AuthForm onSuccess={() => {}} />
+              <div className="border-t border-slate-200 pt-3">
+                <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                  <strong>Local Fallback Active:</strong> If you proceed without signing in, your settings are saved only in your local browser storage.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Section: LLM Integration */}
         <div className="space-y-4">
           <div className="flex items-center gap-2 pb-1.5 border-b border-border">
@@ -390,6 +446,31 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           </div>
         </div>
 
+        {/* Section: Web Search Grounding */}
+        <div className="space-y-4 pt-2">
+          <div className="flex items-center gap-2 pb-1.5 border-b border-border">
+            <Globe className="size-4 text-brand-blue" />
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Web Search Grounding
+            </h3>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-slate-700">
+              Tavily API Key
+            </Label>
+            <input
+              type="password"
+              placeholder="tvly-..."
+              value={tavilyKey}
+              onChange={(e) => setTavilyKey(e.target.value)}
+              className="w-full bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+            />
+            <p className="text-xs text-slate-500">
+              Optional. Real-time web search key to fetch references and ground posts in technical details.
+            </p>
+          </div>
+        </div>
+
         {/* Section: LinkedIn Integration */}
         <div className="space-y-4 pt-2">
           <div className="flex items-center gap-2 pb-1.5 border-b border-border">
@@ -400,6 +481,23 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           </div>
 
           <div className="space-y-4">
+            {/* Connect via OAuth Button */}
+            <a
+              href={`/api/auth/linkedin?state=${user ? encodeURIComponent(user.id) : "local"}`}
+              className="flex items-center justify-center gap-2 bg-[#0a66c2] hover:bg-[#004182] active:bg-[#004182] text-white px-5 py-3.5 rounded-xl font-bold transition duration-200 shadow-md cursor-pointer text-sm w-full text-center"
+            >
+              <svg className="size-4 shrink-0 fill-current" viewBox="0 0 24 24">
+                <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.779-1.75-1.75s.784-1.75 1.75-1.75 1.75.779 1.75 1.75-.784 1.75-1.75 1.75zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
+              </svg>
+              Connect LinkedIn Account
+            </a>
+
+            <div className="relative flex py-1 items-center">
+              <div className="flex-1 border-t border-slate-200"></div>
+              <span className="flex-shrink mx-3 text-slate-400 text-xs font-semibold uppercase tracking-wider">Or Config Manually</span>
+              <div className="flex-1 border-t border-slate-200"></div>
+            </div>
+
             {/* Access Token */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700">
@@ -434,7 +532,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       {/* Footer */}
       <div className="p-6 border-t border-border bg-slate-50/30 flex items-center justify-between">
         <p className="text-xs text-slate-500 max-w-[50%]">
-          Credentials are saved locally in your browser storage and never stored on the server.
+          {user
+            ? "Credentials are encrypted symmetrically and saved securely in your Supabase database."
+            : "Credentials are saved locally in your browser storage and never stored on the server."}
         </p>
         <Button
           onClick={onClose}
