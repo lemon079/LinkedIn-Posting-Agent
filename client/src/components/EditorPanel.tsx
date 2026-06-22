@@ -42,12 +42,12 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
       </div>
       <Textarea
         id="draft-editor"
-        className="w-full bg-card border-border min-h-[220px] rounded-xl focus-visible:ring-brand-blue/40 text-sm leading-relaxed text-slate-900 transition-colors duration-200"
+        className="w-full bg-card border-border min-h-[220px] rounded-xl focus-visible:ring-2 focus-visible:ring-brand-blue/20 focus-visible:border-brand-blue text-base md:text-sm leading-relaxed text-slate-900 transition-colors duration-200"
         value={draftText} onChange={(e) => onChange(e.target.value)}
         disabled={isPublishing}
       />
       <Button
-        className="w-full bg-brand-blue hover:bg-brand-blue-hover text-white font-semibold py-5 rounded-lg transition flex items-center justify-center gap-2 shadow-sm duration-200"
+        className="w-full bg-brand-blue hover:bg-brand-blue-hover text-white font-semibold py-5 rounded-xl transition flex items-center justify-center gap-2 shadow-sm duration-200"
         onClick={onPublish} disabled={isPublishing || charCount > 3000 || charCount === 0}
       >
         {isPublishing ? "Publishing Post..." : <><Send className="size-4" /> Approve & Publish Post</>}

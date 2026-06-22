@@ -166,7 +166,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
                 <span>LLM Provider</span>
-                <span className="text-[10px] text-slate-450 font-normal">Required</span>
+                <span className="text-xs text-slate-450 font-normal">Required</span>
               </Label>
               <select
                 value={provider}
@@ -174,7 +174,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   setProvider(e.target.value);
                   setTestState({ status: "idle" });
                 }}
-                className="w-full bg-card border border-border text-slate-800 text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                className="w-full bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
               >
                 <option value="gemini">Google</option>
                 <option value="openai">OpenAI</option>
@@ -197,9 +197,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     setOllamaBaseUrl(e.target.value);
                     setTestState({ status: "idle" });
                   }}
-                  className="w-full bg-card border border-border text-slate-800 text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                  className="w-full bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
                 />
-                <p className="text-[10px] text-slate-500">
+                <p className="text-xs text-slate-500">
                   Verify Ollama is running locally or on your private network.
                 </p>
               </div>
@@ -225,7 +225,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     setApiKey(e.target.value);
                     setTestState({ status: "idle" });
                   }}
-                  className="w-full bg-card border border-border text-slate-800 text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                  className="w-full bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
                 />
               </div>
             )}
@@ -235,7 +235,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               <div className="space-y-1.5 animate-fade-in">
                 <Label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
                   <span>Model Name</span>
-                  <span className="text-[10px] text-slate-450 font-normal">
+                  <span className="text-xs text-slate-450 font-normal">
                     Select local model
                   </span>
                 </Label>
@@ -262,7 +262,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                           setModelName(e.target.value);
                           setTestState({ status: "idle" });
                         }}
-                        className="flex-1 bg-card border border-border text-slate-800 text-sm p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                        className="flex-1 bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
                       />
                       <Button
                         type="button"
@@ -290,7 +290,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                           setModelName(e.target.value);
                           setTestState({ status: "idle" });
                         }}
-                        className="flex-1 bg-card border border-border text-slate-800 text-sm p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                        className="flex-1 bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
                       />
                       <Button
                         type="button"
@@ -310,7 +310,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       setModelName(e.target.value);
                       setTestState({ status: "idle" });
                     }}
-                    className="w-full bg-card border border-border text-slate-800 text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                    className="w-full bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
                   >
                     <option value="">Select a model...</option>
                     {ollamaModels.map((m) => (
@@ -324,14 +324,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 {/* Available models pills (if discovered from Ollama tags) */}
                 {ollamaModels.length > 0 && (ollamaFetchState.status === "success" || ollamaFetchState.status === "idle") && (
                   <div className="space-y-1 mt-2">
-                    <span className="text-[10px] text-slate-550 block font-semibold">Quick Select:</span>
+                    <span className="text-xs text-slate-550 block font-semibold">Quick Select:</span>
                     <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
                       {ollamaModels.map((m) => (
                         <button
                           key={m}
                           type="button"
                           onClick={() => setModelName(m)}
-                          className={`text-[10px] px-2 py-0.5 rounded-full border transition duration-150 cursor-pointer ${modelName === m
+                          className={`text-xs px-2.5 py-1 rounded-full border transition duration-150 cursor-pointer ${modelName === m
                             ? "bg-brand-blue border-brand-blue text-white font-semibold"
                             : "bg-slate-100 border-border text-slate-650 hover:bg-slate-200 hover:border-slate-400"
                             }`}
@@ -372,7 +372,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   <CheckCircle2 className="size-4 mt-0.5 shrink-0 text-emerald-600" />
                   <div>
                     <span className="font-semibold block">Connection Verified</span>
-                    <span className="text-emerald-600 text-[10px]">Successfully reached the LLM provider interface.</span>
+                    <span className="text-emerald-600 text-xs">Successfully reached the LLM provider interface.</span>
                   </div>
                 </div>
               )}
@@ -382,7 +382,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   <XCircle className="size-4 mt-0.5 shrink-0 text-rose-600" />
                   <div>
                     <span className="font-semibold block">Connection Failed</span>
-                    <span className="text-rose-500 text-[10px] line-clamp-3 font-medium">{testState.errorMsg}</span>
+                    <span className="text-rose-550 text-xs line-clamp-3 font-medium">{testState.errorMsg}</span>
                   </div>
                 </div>
               )}
@@ -410,7 +410,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 placeholder="AQW..."
                 value={liToken}
                 onChange={(e) => setLiToken(e.target.value)}
-                className="w-full bg-card border border-border text-slate-800 text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                className="w-full bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
               />
             </div>
 
@@ -424,7 +424,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 placeholder="urn:li:person:..."
                 value={liUrn}
                 onChange={(e) => setLiUrn(e.target.value)}
-                className="w-full bg-card border border-border text-slate-800 text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                className="w-full bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
               />
             </div>
           </div>
@@ -433,7 +433,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
       {/* Footer */}
       <div className="p-6 border-t border-border bg-slate-50/30 flex items-center justify-between">
-        <p className="text-[10px] text-slate-500 max-w-[50%]">
+        <p className="text-xs text-slate-500 max-w-[50%]">
           Credentials are saved locally in your browser storage and never stored on the server.
         </p>
         <Button
