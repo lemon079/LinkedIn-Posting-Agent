@@ -12,9 +12,9 @@ export default function App() {
   const {
     topics, selectedTopic, customTopic, context, dryRun,
     draftText, postUrl, isGenerating, isPublishing, error, activeTab,
-    imageUrl, isGeneratingImage, provider, apiKey, modelName, ollamaBaseUrl, tavilyKey, liToken, liUrn, isSettingsOpen,
+    provider, apiKey, modelName, ollamaBaseUrl, tavilyKey, liToken, liUrn, isSettingsOpen,
     setSelectedTopic, setCustomTopic, setContext, setDryRun, setDraftText,
-    setActiveTab, handleGenerate, handlePublish, handleGenerateImage, setImageUrl,
+    setActiveTab, handleGenerate, handlePublish,
     setProvider, setApiKey, setModelName, setOllamaBaseUrl, setTavilyKey,
     setLiToken, setLiUrn, setIsSettingsOpen,
   } = agentState;
@@ -55,10 +55,8 @@ export default function App() {
             <div className="space-y-4 animate-fade-in-up">
               <DraftTabs
                 activeTab={activeTab} setActiveTab={setActiveTab}
-                imageUrl={imageUrl} setImageUrl={setImageUrl}
-                isGeneratingImage={isGeneratingImage} onGenerateImage={handleGenerateImage}
               />
-              {activeTab === "preview" ? <LinkedInFeed draftText={draftText} imageUrl={imageUrl} isGeneratingImage={isGeneratingImage} /> : <EditorPanel draftText={draftText} isPublishing={isPublishing} onChange={setDraftText} onPublish={handlePublish} />}
+              {activeTab === "preview" ? <LinkedInFeed draftText={draftText} /> : <EditorPanel draftText={draftText} isPublishing={isPublishing} onChange={setDraftText} onPublish={handlePublish} />}
             </div>
           )}
         </div>

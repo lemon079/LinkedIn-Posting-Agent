@@ -50,17 +50,6 @@ export async function publishPost(
   return data;
 }
 
-export async function generateImage(
-  draft: string, keys?: CustomKeys
-): Promise<{ imageUrl: string }> {
-  const res = await fetch("/api/generate-image", {
-    method: "POST", headers: getHeaders(keys),
-    body: JSON.stringify({ draft }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Failed to generate image");
-  return data;
-}
 
 export async function healthCheck(
   provider: string, apiKey?: string, model?: string, ollamaBaseUrl?: string

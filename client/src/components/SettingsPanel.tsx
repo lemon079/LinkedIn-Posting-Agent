@@ -78,7 +78,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             setOllamaModels([]);
           }
         }
-      } catch (err) {
+      } catch {
         if (isMounted) {
           setOllamaModels([]);
         }

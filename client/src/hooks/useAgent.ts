@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { fetchTopics, generateDraft, publishPost, generateImage } from "../lib/api.js";
+import { fetchTopics, generateDraft, publishPost } from "../lib/api.js";
 
 export function useAgent() {
   const [topics, setTopics] = useState<string[]>([]);
@@ -10,9 +10,8 @@ export function useAgent() {
   const [draftText, setDraftText] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [postUrl, setPostUrl] = useState<string | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"preview" | "edit">("preview");
-  const [status, setStatus] = useState({ gen: false, pub: false, img: false, err: null as string | null });
+  const [status, setStatus] = useState({ gen: false, pub: false, err: null as string | null });
 
   const [provider, setProvider] = useState(() => localStorage.getItem("llm_provider") || "gemini");
   const [apiKey, setApiKey] = useState(() => localStorage.getItem("llm_api_key") || "");
@@ -40,8 +39,8 @@ export function useAgent() {
   const customKeys = { provider, apiKey, liToken, liUrn, modelName, ollamaBaseUrl, tavilyKey };
 
   const handleGenerate = async () => {
-    setStatus({ gen: true, pub: false, img: false, err: null });
-    setDraftText(null); setPostUrl(null); setImageUrl(null);
+    setStatus({ gen: true, pub: false, err: null });
+    setDraftText(null); setPostUrl(null);
     try {
       const topic = selectedTopic || customTopic;
       const data = await generateDraft(topic, context, dryRun, customKeys);
@@ -55,7 +54,7 @@ export function useAgent() {
 
   const handlePublish = async () => {
     if (!threadId || !draftText) return;
-    setStatus({ gen: false, pub: true, img: false, err: null });
+    setStatus({ gen: false, pub: true, err: null });
     try {
       const data = await publishPost(threadId, draftText, dryRun, customKeys);
       setPostUrl(data.postUrl); setDraftText(null); setThreadId(null);
@@ -66,26 +65,13 @@ export function useAgent() {
     }
   };
 
-  const handleGenerateImage = async () => {
-    if (!draftText) return;
-    setStatus(p => ({ ...p, img: true, err: null }));
-    try {
-      const data = await generateImage(draftText, customKeys);
-      setImageUrl(data.imageUrl);
-    } catch (err: unknown) {
-      setStatus(p => ({ ...p, err: err instanceof Error ? err.message : "Image generation failed" }));
-    } finally {
-      setStatus(p => ({ ...p, img: false }));
-    }
-  };
-
   return {
-    topics, selectedTopic, customTopic, context, dryRun, draftText, threadId, postUrl, activeTab, imageUrl,
-    isGenerating: status.gen, isPublishing: status.pub, isGeneratingImage: status.img, error: status.err,
+    topics, selectedTopic, customTopic, context, dryRun, draftText, threadId, postUrl, activeTab,
+    isGenerating: status.gen, isPublishing: status.pub, error: status.err,
     provider, apiKey, modelName, ollamaBaseUrl, tavilyKey, liToken, liUrn, isSettingsOpen,
-    setSelectedTopic, setCustomTopic, setContext, setDryRun, setDraftText, setActiveTab, setImageUrl,
+    setSelectedTopic, setCustomTopic, setContext, setDryRun, setDraftText, setActiveTab,
     setProvider, setApiKey, setModelName, setOllamaBaseUrl, setTavilyKey,
     setLiToken, setLiUrn, setIsSettingsOpen,
-    handleGenerate, handlePublish, handleGenerateImage,
+    handleGenerate, handlePublish,
   };
 }
