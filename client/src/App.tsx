@@ -12,10 +12,10 @@ export default function App() {
   const {
     topics, selectedTopic, customTopic, context, dryRun,
     draftText, postUrl, isGenerating, isPublishing, error, activeTab,
-    provider, apiKey, modelName, ollamaBaseUrl, tavilyKey, liToken, liUrn, isSettingsOpen,
+    provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, isSettingsOpen,
     setSelectedTopic, setCustomTopic, setContext, setDryRun, setDraftText,
     setActiveTab, handleGenerate, handlePublish,
-    setProvider, setApiKey, setModelName, setOllamaBaseUrl, setTavilyKey,
+    setProvider, setApiKey, setModelName, setOllamaBaseUrl,
     setLiToken, setLiUrn, setIsSettingsOpen,
   } = agentState;
 
@@ -48,7 +48,7 @@ export default function App() {
           {draftText === null && !isGenerating && (
             <div className="flex flex-col items-center justify-center py-24 border border-dashed border-border rounded-2xl text-slate-400 space-y-3 bg-card shadow-sm animate-fade-in-up hover:border-slate-300 transition duration-300">
               <FileText className="size-10 text-slate-300 animate-bounce duration-1000" />
-              <p className="text-sm font-medium text-slate-500">Configure parameters and generate a post draft.</p>
+              <p className="text-xs sm:text-sm font-medium text-slate-500 text-center px-4">Configure parameters and generate a post draft.</p>
             </div>
           )}
           {draftText !== null && !isGenerating && (
@@ -67,7 +67,6 @@ export default function App() {
         apiKey={apiKey} setApiKey={setApiKey}
         modelName={modelName} setModelName={setModelName}
         ollamaBaseUrl={ollamaBaseUrl} setOllamaBaseUrl={setOllamaBaseUrl}
-        tavilyKey={tavilyKey} setTavilyKey={setTavilyKey}
         liToken={liToken} setLiToken={setLiToken}
         liUrn={liUrn} setLiUrn={setLiUrn}
       />

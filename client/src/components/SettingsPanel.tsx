@@ -3,17 +3,16 @@ import { Label } from "@/components/ui/label.js";
 import { Button } from "@/components/ui/button.js";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet.js";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer.js";
-import useMedia from "use-media";
+import { useMedia } from "use-media";
 import { healthCheck } from "../lib/api.js";
-import { 
-  CheckCircle2, 
-  XCircle, 
-  Loader2, 
-  Settings2, 
-  Sparkles, 
-  Layers, 
-  Link2, 
-  Info 
+import {
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  Settings2,
+  Sparkles,
+  Layers,
+  Link2
 } from "lucide-react";
 
 interface SettingsPanelProps {
@@ -27,8 +26,6 @@ interface SettingsPanelProps {
   setModelName: (val: string) => void;
   ollamaBaseUrl: string;
   setOllamaBaseUrl: (val: string) => void;
-  tavilyKey: string;
-  setTavilyKey: (val: string) => void;
   liToken: string;
   setLiToken: (val: string) => void;
   liUrn: string;
@@ -46,8 +43,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   setModelName,
   ollamaBaseUrl,
   setOllamaBaseUrl,
-  tavilyKey,
-  setTavilyKey,
   liToken,
   setLiToken,
   liUrn,
@@ -173,18 +168,18 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 <span>LLM Provider</span>
                 <span className="text-[10px] text-slate-450 font-normal">Required</span>
               </Label>
-              <select 
-                value={provider} 
+              <select
+                value={provider}
                 onChange={(e) => {
                   setProvider(e.target.value);
                   setTestState({ status: "idle" });
-                }} 
+                }}
                 className="w-full bg-card border border-border text-slate-800 text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
               >
-                <option value="gemini">Google Gemini (Default)</option>
-                <option value="openai">OpenAI GPT Models</option>
-                <option value="anthropic">Anthropic Claude</option>
-                <option value="ollama">Ollama (Local Models)</option>
+                <option value="gemini">Google</option>
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Anthropic</option>
+                <option value="ollama">Ollama</option>
               </select>
             </div>
 
@@ -194,14 +189,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 <Label className="text-xs font-semibold text-slate-700">
                   Ollama Base URL
                 </Label>
-                <input 
-                  type="text" 
-                  placeholder="http://localhost:11434" 
-                  value={ollamaBaseUrl} 
+                <input
+                  type="text"
+                  placeholder="http://localhost:11434"
+                  value={ollamaBaseUrl}
                   onChange={(e) => {
                     setOllamaBaseUrl(e.target.value);
                     setTestState({ status: "idle" });
-                  }} 
+                  }}
                   className="w-full bg-card border border-border text-slate-800 text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
                 />
                 <p className="text-[10px] text-slate-500">
@@ -216,182 +211,143 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 <Label className="text-xs font-semibold text-slate-700">
                   Provider API Key
                 </Label>
-                <input 
-                  type="password" 
+                <input
+                  type="password"
                   placeholder={
-                    provider === "gemini" 
-                      ? "AIzaSy..." 
-                      : provider === "openai" 
-                      ? "sk-proj-..." 
-                      : "sk-ant-..."
-                  } 
-                  value={apiKey} 
+                    provider === "gemini"
+                      ? "AIzaSy..."
+                      : provider === "openai"
+                        ? "sk-proj-..."
+                        : "sk-ant-..."
+                  }
+                  value={apiKey}
                   onChange={(e) => {
                     setApiKey(e.target.value);
                     setTestState({ status: "idle" });
-                  }} 
+                  }}
                   className="w-full bg-card border border-border text-slate-800 text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
                 />
               </div>
             )}
 
-            {/* Model Name Override */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
-                <span>Model Name</span>
-                <span className="text-[10px] text-slate-450 font-normal">
-                  {provider === "ollama" ? "Select local model" : "Optional"}
-                </span>
-              </Label>
-              
-              {provider === "ollama" ? (
-                <>
-                  {ollamaFetchState.status === "loading" && (
-                    <div className="flex items-center gap-2 p-3 text-xs text-slate-500 bg-slate-50 border border-border rounded-xl">
-                      <Loader2 className="size-3.5 animate-spin text-brand-blue" />
-                      Fetching local models from Ollama...
-                    </div>
-                  )}
+            {/* Model Name Override (Ollama Only) */}
+            {provider === "ollama" && (
+              <div className="space-y-1.5 animate-fade-in">
+                <Label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                  <span>Model Name</span>
+                  <span className="text-[10px] text-slate-450 font-normal">
+                    Select local model
+                  </span>
+                </Label>
 
-                  {ollamaFetchState.status === "unreachable" && (
-                    <div className="space-y-2">
-                      <div className="p-3 bg-rose-50 border border-rose-200 text-xs text-rose-800 rounded-xl space-y-1">
-                        <p className="font-semibold">⚠️ Connection Error</p>
-                        <p>{ollamaFetchState.errorMsg || "Could not connect to Ollama. Make sure it's running on your machine."}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <input 
-                          type="text" 
-                          placeholder="e.g. llama3, mistral"
-                          value={modelName} 
-                          onChange={(e) => {
-                            setModelName(e.target.value);
-                            setTestState({ status: "idle" });
-                          }} 
-                          className="flex-1 bg-card border border-border text-slate-800 text-sm p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
-                        />
-                        <Button
-                          type="button"
-                          onClick={fetchOllamaModels}
-                          className="px-3.5 bg-slate-100 hover:bg-slate-200 border border-border text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
-                        >
-                          Retry
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+                {ollamaFetchState.status === "loading" && (
+                  <div className="flex items-center gap-2 p-3 text-xs text-slate-500 bg-slate-50 border border-border rounded-xl">
+                    <Loader2 className="size-3.5 animate-spin text-brand-blue" />
+                    Fetching local models from Ollama...
+                  </div>
+                )}
 
-                  {ollamaFetchState.status === "no_models" && (
-                    <div className="space-y-2">
-                      <div className="p-3 bg-amber-50 border border-amber-200 text-xs text-amber-800 rounded-xl space-y-1">
-                        <p className="font-semibold">⚠️ No Models Found</p>
-                        <p>No models found on your machine. Pull a model using <code className="bg-amber-100/60 px-1 py-0.5 rounded font-mono">ollama pull &lt;model-name&gt;</code>.</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <input 
-                          type="text" 
-                          placeholder="e.g. llama3, mistral"
-                          value={modelName} 
-                          onChange={(e) => {
-                            setModelName(e.target.value);
-                            setTestState({ status: "idle" });
-                          }} 
-                          className="flex-1 bg-card border border-border text-slate-800 text-sm p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
-                        />
-                        <Button
-                          type="button"
-                          onClick={fetchOllamaModels}
-                          className="px-3.5 bg-slate-100 hover:bg-slate-200 border border-border text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
-                        >
-                          Retry
-                        </Button>
-                      </div>
+                {ollamaFetchState.status === "unreachable" && (
+                  <div className="space-y-2">
+                    <div className="p-3 bg-rose-50 border border-rose-200 text-xs text-rose-800 rounded-xl space-y-1">
+                      <p className="font-semibold">⚠️ Connection Error</p>
+                      <p>{ollamaFetchState.errorMsg || "Could not connect to Ollama. Make sure it's running on your machine."}</p>
                     </div>
-                  )}
-
-                  {(ollamaFetchState.status === "success" || (ollamaFetchState.status === "idle" && ollamaModels.length > 0)) && (
-                    <select
-                      value={modelName}
-                      onChange={(e) => {
-                        setModelName(e.target.value);
-                        setTestState({ status: "idle" });
-                      }}
-                      className="w-full bg-card border border-border text-slate-800 text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
-                    >
-                      <option value="">Select a model...</option>
-                      {ollamaModels.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </>
-              ) : (
-                <input 
-                  type="text" 
-                  placeholder={
-                    provider === "gemini" 
-                      ? "gemini-2.5-flash (Default)" 
-                      : provider === "openai" 
-                      ? "gpt-4o" 
-                      : "claude-3-5-sonnet-latest"
-                  } 
-                  value={modelName} 
-                  onChange={(e) => {
-                    setModelName(e.target.value);
-                    setTestState({ status: "idle" });
-                  }} 
-                  className="w-full bg-card border border-border text-slate-800 text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
-                />
-              )}
-              
-              {/* Available models pills (if discovered from Ollama tags) */}
-              {provider === "ollama" && ollamaModels.length > 0 && (ollamaFetchState.status === "success" || ollamaFetchState.status === "idle") && (
-                <div className="space-y-1 mt-2">
-                  <span className="text-[10px] text-slate-550 block font-semibold">Quick Select:</span>
-                  <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                    {ollamaModels.map((m) => (
-                      <button
-                        key={m}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="e.g. llama3, mistral"
+                        value={modelName}
+                        onChange={(e) => {
+                          setModelName(e.target.value);
+                          setTestState({ status: "idle" });
+                        }}
+                        className="flex-1 bg-card border border-border text-slate-800 text-sm p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                      />
+                      <Button
                         type="button"
-                        onClick={() => setModelName(m)}
-                        className={`text-[10px] px-2 py-0.5 rounded-full border transition duration-150 cursor-pointer ${
-                          modelName === m
+                        onClick={fetchOllamaModels}
+                        className="px-3.5 bg-slate-100 hover:bg-slate-200 border border-border text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
+                      >
+                        Retry
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {ollamaFetchState.status === "no_models" && (
+                  <div className="space-y-2">
+                    <div className="p-3 bg-amber-50 border border-amber-200 text-xs text-amber-800 rounded-xl space-y-1">
+                      <p className="font-semibold">⚠️ No Models Found</p>
+                      <p>No models found on your machine. Pull a model using <code className="bg-amber-100/60 px-1 py-0.5 rounded font-mono">ollama pull &lt;model-name&gt;</code>.</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="e.g. llama3, mistral"
+                        value={modelName}
+                        onChange={(e) => {
+                          setModelName(e.target.value);
+                          setTestState({ status: "idle" });
+                        }}
+                        className="flex-1 bg-card border border-border text-slate-800 text-sm p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                      />
+                      <Button
+                        type="button"
+                        onClick={fetchOllamaModels}
+                        className="px-3.5 bg-slate-100 hover:bg-slate-200 border border-border text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
+                      >
+                        Retry
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {(ollamaFetchState.status === "success" || (ollamaFetchState.status === "idle" && ollamaModels.length > 0)) && (
+                  <select
+                    value={modelName}
+                    onChange={(e) => {
+                      setModelName(e.target.value);
+                      setTestState({ status: "idle" });
+                    }}
+                    className="w-full bg-card border border-border text-slate-800 text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                  >
+                    <option value="">Select a model...</option>
+                    {ollamaModels.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {/* Available models pills (if discovered from Ollama tags) */}
+                {ollamaModels.length > 0 && (ollamaFetchState.status === "success" || ollamaFetchState.status === "idle") && (
+                  <div className="space-y-1 mt-2">
+                    <span className="text-[10px] text-slate-550 block font-semibold">Quick Select:</span>
+                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                      {ollamaModels.map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setModelName(m)}
+                          className={`text-[10px] px-2 py-0.5 rounded-full border transition duration-150 cursor-pointer ${modelName === m
                             ? "bg-brand-blue border-brand-blue text-white font-semibold"
                             : "bg-slate-100 border-border text-slate-650 hover:bg-slate-200 hover:border-slate-400"
-                        }`}
-                      >
-                        {m}
-                      </button>
-                    ))}
+                            }`}
+                        >
+                          {m}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-            
-            {/* Web Grounding - Tavily */}
-            <div className="space-y-1.5 pt-2">
-              <Label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
-                <span>Tavily Search API Key</span>
-                <span className="text-[10px] text-slate-450 font-normal">Optional</span>
-              </Label>
-              <input 
-                type="password" 
-                placeholder="tvly-..." 
-                value={tavilyKey} 
-                onChange={(e) => setTavilyKey(e.target.value)} 
-                className="w-full bg-card border border-border text-slate-800 text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
-              />
-              <p className="text-[10px] text-slate-500 flex items-start gap-1">
-                <Info className="size-3 mt-0.5 shrink-0 text-slate-400" />
-                <span>Enables live web grounding search. Ollama ignores search nodes for prompt-only generation.</span>
-              </p>
-            </div>
+                )}
+              </div>
+            )}
 
             {/* Test Connection Actions */}
             <div className="pt-2">
-              <Button 
+              <Button
                 type="button"
                 onClick={handleTestConnection}
                 disabled={testState.status === "testing"}
@@ -449,11 +405,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               <Label className="text-xs font-semibold text-slate-700">
                 Access Token
               </Label>
-              <input 
-                type="password" 
-                placeholder="AQW..." 
-                value={liToken} 
-                onChange={(e) => setLiToken(e.target.value)} 
+              <input
+                type="password"
+                placeholder="AQW..."
+                value={liToken}
+                onChange={(e) => setLiToken(e.target.value)}
                 className="w-full bg-card border border-border text-slate-800 text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
               />
             </div>
@@ -463,11 +419,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               <Label className="text-xs font-semibold text-slate-700">
                 Person URN
               </Label>
-              <input 
-                type="text" 
-                placeholder="urn:li:person:..." 
-                value={liUrn} 
-                onChange={(e) => setLiUrn(e.target.value)} 
+              <input
+                type="text"
+                placeholder="urn:li:person:..."
+                value={liUrn}
+                onChange={(e) => setLiUrn(e.target.value)}
                 className="w-full bg-card border border-border text-slate-800 text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
               />
             </div>
@@ -480,8 +436,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         <p className="text-[10px] text-slate-500 max-w-[50%]">
           Credentials are saved locally in your browser storage and never stored on the server.
         </p>
-        <Button 
-          onClick={onClose} 
+        <Button
+          onClick={onClose}
           className="bg-brand-blue hover:bg-brand-blue-hover active:bg-brand-blue-hover text-white font-semibold px-5 py-3 rounded-xl transition duration-200 shadow-lg cursor-pointer text-sm"
         >
           Apply Settings
@@ -493,8 +449,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   if (isWide) {
     return (
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <SheetContent 
-          side="right" 
+        <SheetContent
+          side="right"
           className="w-full max-w-lg bg-card border-l border-border h-full p-0 flex flex-col justify-between shadow-2xl text-slate-900 overflow-hidden"
         >
           {renderPanelBody()}
@@ -504,7 +460,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   }
   return (
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DrawerContent 
+      <DrawerContent
         className="w-full max-h-[92vh] bg-card border-t border-border flex flex-col justify-between shadow-2xl text-slate-900 overflow-hidden rounded-t-2xl"
       >
         {renderPanelBody()}
