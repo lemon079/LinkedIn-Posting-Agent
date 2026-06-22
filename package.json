@@ -8,8 +8,11 @@
     "server": "tsx watch src/server.ts",
     "build": "tsc",
     "lint": "eslint src",
+    "lint:client": "npm --prefix client run lint",
+    "lint:all": "npm run lint && npm run lint:client",
     "test": "tsx --test src/tests/*.test.ts",
-    "dev": "concurrently \"npm run server\" \"npm --prefix client run dev\""
+    "dev": "concurrently \"npm run server\" \"npm --prefix client run dev\"",
+    "check": "npm run lint:all && npm run test"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
