@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Label } from "@/components/ui/label.js";
 import { Button } from "@/components/ui/button.js";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet.js";
@@ -58,42 +58,48 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   }>({ status: "idle" });
 
   const [ollamaModels, setOllamaModels] = useState<string[]>([]);
-  const [loadingModels, setLoadingModels] = useState(false);
+  const [ollamaFetchState, setOllamaFetchState] = useState<{
+    status: "idle" | "loading" | "success" | "unreachable" | "no_models";
+    errorMsg?: string;
+  }>({ status: "idle" });
+
+  const fetchOllamaModels = useCallback(async () => {
+    if (provider !== "ollama") return;
+    setOllamaFetchState({ status: "loading" });
+    try {
+      const response = await healthCheck("ollama", undefined, undefined, ollamaBaseUrl);
+      if (response.ok && response.models) {
+        setOllamaModels(response.models);
+        if (response.models.length > 0) {
+          setOllamaFetchState({ status: "success" });
+          if (!modelName) {
+            setModelName(response.models[0]);
+          }
+        } else {
+          setOllamaFetchState({ status: "no_models" });
+        }
+      } else {
+        setOllamaModels([]);
+        setOllamaFetchState({
+          status: "unreachable",
+          errorMsg: response.error || "Could not connect to Ollama. Make sure it's running on your machine."
+        });
+      }
+    } catch (err) {
+      setOllamaModels([]);
+      setOllamaFetchState({
+        status: "unreachable",
+        errorMsg: err instanceof Error ? err.message : "Could not connect to Ollama. Make sure it's running on your machine."
+      });
+    }
+  }, [provider, ollamaBaseUrl, modelName, setModelName]);
 
   useEffect(() => {
     if (!isOpen || provider !== "ollama") return;
-
-    let isMounted = true;
-    const fetchOllamaModels = async () => {
-      setLoadingModels(true);
-      try {
-        const response = await healthCheck("ollama", undefined, undefined, ollamaBaseUrl);
-        if (isMounted) {
-          if (response.ok && response.models) {
-            setOllamaModels(response.models);
-            if (response.models.length > 0 && !modelName) {
-              setModelName(response.models[0]);
-            }
-          } else {
-            setOllamaModels([]);
-          }
-        }
-      } catch {
-        if (isMounted) {
-          setOllamaModels([]);
-        }
-      } finally {
-        if (isMounted) {
-          setLoadingModels(false);
-        }
-      }
-    };
-
-    fetchOllamaModels();
-    return () => {
-      isMounted = false;
-    };
-  }, [isOpen, provider, ollamaBaseUrl]);
+    Promise.resolve().then(() => {
+      fetchOllamaModels();
+    });
+  }, [isOpen, provider, ollamaBaseUrl, fetchOllamaModels]);
 
   const handleTestConnection = async () => {
     setTestState({ status: "testing" });
@@ -233,44 +239,88 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 </Label>
                 
                 {provider === "ollama" ? (
-                  loadingModels ? (
-                    <div className="flex items-center gap-2 p-3 text-xs text-slate-500 bg-slate-50 border border-border rounded-xl">
-                      <Loader2 className="size-3.5 animate-spin text-brand-blue" />
-                      Fetching local models from Ollama...
-                    </div>
-                  ) : ollamaModels.length > 0 ? (
-                    <select
-                      value={modelName}
-                      onChange={(e) => {
-                        setModelName(e.target.value);
-                        setTestState({ status: "idle" });
-                      }}
-                      className="w-full bg-card border border-border text-slate-800 text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
-                    >
-                      <option value="">Select a model...</option>
-                      {ollamaModels.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <div className="space-y-2">
-                      <input 
-                        type="text" 
-                        placeholder="e.g. llama3, mistral"
-                        value={modelName} 
+                  <>
+                    {ollamaFetchState.status === "loading" && (
+                      <div className="flex items-center gap-2 p-3 text-xs text-slate-500 bg-slate-50 border border-border rounded-xl">
+                        <Loader2 className="size-3.5 animate-spin text-brand-blue" />
+                        Fetching local models from Ollama...
+                      </div>
+                    )}
+
+                    {ollamaFetchState.status === "unreachable" && (
+                      <div className="space-y-2">
+                        <div className="p-3 bg-rose-50 border border-rose-200 text-xs text-rose-800 rounded-xl space-y-1">
+                          <p className="font-semibold">⚠️ Connection Error</p>
+                          <p>{ollamaFetchState.errorMsg || "Could not connect to Ollama. Make sure it's running on your machine."}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <input 
+                            type="text" 
+                            placeholder="e.g. llama3, mistral"
+                            value={modelName} 
+                            onChange={(e) => {
+                              setModelName(e.target.value);
+                              setTestState({ status: "idle" });
+                            }} 
+                            className="flex-1 bg-card border border-border text-slate-800 text-sm p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                          />
+                          <Button
+                            type="button"
+                            onClick={fetchOllamaModels}
+                            className="px-3.5 bg-slate-100 hover:bg-slate-200 border border-border text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
+                          >
+                            Retry
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {ollamaFetchState.status === "no_models" && (
+                      <div className="space-y-2">
+                        <div className="p-3 bg-amber-50 border border-amber-200 text-xs text-amber-800 rounded-xl space-y-1">
+                          <p className="font-semibold">⚠️ No Models Found</p>
+                          <p>No models found on your machine. Pull a model using <code className="bg-amber-100/60 px-1 py-0.5 rounded font-mono">ollama pull &lt;model-name&gt;</code>.</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <input 
+                            type="text" 
+                            placeholder="e.g. llama3, mistral"
+                            value={modelName} 
+                            onChange={(e) => {
+                              setModelName(e.target.value);
+                              setTestState({ status: "idle" });
+                            }} 
+                            className="flex-1 bg-card border border-border text-slate-800 text-sm p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                          />
+                          <Button
+                            type="button"
+                            onClick={fetchOllamaModels}
+                            className="px-3.5 bg-slate-100 hover:bg-slate-200 border border-border text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
+                          >
+                            Retry
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {(ollamaFetchState.status === "success" || (ollamaFetchState.status === "idle" && ollamaModels.length > 0)) && (
+                      <select
+                        value={modelName}
                         onChange={(e) => {
                           setModelName(e.target.value);
                           setTestState({ status: "idle" });
-                        }} 
+                        }}
                         className="w-full bg-card border border-border text-slate-800 text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
-                      />
-                      <p className="text-[10px] text-slate-550">
-                        No local models detected. Make sure Ollama is running and click Test Connection to retry.
-                      </p>
-                    </div>
-                  )
+                      >
+                        <option value="">Select a model...</option>
+                        {ollamaModels.map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </>
                 ) : (
                   <input 
                     type="text" 
@@ -291,7 +341,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 )}
                 
                 {/* Available models pills (if discovered from Ollama tags) */}
-                {provider === "ollama" && ollamaModels.length > 0 && (
+                {provider === "ollama" && ollamaModels.length > 0 && (ollamaFetchState.status === "success" || ollamaFetchState.status === "idle") && (
                   <div className="space-y-1 mt-2">
                     <span className="text-[10px] text-slate-550 block font-semibold">Quick Select:</span>
                     <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
