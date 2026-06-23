@@ -1,9 +1,5 @@
 import { config } from "../config/env";
-
-export interface PublishPostResponse {
-  postUrl?: string;
-  error?: string;
-}
+import type { PublishPostResponse } from "../types/index.js";
 
 export async function publishLinkedInPost(
   postContent: string, 

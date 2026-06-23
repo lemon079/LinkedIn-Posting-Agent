@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { provider, apiKey, modelName, ollamaBaseUrl, tavilyKey, liToken, liUrn } = body;
 
-    const updateData: Record<string, any> = {
+    const updateData: Record<string, string> = {
       user_id: user.id,
       llm_provider: provider,
       llm_model: modelName,

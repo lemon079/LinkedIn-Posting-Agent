@@ -18,7 +18,7 @@ test("publishLinkedInPost - success call with x-restli-id", async () => {
       headers: {
         get: (name: string) => (name === "x-restli-id" ? "urn:li:share:12345" : null),
       },
-    } as any;
+    } as Response;
   };
 
   try {
@@ -35,7 +35,7 @@ test("publishLinkedInPost - failure handling for non-201 response", async () => 
     return {
       status: 400,
       text: async () => "Invalid URN parameter",
-    } as any;
+    } as Response;
   };
 
   try {

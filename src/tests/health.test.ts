@@ -72,7 +72,7 @@ test("checkConnection - ollama failure when requested model not found", async ()
 test("checkConnection - cloud provider success", async () => {
   const originalInvoke = ChatGoogle.prototype.invoke;
   ChatGoogle.prototype.invoke = async function () {
-    return { content: "OK" } as any;
+    return { content: "OK" } as never;
   };
 
   try {

@@ -1,12 +1,10 @@
-export interface DraftResponse { draft: string; threadId: string; }
-export interface PublishResponse { postUrl: string; }
-export interface HealthResponse { ok: boolean; error?: string; models?: string[]; }
-
-interface CustomKeys {
-  provider: string; apiKey: string; liToken: string; liUrn: string;
-  modelName: string; ollamaBaseUrl: string; tavilyKey: string;
-  token?: string;
-}
+import type {
+  DraftResponse,
+  PublishResponse,
+  HealthResponse,
+  CustomKeys,
+  UserSettings
+} from "../types/index.js";
 
 const getHeaders = (keys?: CustomKeys) => {
   const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -63,15 +61,7 @@ export async function healthCheck(
   return res.json();
 }
 
-export interface UserSettings {
-  provider?: string;
-  apiKey?: string;
-  modelName?: string;
-  ollamaBaseUrl?: string;
-  tavilyKey?: string;
-  liToken?: string;
-  liUrn?: string;
-}
+// UserSettings interface is imported from types/index.js
 
 export async function fetchUserSettings(token: string): Promise<UserSettings> {
   const res = await fetch("/api/user/settings", {

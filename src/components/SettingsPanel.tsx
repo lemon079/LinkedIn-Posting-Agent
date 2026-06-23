@@ -198,7 +198,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             </div>
           ) : (
             <div className="bg-slate-50 border border-border p-4 rounded-xl space-y-4">
-              <AuthForm onSuccess={() => {}} />
+              <AuthForm onSuccess={() => { }} />
               <div className="border-t border-slate-200 pt-3">
                 <p className="text-xs text-slate-500 leading-relaxed font-medium">
                   <strong>Local Fallback Active:</strong> If you proceed without signing in, your settings are saved only in your local browser storage.
@@ -548,7 +548,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       <div className="p-6 border-t border-border bg-slate-50/30 flex items-center justify-between">
         <p className="text-xs text-slate-500 max-w-[50%]">
           {user
-            ? "Credentials are encrypted symmetrically and saved securely in your Supabase database."
+            ? "Credentials are encrypted symmetrically and saved securely in database."
             : "Credentials are saved locally in your browser storage and never stored on the server."}
         </p>
         <Button

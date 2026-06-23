@@ -3,13 +3,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatOllama } from "@langchain/ollama";
 import { config } from "../config/env";
-
-interface LLMOptions {
-  provider?: string;
-  apiKey?: string;
-  model?: string;
-  ollamaBaseUrl?: string;
-}
+import type { LLMOptions } from "../types/index.js";
 
 export const createLLM = (opts: LLMOptions = {}) => {
   const llmProvider = opts.provider || "gemini";

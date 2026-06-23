@@ -1,11 +1,6 @@
 import { createLLM } from "./llm";
 import { HumanMessage } from "@langchain/core/messages";
-
-interface HealthResult {
-  ok: boolean;
-  error?: string;
-  models?: string[];
-}
+import type { HealthResult } from "../types/index.js";
 
 export const checkConnection = async (
   provider: string, apiKey?: string, model?: string, ollamaBaseUrl?: string
