@@ -1,9 +1,9 @@
 import { StateGraph, START, END, MemorySaver } from "@langchain/langgraph";
-import { AgentState } from "../core/state.js";
-import type { State } from "../core/state.js";
-import { generatePost } from "./nodes/generatePost.js";
-import { validatePost } from "./nodes/validatePost.js";
-import { publishPost } from "./nodes/publishPost.js";
+import { AgentState } from "../core/state";
+import type { State } from "../core/state";
+import { generatePost } from "./nodes/generatePost";
+import { validatePost } from "./nodes/validatePost";
+import { publishPost } from "./nodes/publishPost";
 
 const routeValidation = (state: State) => {
   if (state.error) return END;

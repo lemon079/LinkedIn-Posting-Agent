@@ -1,12 +1,11 @@
-import { publishLinkedInPost } from "../../services/linkedin.js";
-import type { State } from "../../core/state.js";
+import { publishLinkedInPost } from "../../services/linkedin";
+import type { State } from "../../core/state";
 
 export const publishPost = async (state: State): Promise<Partial<State>> => {
   if (state.error || !state.postContent) return {};
   
   const response = await publishLinkedInPost(
     state.postContent,
-    state.dryRun,
     state.linkedinToken || undefined,
     state.linkedinUrn || undefined
   );

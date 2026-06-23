@@ -1,7 +1,7 @@
 import cron from "node-cron";
-import { agent } from "./graph/index.js";
-import { config } from "./config/env.js";
-import { getTopic, askQuestion } from "./core/utils.js";
+import { agent } from "./graph/index";
+import { config } from "./config/env";
+import { getTopic, askQuestion } from "./core/utils";
 
 export const runAgent = async (isScheduled: boolean): Promise<void> => {
   if (!config.GOOGLE_API_KEY) {

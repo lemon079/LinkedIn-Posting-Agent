@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert";
-import { checkConnection } from "../services/health.js";
-import { healthCheck } from "../controllers/health.js";
+import { checkConnection } from "../services/health";
 import { ChatGoogle } from "@langchain/google";
 
 const originalFetch = globalThis.fetch;
@@ -99,69 +98,4 @@ test("checkConnection - cloud provider failure with bad credentials", async () =
   }
 });
 
-test("healthCheck controller - returns 400 when provider is missing", async () => {
-  let statusResult = 0;
-  let jsonResult: any = null;
 
-  const mockReq: any = { body: {} };
-  const mockRes: any = {
-    status: (code: number) => {
-      statusResult = code;
-      return mockRes;
-    },
-    json: (data: any) => {
-      jsonResult = data;
-      return mockRes;
-    },
-  };
-
-  await healthCheck(mockReq, mockRes);
-  assert.strictEqual(statusResult, 400, "Should return 400 Bad Request");
-  assert.strictEqual(jsonResult.ok, false, "Should return ok: false");
-  assert.strictEqual(jsonResult.error, "Missing provider", "Should specify missing provider error");
-});
-
-test("healthCheck controller - returns Ollama models list on success", async () => {
-  let statusResult = 0;
-  let jsonResult: any = null;
-
-  const mockReq: any = {
-    body: {
-      provider: "ollama",
-      ollamaBaseUrl: "http://localhost:11434",
-    },
-  };
-  const mockRes: any = {
-    status: (code: number) => {
-      statusResult = code;
-      return mockRes;
-    },
-    json: (data: any) => {
-      jsonResult = data;
-      return mockRes;
-    },
-  };
-
-  globalThis.fetch = async () => {
-    return {
-      ok: true,
-      json: async () => ({
-        models: [
-          { name: "llama3:latest" },
-          { name: "mistral:latest" },
-        ],
-      }),
-    } as Response;
-  };
-
-  try {
-    await healthCheck(mockReq, mockRes);
-    assert.strictEqual(statusResult, 200, "Should return 200 OK");
-    assert.deepStrictEqual(jsonResult, {
-      ok: true,
-      models: ["llama3:latest", "mistral:latest"],
-    }, "Should return list of models from Ollama");
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});

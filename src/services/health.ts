@@ -1,4 +1,4 @@
-import { createLLM } from "./llm.js";
+import { createLLM } from "./llm";
 import { HumanMessage } from "@langchain/core/messages";
 
 interface HealthResult {

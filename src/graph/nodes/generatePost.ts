@@ -1,7 +1,7 @@
 import { HumanMessage } from "@langchain/core/messages";
-import { SYSTEM_PROMPT } from "../../core/prompts.js";
-import { createLLM } from "../../services/llm.js";
-import type { State } from "../../core/state.js";
+import { SYSTEM_PROMPT } from "../../core/prompts";
+import { createLLM } from "../../services/llm";
+import type { State } from "../../core/state";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { TavilySearch } from "@langchain/tavily";
 

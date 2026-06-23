@@ -2,7 +2,7 @@ import { ChatGoogle } from "@langchain/google";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatOllama } from "@langchain/ollama";
-import { config } from "../config/env.js";
+import { config } from "../config/env";
 
 interface LLMOptions {
   provider?: string;

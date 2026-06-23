@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert";
-import { createLLM } from "../services/llm.js";
+import { createLLM } from "../services/llm";
 import { ChatGoogle } from "@langchain/google";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatAnthropic } from "@langchain/anthropic";

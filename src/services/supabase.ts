@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { config } from "../config/env.js";
+import { config } from "../config/env";
 
 // Initialize the admin/service client if environment variables are provided.
 // Returns null if they are missing to allow running in local BYOK mode.
@@ -30,4 +30,20 @@ export function getSupabaseClient(token?: string) {
       headers
     }
   });
+}
+
+export async function verifyAuth(request: Request) {
+  if (!supabase) return null;
+  const authHeader = request.headers.get("authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return null;
+  }
+  const token = authHeader.split(" ")[1];
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) return null;
+    return user;
+  } catch {
+    return null;
+  }
 }

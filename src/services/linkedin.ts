@@ -1,4 +1,4 @@
-import { config } from "../config/env.js";
+import { config } from "../config/env";
 
 export interface PublishPostResponse {
   postUrl?: string;
@@ -7,16 +7,9 @@ export interface PublishPostResponse {
 
 export async function publishLinkedInPost(
   postContent: string, 
-  dryRunOverride?: boolean,
   customToken?: string,
   customUrn?: string
 ): Promise<PublishPostResponse> {
-  const isDryRun = dryRunOverride !== undefined ? dryRunOverride : config.DRY_RUN;
-  if (isDryRun) {
-    console.log("[DRY RUN] Would have published to LinkedIn:", postContent);
-    return { postUrl: "https://www.linkedin.com/feed/update/urn:li:activity:mock_dry_run_id" };
-  }
-
   const url = "https://api.linkedin.com/v2/ugcPosts";
   const authorUrn = customUrn || config.LINKEDIN_PERSON_URN;
   const token = customToken || config.LINKEDIN_ACCESS_TOKEN;

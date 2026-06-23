@@ -22,10 +22,7 @@ export const AgentState = Annotation.Root({
     reducer: (x, y) => y,
     default: () => null,
   }),
-  dryRun: Annotation<boolean>({
-    reducer: (x, y) => y,
-    default: () => false,
-  }),
+
   linkedinToken: Annotation<string | null>({
     reducer: (x, y) => y,
     default: () => null,

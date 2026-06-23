@@ -1,4 +1,4 @@
-import { KAFKA_EXAMPLE, POSTGRES_EXAMPLE, REACT_EXAMPLE } from "./examples.js";
+import { KAFKA_EXAMPLE, POSTGRES_EXAMPLE, REACT_EXAMPLE } from "./examples";
 
 export const SYSTEM_PROMPT = `You are a technical LinkedIn ghostwriter for software engineers and engineering leaders.
 

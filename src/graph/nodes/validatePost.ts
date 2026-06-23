@@ -1,4 +1,4 @@
-import type { State } from "../../core/state.js";
+import type { State } from "../../core/state";
 
 export const validatePost = async (state: State): Promise<Partial<State>> => {
   const content = state.postContent;

@@ -1,14 +1,10 @@
 import test from "node:test";
 import assert from "node:assert";
-import { publishLinkedInPost } from "../services/linkedin.js";
+import { publishLinkedInPost } from "../services/linkedin";
 
 const originalFetch = globalThis.fetch;
 
-test("publishLinkedInPost - handles dry run", async () => {
-  const result = await publishLinkedInPost("This is a test post", true);
-  assert.strictEqual(result.postUrl, "https://www.linkedin.com/feed/update/urn:li:activity:mock_dry_run_id");
-  assert.strictEqual(result.error, undefined);
-});
+
 
 test("publishLinkedInPost - success call with x-restli-id", async () => {
   globalThis.fetch = async (url, options) => {
@@ -26,7 +22,7 @@ test("publishLinkedInPost - success call with x-restli-id", async () => {
   };
 
   try {
-    const result = await publishLinkedInPost("Hello LinkedIn", false, "mock-token", "mock-urn");
+    const result = await publishLinkedInPost("Hello LinkedIn", "mock-token", "mock-urn");
     assert.strictEqual(result.postUrl, "https://www.linkedin.com/feed/update/urn:li:share:12345");
     assert.strictEqual(result.error, undefined);
   } finally {
@@ -43,7 +39,7 @@ test("publishLinkedInPost - failure handling for non-201 response", async () => 
   };
 
   try {
-    const result = await publishLinkedInPost("Hello LinkedIn", false, "mock-token", "mock-urn");
+    const result = await publishLinkedInPost("Hello LinkedIn", "mock-token", "mock-urn");
     assert.strictEqual(result.postUrl, undefined);
     assert.ok(result.error?.includes("LinkedIn API error: 400 - Invalid URN parameter"));
   } finally {
@@ -57,7 +53,7 @@ test("publishLinkedInPost - connection error handling", async () => {
   };
 
   try {
-    const result = await publishLinkedInPost("Hello LinkedIn", false, "mock-token", "mock-urn");
+    const result = await publishLinkedInPost("Hello LinkedIn", "mock-token", "mock-urn");
     assert.strictEqual(result.postUrl, undefined);
     assert.strictEqual(result.error, "DNS resolution failed");
   } finally {

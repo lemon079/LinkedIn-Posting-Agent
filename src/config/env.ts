@@ -8,7 +8,6 @@ export interface AppConfig {
   LINKEDIN_PERSON_URN: string;
   TOPIC?: string;
   CONTEXT: string;
-  DRY_RUN: boolean;
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
   ENCRYPTION_KEY: string;
@@ -19,7 +18,7 @@ export interface AppConfig {
 
 export function loadConfig(): AppConfig {
   const {
-    GOOGLE_API_KEY, LINKEDIN_ACCESS_TOKEN, LINKEDIN_PERSON_URN, TOPIC, CONTEXT, DRY_RUN,
+    GOOGLE_API_KEY, LINKEDIN_ACCESS_TOKEN, LINKEDIN_PERSON_URN, TOPIC, CONTEXT,
     SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ENCRYPTION_KEY,
     LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET, LINKEDIN_REDIRECT_URI
   } = process.env;
@@ -30,7 +29,6 @@ export function loadConfig(): AppConfig {
     LINKEDIN_PERSON_URN: LINKEDIN_PERSON_URN || "",
     TOPIC,
     CONTEXT: CONTEXT || "",
-    DRY_RUN: DRY_RUN === "true",
     SUPABASE_URL: SUPABASE_URL || "",
     SUPABASE_SERVICE_ROLE_KEY: SUPABASE_SERVICE_ROLE_KEY || "",
     ENCRYPTION_KEY: ENCRYPTION_KEY || "",
