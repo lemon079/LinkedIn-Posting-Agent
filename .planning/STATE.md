@@ -90,7 +90,7 @@ None yet.
 | 260622-imc | remove the ai image generation feature completely and its traces from codebase | 2026-06-22 | d50bfd2 | [260622-imc-remove-the-ai-image-generation-feature-c](./quick/260622-imc-remove-the-ai-image-generation-feature-c/) |
 | 260622-ja9 | implement dynamic model fetching for local ollama configurations in settings panel | 2026-06-22 | dbf7637 | [260622-ja9-implement-dynamic-model-fetching-for-loc](./quick/260622-ja9-implement-dynamic-model-fetching-for-loc/) |
 | 260622-p26 | remove tavily api from UI config, model name only for ollama, and clean up provider names | 2026-06-22 | 91ea568 | [260622-p26-remove-tavily-api-from-ui-config-model-n](./quick/260622-p26-remove-tavily-api-from-ui-config-model-n/) |
-| 260623-dry | remove the dry run feature completely | 2026-06-23 | pending | [260623-dry-remove-dry-run-feature-completely](./quick/260623-dry-remove-dry-run-feature-completely/) |
+| 260623-dry | remove the dry run feature completely | 2026-06-23 | 7a50f24 | [260623-dry-remove-dry-run-feature-completely](./quick/260623-dry-remove-dry-run-feature-completely/) |
 
 ## Session Continuity
 
