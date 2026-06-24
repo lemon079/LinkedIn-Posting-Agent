@@ -36,7 +36,14 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col antialiased selection:bg-brand-blue/20">
-      <Header onOpenSettings={() => setIsSettingsOpen(true)} />
+      <Header
+        onOpenSettings={() => {
+          if (!isGenerating) {
+            setIsSettingsOpen(true);
+          }
+        }}
+        disabled={isGenerating}
+      />
       <main className="flex-1 p-6 max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
         <div className="lg:col-span-2">
           <ControlPanel
