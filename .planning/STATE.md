@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 Phase: N/A (Milestone complete)
 Plan: N/A
 Status: Complete
-Last activity: 2026-06-24 - Completed quick task 260624-jvz: fix sheet transitions for smooth open and close on desktop
+Last activity: 2026-06-24 - Completed quick task 260624-p17: disable settings access during post generation
 
 Progress: [██████████] 100% (6/6 plans complete)
 
@@ -102,6 +102,7 @@ None yet.
 | 260624-idm | remove manual Access Token and Person URN inputs | 2026-06-24 | ee38594 | [260624-idm-remove-manual-access-token-and-person-ur](./quick/260624-idm-remove-manual-access-token-and-person-ur/) |
 | 260624-jpw | polish settings panel UI placeholders, transitions, signout text, and errors | 2026-06-24 | 9dfc14d | [260624-jpw-polish-settings-panel-ui-placeholders-tr](./quick/260624-jpw-polish-settings-panel-ui-placeholders-tr/) |
 | 260624-jvz | fix sheet transitions for smooth open and close on desktop | 2026-06-24 | 4d19f56 | [260624-jvz-fix-sheet-transitions-for-smooth-open-an](./quick/260624-jvz-fix-sheet-transitions-for-smooth-open-an/) |
+| 260624-p17 | disable settings access during post generation | 2026-06-24 | 3061f39 | [260624-p17-disable-settings-access-during-post-gene](./quick/260624-p17-disable-settings-access-during-post-gene/) |
 
 ## Session Continuity
 
