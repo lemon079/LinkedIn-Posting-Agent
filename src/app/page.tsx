@@ -21,7 +21,7 @@ export default function Home() {
     setSelectedTopic, setCustomTopic, setContext, setDraftText,
     setActiveTab, handleGenerate, handlePublish,
     setProvider, setApiKey, setModelName, setOllamaBaseUrl, setTavilyKey,
-    setLiToken, setLiUrn, setIsSettingsOpen,
+    setIsSettingsOpen,
   } = agentState;
 
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -83,8 +83,8 @@ export default function Home() {
         modelName={modelName} setModelName={setModelName}
         ollamaBaseUrl={ollamaBaseUrl} setOllamaBaseUrl={setOllamaBaseUrl}
         tavilyKey={tavilyKey} setTavilyKey={setTavilyKey}
-        liToken={liToken} setLiToken={setLiToken}
-        liUrn={liUrn} setLiUrn={setLiUrn}
+        liToken={liToken}
+        liUrn={liUrn}
         user={user}
       />
 

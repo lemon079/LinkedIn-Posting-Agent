@@ -35,9 +35,7 @@ interface SettingsPanelProps {
   tavilyKey: string;
   setTavilyKey: (val: string) => void;
   liToken: string;
-  setLiToken: (val: string) => void;
   liUrn: string;
-  setLiUrn: (val: string) => void;
   user: User | null;
 }
 
@@ -55,9 +53,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   tavilyKey,
   setTavilyKey,
   liToken,
-  setLiToken,
   liUrn,
-  setLiUrn,
   user,
 }) => {
   const [testState, setTestState] = useState<{
@@ -498,40 +494,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 </div>
               </div>
             )}
-
-            <div className="relative flex py-1 items-center">
-              <div className="flex-1 border-t border-slate-200"></div>
-              <span className="shrink mx-3 text-slate-400 text-xs font-semibold uppercase tracking-wider">Or Configure Manually</span>
-              <div className="flex-1 border-t border-slate-200"></div>
-            </div>
-
-            {/* Access Token */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-700">
-                Access Token
-              </Label>
-              <input
-                type="password"
-                placeholder="AQW..."
-                value={liToken}
-                onChange={(e) => setLiToken(e.target.value)}
-                className="w-full bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
-              />
-            </div>
-
-            {/* Person URN */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-700">
-                Person URN
-              </Label>
-              <input
-                type="text"
-                placeholder="urn:li:person:..."
-                value={liUrn}
-                onChange={(e) => setLiUrn(e.target.value)}
-                className="w-full bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
-              />
-            </div>
           </div>
         </div>
       </div>
