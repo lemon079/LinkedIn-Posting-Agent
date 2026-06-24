@@ -41,6 +41,7 @@ describe("Frontend Dashboard UI", () => {
     liUrn: "",
     isSettingsOpen: false,
     user: null,
+    isTauri: false,
     setSelectedTopic: jest.fn(),
     setCustomTopic: jest.fn(),
     setContext: jest.fn(),
@@ -53,6 +54,8 @@ describe("Frontend Dashboard UI", () => {
     setModelName: jest.fn(),
     setOllamaBaseUrl: jest.fn(),
     setTavilyKey: jest.fn(),
+    setLiToken: jest.fn(),
+    setLiUrn: jest.fn(),
     setIsSettingsOpen: jest.fn(),
   };
 
@@ -137,5 +140,40 @@ describe("Frontend Dashboard UI", () => {
     expect(
       screen.getByRole("button", { name: /Approve & Publish Post/i })
     ).toBeInTheDocument();
+  });
+
+  test("hides Ollama provider option when isTauri is false", () => {
+    (useAgent as jest.Mock).mockReturnValue({
+      ...mockDefaultState,
+      isSettingsOpen: true,
+      isTauri: false,
+    });
+
+    render(<Home />);
+
+    const ollamaOptions = screen.queryAllByRole("option", { name: /Ollama/i });
+    expect(ollamaOptions.length).toBe(0);
+
+    const googleOptions = screen.getAllByRole("option", { name: /Google/i });
+    expect(googleOptions.length).toBeGreaterThanOrEqual(1);
+
+    const openaiOptions = screen.getAllByRole("option", { name: /OpenAI/i });
+    expect(openaiOptions.length).toBeGreaterThanOrEqual(1);
+
+    const anthropicOptions = screen.getAllByRole("option", { name: /Anthropic/i });
+    expect(anthropicOptions.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test("shows Ollama provider option when isTauri is true", () => {
+    (useAgent as jest.Mock).mockReturnValue({
+      ...mockDefaultState,
+      isSettingsOpen: true,
+      isTauri: true,
+    });
+
+    render(<Home />);
+
+    const ollamaOptions = screen.getAllByRole("option", { name: /Ollama/i });
+    expect(ollamaOptions.length).toBeGreaterThanOrEqual(1);
   });
 });

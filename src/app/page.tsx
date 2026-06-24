@@ -14,14 +14,14 @@ import { AuthForm } from "@/components/AuthForm";
 export default function Home() {
   const agentState = useAgent();
   const {
-    topics, selectedTopic, customTopic, context,
+    customTopic, context,
     draftText, postUrl, isGenerating, isPublishing, error, activeTab,
     provider, apiKey, modelName, ollamaBaseUrl, tavilyKey, liToken, liUrn, isSettingsOpen,
-    user,
-    setSelectedTopic, setCustomTopic, setContext, setDraftText,
+    user, isTauri,
+    setCustomTopic, setContext, setDraftText,
     setActiveTab, handleGenerate, handlePublish,
     setProvider, setApiKey, setModelName, setOllamaBaseUrl, setTavilyKey,
-    setIsSettingsOpen,
+    setLiToken, setLiUrn, setIsSettingsOpen,
   } = agentState;
 
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -47,10 +47,12 @@ export default function Home() {
       <main className="flex-1 p-6 max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
         <div className="lg:col-span-2">
           <ControlPanel
-            topics={topics} selectedTopic={selectedTopic} customTopic={customTopic}
-            context={context} isGenerating={isGenerating}
-            setSelectedTopic={setSelectedTopic} setCustomTopic={setCustomTopic}
-            setContext={setContext} onGenerate={handleGenerate}
+            customTopic={customTopic}
+            context={context}
+            isGenerating={isGenerating}
+            setCustomTopic={setCustomTopic}
+            setContext={setContext}
+            onGenerate={handleGenerate}
           />
         </div>
         <div className="lg:col-span-3 space-y-6">
@@ -91,8 +93,11 @@ export default function Home() {
         ollamaBaseUrl={ollamaBaseUrl} setOllamaBaseUrl={setOllamaBaseUrl}
         tavilyKey={tavilyKey} setTavilyKey={setTavilyKey}
         liToken={liToken}
+        setLiToken={setLiToken}
         liUrn={liUrn}
+        setLiUrn={setLiUrn}
         user={user}
+        isTauri={isTauri}
       />
 
       {showLoginModal && (

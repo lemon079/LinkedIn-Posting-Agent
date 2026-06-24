@@ -36,8 +36,11 @@ interface SettingsPanelProps {
   tavilyKey: string;
   setTavilyKey: (val: string) => void;
   liToken: string;
+  setLiToken: (val: string) => void;
   liUrn: string;
+  setLiUrn: (val: string) => void;
   user: User | null;
+  isTauri: boolean;
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
@@ -54,8 +57,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   tavilyKey,
   setTavilyKey,
   liToken,
+  setLiToken,
   liUrn,
+  setLiUrn,
   user,
+  isTauri,
 }) => {
   const [testState, setTestState] = useState<{
     status: "idle" | "testing" | "success" | "error";
@@ -193,6 +199,30 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 ✓ Settings synchronized. Your configurations are saved securely.
               </p>
             </div>
+          ) : liToken ? (
+            <div className="bg-slate-50 border border-border p-4 rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-xs font-semibold text-slate-500">LinkedIn Account</p>
+                  <p className="text-sm font-bold text-slate-800">Connected (Local Mode)</p>
+                </div>
+                <Button
+                  onClick={() => {
+                    setLiToken("");
+                    setLiUrn("");
+                    localStorage.removeItem("li_token");
+                    localStorage.removeItem("li_urn");
+                  }}
+                  className="bg-white hover:bg-slate-50 border border-border text-slate-700 hover:text-rose-600 hover:border-rose-200 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition duration-150 cursor-pointer"
+                >
+                  <LogOut className="size-3.5" />
+                  Disconnect
+                </Button>
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Settings are saved locally in this browser. Configure Supabase environment variables on the server to enable cloud synchronization.
+              </p>
+            </div>
           ) : (
             <div className="bg-slate-50 border border-border p-4 rounded-xl space-y-4">
               <AuthForm onSuccess={() => { }} />
@@ -232,7 +262,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 <option value="gemini">Google</option>
                 <option value="openai">OpenAI</option>
                 <option value="anthropic">Anthropic</option>
-                <option value="ollama">Ollama</option>
+                {isTauri && <option value="ollama">Ollama</option>}
               </select>
             </div>
 

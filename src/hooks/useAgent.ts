@@ -11,6 +11,11 @@ const getSafeLocalStorage = (key: string, fallback: string): string => {
   return fallback;
 };
 
+const isTauri = typeof window !== "undefined" && (
+  (window as unknown as Record<string, unknown>).__TAURI__ !== undefined ||
+  (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ !== undefined
+);
+
 export function useAgent() {
   const [topics, setTopics] = useState<string[]>([]);
   const [selectedTopic, setSelectedTopic] = useState("");
@@ -22,7 +27,10 @@ export function useAgent() {
   const [activeTab, setActiveTab] = useState<"preview" | "edit">("preview");
   const [status, setStatus] = useState({ gen: false, pub: false, err: null as string | null });
 
-  const [provider, setProvider] = useState(() => getSafeLocalStorage("llm_provider", "gemini"));
+  const [provider, setProvider] = useState(() => {
+    const stored = getSafeLocalStorage("llm_provider", "gemini");
+    return (!isTauri && stored === "ollama") ? "gemini" : stored;
+  });
   const [apiKey, setApiKey] = useState(() => getSafeLocalStorage("llm_api_key", ""));
   const [modelName, setModelName] = useState(() => getSafeLocalStorage("llm_model", ""));
   const [ollamaBaseUrl, setOllamaBaseUrl] = useState(() => getSafeLocalStorage("ollama_base_url", "http://localhost:11434"));
@@ -36,12 +44,22 @@ export function useAgent() {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
+  // Fallback check: if on web/mobile and provider is ollama, revert to gemini
+  useEffect(() => {
+    if (!isTauri && provider === "ollama") {
+      setTimeout(() => {
+        setProvider("gemini");
+      }, 0);
+    }
+  }, [provider]);
+
   // 1. Fetch user settings from Supabase
   useEffect(() => {
     const fetchSettings = async (t: string) => {
       try {
         const settings = await fetchUserSettings(t);
-        setProvider(settings.provider || "gemini");
+        const resolvedProvider = settings.provider || "gemini";
+        setProvider((!isTauri && resolvedProvider === "ollama") ? "gemini" : resolvedProvider);
         setApiKey(settings.apiKey || "");
         setModelName(settings.modelName || "");
         setOllamaBaseUrl(settings.ollamaBaseUrl || "http://localhost:11434");
@@ -128,7 +146,7 @@ export function useAgent() {
       const url = new URL(window.location.href);
       url.searchParams.delete("li_token");
       url.searchParams.delete("li_urn");
-      window.history.replaceState({}, document.title, url.pathname + url.search);
+      window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
     }
   }, [token, provider, apiKey, modelName, ollamaBaseUrl, tavilyKey]);
 
@@ -167,7 +185,7 @@ export function useAgent() {
     topics, selectedTopic, customTopic, context, draftText, threadId, postUrl, activeTab,
     isGenerating: status.gen, isPublishing: status.pub, error: status.err,
     provider, apiKey, modelName, ollamaBaseUrl, tavilyKey, liToken, liUrn, isSettingsOpen,
-    user, token,
+    user, token, isTauri,
     setSelectedTopic, setCustomTopic, setContext, setDraftText, setActiveTab,
     setProvider, setApiKey, setModelName, setOllamaBaseUrl, setTavilyKey,
     setLiToken, setLiUrn, setIsSettingsOpen,
