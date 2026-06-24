@@ -4,19 +4,6 @@ An intelligent, stateful AI agent and dashboard designed to automate, search, dr
 
 ---
 
-## 🚀 Architecture & "Why We Use What"
-
-Our architecture is designed to support both localized desktop/mobile executions and secure cloud-synchronized profiles.
-
-```mermaid
-graph TD
-    A[React UI / Client App] -->|REST API fetches| B[Next.js API Routes]
-    B -->|Invokes State Graph| C[LangGraph Orchestrator]
-    C -->|Generates Draft| D[AI Models: Gemini / OpenAI / Anthropic / Ollama]
-    C -->|Grounds Details| E[Tavily Search API]
-    A -->|Authenticates / Syncs Settings| F[Supabase Cloud Database]
-    B -->|Encrypts Sensitive Keys| F
-```
 
 ### 1. Unified React & Next.js Framework
 * **Why**: Next.js provides standard React frontend capabilities combined with high-performance edge/serverless API routes. This allows us to run our UI, authentication redirects, and backend orchestration logic in a single unified codebase.
@@ -140,19 +127,5 @@ npm run build:static
    ```
 
 ---
-
-## 📝 Troubleshooting & FAQ
-
-#### 1. Why does my Tauri release app open up to a "404 Not Found" page?
-* **Reason**: Tauri's webview loads `/index.html` on startup. Next.js App Router reads this pathname and fails to match it.
-* **Solution**: Ensure your [layout.tsx](src/app/layout.tsx) includes the head routing script to rewrite `/index.html` to `/` on client initialization:
-  ```javascript
-  if (window.location.pathname.endsWith('/index.html')) {
-    const safePath = window.location.pathname.replace(/\/index\.html$/, '') || '/';
-    window.history.replaceState(null, '', safePath + window.location.search);
-  }
-  ```
-
-#### 2. EPERM: operation not permitted rename during `build:static`
 * **Reason**: Windows locks the `src/app/api` directory because a dev server (like `npx tauri dev` or Next.js dev server) is watching it.
 * **Solution**: Close all active dev servers (`Ctrl+C`) and run the build command again.
