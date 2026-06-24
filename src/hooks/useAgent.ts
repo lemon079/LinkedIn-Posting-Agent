@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { fetchTopics, generateDraft, publishPost, fetchUserSettings, saveUserSettings } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import type { User } from "@supabase/supabase-js";
+import { cleanErrorMessage } from "../lib/utils";
 
 const getSafeLocalStorage = (key: string, fallback: string): string => {
   if (typeof window !== "undefined") {
@@ -26,6 +27,7 @@ export function useAgent() {
   const [modelName, setModelName] = useState(() => getSafeLocalStorage("llm_model", ""));
   const [ollamaBaseUrl, setOllamaBaseUrl] = useState(() => getSafeLocalStorage("ollama_base_url", "http://localhost:11434"));
   const [tavilyKey, setTavilyKey] = useState(() => getSafeLocalStorage("tavily_key", ""));
+
   const [liToken, setLiToken] = useState(() => getSafeLocalStorage("li_token", ""));
   const [liUrn, setLiUrn] = useState(() => getSafeLocalStorage("li_urn", ""));
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -34,15 +36,31 @@ export function useAgent() {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
-  // 1. Fetch default topics on mount
+  // 1. Fetch user settings from Supabase
   useEffect(() => {
-    fetchTopics().then(setTopics).catch((e) => console.error("Load topics err:", e));
-  }, []);
+    const fetchSettings = async (t: string) => {
+      try {
+        const settings = await fetchUserSettings(t);
+        setProvider(settings.llm_provider || "gemini");
+        setApiKey(settings.encrypted_api_key || "");
+        setModelName(settings.llm_model || "");
+        setOllamaBaseUrl(settings.ollama_base_url || "http://localhost:11434");
+        setTavilyKey(settings.encrypted_tavily_key || "");
+        setLiToken(settings.encrypted_linkedin_token || "");
+        setLiUrn(settings.linkedin_urn || "");
+      } catch (err) {
+        console.error("Error loading user settings from PostgreSQL:", err);
+      }
+    };
 
-  // 2. Subscribe to Supabase Auth State Changes
+    if (token) {
+      fetchSettings(token);
+    }
+  }, [token]);
+
+  // 2. Load auth session
   useEffect(() => {
     if (!supabase) return;
-
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setToken(session?.access_token ?? null);
@@ -56,29 +74,17 @@ export function useAgent() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // 3. Load user settings from PostgreSQL once logged in
+  // 3. Load public topics
   useEffect(() => {
-    if (!token) return;
+    fetchTopics()
+      .then((t) => setTopics(t))
+      .catch((e) => console.error("Error loading topics:", e));
+  }, []);
 
-    fetchUserSettings(token)
-      .then((data) => {
-        if (data && data.provider) {
-          setProvider(data.provider);
-          setApiKey(data.apiKey || "");
-          setModelName(data.modelName || "");
-          setOllamaBaseUrl(data.ollamaBaseUrl || "http://localhost:11434");
-          setTavilyKey(data.tavilyKey || "");
-          setLiToken(data.liToken || "");
-          setLiUrn(data.liUrn || "");
-        }
-      })
-      .catch((e) => console.error("Error loading user settings from PostgreSQL:", e));
-  }, [token]);
-
-  // 4. Save settings to DB or LocalStorage when the settings modal closes
-  const [prevSettingsOpen, setPrevSettingsOpen] = useState(isSettingsOpen);
+  // 4. Save settings locally or to Postgres when settings panel is closed
+  const prevSettingsOpen = useRef(isSettingsOpen);
   useEffect(() => {
-    if (prevSettingsOpen && !isSettingsOpen) {
+    if (prevSettingsOpen.current && !isSettingsOpen) {
       if (token) {
         saveUserSettings({ provider, apiKey, modelName, ollamaBaseUrl, tavilyKey, liToken, liUrn }, token)
           .catch((e) => console.error("Error saving user settings to PostgreSQL on close:", e));
@@ -92,8 +98,8 @@ export function useAgent() {
         localStorage.setItem("li_urn", liUrn);
       }
     }
-    setPrevSettingsOpen(isSettingsOpen);
-  }, [isSettingsOpen, provider, apiKey, modelName, ollamaBaseUrl, tavilyKey, liToken, liUrn, token, prevSettingsOpen]);
+    prevSettingsOpen.current = isSettingsOpen;
+  }, [isSettingsOpen, provider, apiKey, modelName, ollamaBaseUrl, tavilyKey, liToken, liUrn, token]);
 
   // 5. Intercept LinkedIn OAuth callback tokens from URL query parameters
   useEffect(() => {
@@ -102,8 +108,10 @@ export function useAgent() {
     const oauthUrn = params.get("li_urn");
 
     if (oauthToken && oauthUrn) {
-      setLiToken(oauthToken);
-      setLiUrn(oauthUrn);
+      setTimeout(() => {
+        setLiToken(oauthToken);
+        setLiUrn(oauthUrn);
+      }, 0);
 
       if (token) {
         saveUserSettings({
@@ -134,7 +142,8 @@ export function useAgent() {
       const data = await generateDraft(topic, context, customKeys);
       setDraftText(data.draft); setThreadId(data.threadId); setActiveTab("edit");
     } catch (err: unknown) {
-      setStatus(p => ({ ...p, err: err instanceof Error ? err.message : "Unknown error" }));
+      const rawMsg = err instanceof Error ? err.message : "Unknown error";
+      setStatus(p => ({ ...p, err: cleanErrorMessage(rawMsg) }));
     } finally {
       setStatus(p => ({ ...p, gen: false }));
     }
@@ -147,7 +156,8 @@ export function useAgent() {
       const data = await publishPost(threadId, draftText, customKeys);
       setPostUrl(data.postUrl); setDraftText(null); setThreadId(null);
     } catch (err: unknown) {
-      setStatus(p => ({ ...p, err: err instanceof Error ? err.message : "Unknown error" }));
+      const rawMsg = err instanceof Error ? err.message : "Unknown error";
+      setStatus(p => ({ ...p, err: cleanErrorMessage(rawMsg) }));
     } finally {
       setStatus(p => ({ ...p, pub: false }));
     }

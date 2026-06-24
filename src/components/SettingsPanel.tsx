@@ -8,6 +8,7 @@ import { healthCheck } from "../lib/api";
 import { AuthForm } from "./AuthForm";
 import { supabase } from "../lib/supabase";
 import type { User } from "@supabase/supabase-js";
+import { cleanErrorMessage } from "../lib/utils";
 import {
   CheckCircle2,
   XCircle,
@@ -37,29 +38,6 @@ interface SettingsPanelProps {
   liToken: string;
   liUrn: string;
   user: User | null;
-}
-
-function cleanErrorMessage(rawError: string): string {
-  const err = rawError.toLowerCase();
-  if (err.includes("key") && (err.includes("invalid") || err.includes("not found") || err.includes("bad") || err.includes("401") || err.includes("403"))) {
-    return "Invalid API Key. Please verify and update your key.";
-  }
-  if (err.includes("fetch failed") || err.includes("econnrefused") || err.includes("enotfound") || err.includes("failed to fetch") || err.includes("network")) {
-    return "Network connection failed. Please check your internet connection and verify if the service is running.";
-  }
-  if (err.includes("rate limit") || err.includes("quota") || err.includes("429") || err.includes("exhausted")) {
-    return "API rate limit or quota exceeded. Please check your billing or try again later.";
-  }
-  if (err.includes("model") && (err.includes("not found") || err.includes("does not exist") || err.includes("404"))) {
-    return "The selected model was not found or is not supported.";
-  }
-  if (err.includes("unreachable")) {
-    return "The service is unreachable. Please verify the URL and check if the service is running.";
-  }
-  if (rawError.length < 80) {
-    return rawError;
-  }
-  return "Connection failed. Please verify your credentials and network settings.";
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
