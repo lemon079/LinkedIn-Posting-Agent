@@ -47,6 +47,10 @@ export const AgentState = Annotation.Root({
     reducer: (x, y) => y,
     default: () => null,
   }),
+  tavilyApiKey: Annotation<string | null>({
+    reducer: (x, y) => y,
+    default: () => null,
+  }),
 });
 
 export type State = typeof AgentState.State;

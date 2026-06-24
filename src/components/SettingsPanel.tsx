@@ -490,7 +490,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 </div>
                 <a
                   href={`/api/auth/linkedin?state=${user ? encodeURIComponent(user.id) : "local"}`}
-                  className="text-xs text-[#0a66c2] hover:text-[#004182] hover:underline font-bold whitespace-nowrap shrink-0"
+                  className="text-xs text-[#0a66c2] hover:text-brand-blue-hover hover:underline font-bold whitespace-nowrap shrink-0"
                 >
                   Reconnect
                 </a>
@@ -498,7 +498,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             ) : (
               <a
                 href={`/api/auth/linkedin?state=${user ? encodeURIComponent(user.id) : "local"}`}
-                className="flex items-center justify-center gap-2 bg-[#0a66c2] hover:bg-[#004182] active:bg-[#004182] text-white px-5 py-3.5 rounded-xl font-bold transition duration-200 shadow-md cursor-pointer text-sm w-full text-center"
+                className="flex items-center justify-center gap-2 bg-[#0a66c2] hover:bg-brand-blue-hover active:bg-brand-blue-hover text-white px-5 py-3.5 rounded-xl font-bold transition duration-200 shadow-md cursor-pointer text-sm w-full text-center"
               >
                 <svg className="size-4 shrink-0 fill-current" viewBox="0 0 24 24">
                   <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.779-1.75-1.75s.784-1.75 1.75-1.75 1.75.779 1.75 1.75-.784 1.75-1.75 1.75zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
@@ -509,7 +509,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
             <div className="relative flex py-1 items-center">
               <div className="flex-1 border-t border-slate-200"></div>
-              <span className="flex-shrink mx-3 text-slate-400 text-xs font-semibold uppercase tracking-wider">Or Config Manually</span>
+              <span className="shrink mx-3 text-slate-400 text-xs font-semibold uppercase tracking-wider">Or Config Manually</span>
               <div className="flex-1 border-t border-slate-200"></div>
             </div>
 

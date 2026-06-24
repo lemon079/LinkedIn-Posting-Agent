@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ControlPanel } from "@/components/ControlPanel";
 import { LinkedInFeed } from "@/components/LinkedInFeed";
 import { EditorPanel } from "@/components/EditorPanel";
@@ -7,7 +8,8 @@ import { SettingsPanel } from "@/components/SettingsPanel";
 import { Header } from "@/components/Header";
 import { DraftTabs } from "@/components/DraftTabs";
 import { useAgent } from "@/hooks/useAgent";
-import { FileText } from "lucide-react";
+import { FileText, X } from "lucide-react";
+import { AuthForm } from "@/components/AuthForm";
 
 export default function Home() {
   const agentState = useAgent();
@@ -21,6 +23,16 @@ export default function Home() {
     setProvider, setApiKey, setModelName, setOllamaBaseUrl, setTavilyKey,
     setLiToken, setLiUrn, setIsSettingsOpen,
   } = agentState;
+
+  const [showLoginModal, setShowLoginModal] = useState(false);
+
+  const onPublishClick = () => {
+    if (!user) {
+      setShowLoginModal(true);
+    } else {
+      handlePublish();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col antialiased selection:bg-brand-blue/20">
@@ -59,7 +71,7 @@ export default function Home() {
               <DraftTabs
                 activeTab={activeTab} setActiveTab={setActiveTab}
               />
-              {activeTab === "preview" ? <LinkedInFeed draftText={draftText} /> : <EditorPanel draftText={draftText} isPublishing={isPublishing} onChange={setDraftText} onPublish={handlePublish} />}
+              {activeTab === "preview" ? <LinkedInFeed draftText={draftText} /> : <EditorPanel draftText={draftText} isPublishing={isPublishing} onChange={setDraftText} onPublish={onPublishClick} />}
             </div>
           )}
         </div>
@@ -75,6 +87,21 @@ export default function Home() {
         liUrn={liUrn} setLiUrn={setLiUrn}
         user={user}
       />
+
+      {showLoginModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-[100] animate-fade-in transition-all duration-300">
+          <div className="bg-card border border-border rounded-2xl shadow-xl max-w-sm w-full p-6 relative animate-fade-in-up">
+            <button
+              onClick={() => setShowLoginModal(false)}
+              className="absolute top-4 right-4 text-slate-450 hover:text-slate-700 transition p-1 hover:bg-slate-100 rounded-lg cursor-pointer"
+              aria-label="Close"
+            >
+              <X className="size-4" />
+            </button>
+            <AuthForm />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

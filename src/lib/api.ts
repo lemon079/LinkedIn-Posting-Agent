@@ -13,6 +13,7 @@ const getHeaders = (keys?: CustomKeys) => {
     if (keys.apiKey) h["x-llm-api-key"] = keys.apiKey;
     if (keys.modelName) h["x-llm-model"] = keys.modelName;
     if (keys.ollamaBaseUrl) h["x-ollama-base-url"] = keys.ollamaBaseUrl;
+    if (keys.tavilyKey) h["x-tavily-key"] = keys.tavilyKey;
     if (keys.liToken) h["x-linkedin-token"] = keys.liToken;
     if (keys.liUrn) h["x-linkedin-urn"] = keys.liUrn;
     if (keys.token) h["Authorization"] = `Bearer ${keys.token}`;

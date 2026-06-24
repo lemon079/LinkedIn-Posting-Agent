@@ -28,14 +28,16 @@ export const generatePost = async (state: State): Promise<Partial<State>> => {
     const userPrompt = buildPrompt(state);
     const isOllama = (state.llmProvider || "gemini") === "ollama";
 
-    if (isOllama) {
+    const tavilyKey = state.tavilyApiKey || process.env.TAVILY_API_KEY || "";
+
+    if (isOllama || !tavilyKey) {
       const res = await llm.invoke([
         new HumanMessage(`${SYSTEM_PROMPT}\n\n${userPrompt}`),
       ]);
       return { postContent: res.content as string };
     }
 
-    const searchTool = new TavilySearch({ maxResults: 3, topic: "general" });
+    const searchTool = new TavilySearch({ tavilyApiKey: tavilyKey, maxResults: 3, topic: "general" });
     const agent = createReactAgent({
       llm,
       tools: [searchTool],

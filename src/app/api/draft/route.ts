@@ -18,6 +18,7 @@ export async function POST(request: Request) {
     let apiKey = reqHeaders.get("x-llm-api-key") || undefined;
     let model = reqHeaders.get("x-llm-model") || undefined;
     let ollamaUrl = reqHeaders.get("x-ollama-base-url") || undefined;
+    let tavilyKey = reqHeaders.get("x-tavily-key") || undefined;
     let liToken = reqHeaders.get("x-linkedin-token") || undefined;
     let liUrn = reqHeaders.get("x-linkedin-urn") || undefined;
 
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
         apiKey = data.encrypted_api_key ? decrypt(data.encrypted_api_key) : apiKey;
         model = data.llm_model || model;
         ollamaUrl = data.ollama_base_url || ollamaUrl;
+        tavilyKey = data.encrypted_tavily_key ? decrypt(data.encrypted_tavily_key) : tavilyKey;
         liToken = data.encrypted_linkedin_token ? decrypt(data.encrypted_linkedin_token) : liToken;
         liUrn = data.linkedin_urn || liUrn;
       }
@@ -57,6 +59,7 @@ export async function POST(request: Request) {
       llmApiKey: apiKey || null,
       llmModel: model || null,
       ollamaBaseUrl: ollamaUrl || null,
+      tavilyApiKey: tavilyKey || null,
       linkedinToken: liToken || null,
       linkedinUrn: liUrn || null,
     };
