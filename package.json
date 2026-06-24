@@ -5,11 +5,16 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:static": "node scripts/build-static.js",
     "start": "next start",
     "lint": "eslint",
     "test": "tsx --test src/tests/*.test.ts"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/ios": "^8.4.1",
     "@google/generative-ai": "^0.24.1",
     "@langchain/anthropic": "^1.5.1",
     "@langchain/core": "^1.2.1",
@@ -35,6 +40,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@tauri-apps/cli": "^2.11.3",
     "@types/node": "^20",
     "@types/node-cron": "^3.0.11",
     "@types/react": "^19",

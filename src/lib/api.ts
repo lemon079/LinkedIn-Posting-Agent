@@ -6,6 +6,8 @@ import type {
   UserSettings
 } from "../types/index.js";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
+
 const getHeaders = (keys?: CustomKeys) => {
   const h: Record<string, string> = { "Content-Type": "application/json" };
   if (keys) {
@@ -22,7 +24,7 @@ const getHeaders = (keys?: CustomKeys) => {
 };
 
 export async function fetchTopics(): Promise<string[]> {
-  const res = await fetch("/api/topics");
+  const res = await fetch(`${API_BASE_URL}/api/topics`);
   if (!res.ok) throw new Error("Failed to load topics");
   return res.json();
 }
@@ -30,7 +32,7 @@ export async function fetchTopics(): Promise<string[]> {
 export async function generateDraft(
   topic: string, context: string, keys?: CustomKeys
 ): Promise<DraftResponse> {
-  const res = await fetch("/api/draft", {
+  const res = await fetch(`${API_BASE_URL}/api/draft`, {
     method: "POST", headers: getHeaders(keys),
     body: JSON.stringify({ topic, context }),
   });
@@ -42,7 +44,7 @@ export async function generateDraft(
 export async function publishPost(
   threadId: string, draft: string, keys?: CustomKeys
 ): Promise<PublishResponse> {
-  const res = await fetch("/api/publish", {
+  const res = await fetch(`${API_BASE_URL}/api/publish`, {
     method: "POST", headers: getHeaders(keys),
     body: JSON.stringify({ threadId, draft }),
   });
@@ -51,11 +53,10 @@ export async function publishPost(
   return data;
 }
 
-
 export async function healthCheck(
   provider: string, apiKey?: string, model?: string, ollamaBaseUrl?: string
 ): Promise<HealthResponse> {
-  const res = await fetch("/api/health-check", {
+  const res = await fetch(`${API_BASE_URL}/api/health-check`, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ provider, apiKey, model, ollamaBaseUrl }),
   });
@@ -65,7 +66,7 @@ export async function healthCheck(
 // UserSettings interface is imported from types/index.js
 
 export async function fetchUserSettings(token: string): Promise<UserSettings> {
-  const res = await fetch("/api/user/settings", {
+  const res = await fetch(`${API_BASE_URL}/api/user/settings`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error("Failed to load user settings");
@@ -73,7 +74,7 @@ export async function fetchUserSettings(token: string): Promise<UserSettings> {
 }
 
 export async function saveUserSettings(settings: UserSettings, token: string): Promise<{ ok: boolean }> {
-  const res = await fetch("/api/user/settings", {
+  const res = await fetch(`${API_BASE_URL}/api/user/settings`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
