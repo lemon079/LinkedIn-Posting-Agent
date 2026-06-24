@@ -488,23 +488,15 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   <p className="font-bold text-emerald-900">LinkedIn Connected</p>
                   <p className="text-xs text-slate-500 font-normal mt-0.5 font-mono truncate">{liUrn}</p>
                 </div>
-                <a
-                  href={`/api/auth/linkedin?state=${user ? encodeURIComponent(user.id) : "local"}`}
-                  className="text-xs text-[#0a66c2] hover:text-brand-blue-hover hover:underline font-bold whitespace-nowrap shrink-0"
-                >
-                  Reconnect
-                </a>
               </div>
             ) : (
-              <a
-                href={`/api/auth/linkedin?state=${user ? encodeURIComponent(user.id) : "local"}`}
-                className="flex items-center justify-center gap-2 bg-[#0a66c2] hover:bg-brand-blue-hover active:bg-brand-blue-hover text-white px-5 py-3.5 rounded-xl font-bold transition duration-200 shadow-md cursor-pointer text-sm w-full text-center"
-              >
-                <svg className="size-4 shrink-0 fill-current" viewBox="0 0 24 24">
-                  <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.779-1.75-1.75s.784-1.75 1.75-1.75 1.75.779 1.75 1.75-.784 1.75-1.75 1.75zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
-                </svg>
-                Connect LinkedIn Account
-              </a>
+              <div className="flex items-center gap-2.5 bg-slate-50 border border-border text-slate-500 p-4 rounded-xl text-sm font-semibold animate-fade-in-up">
+                <XCircle className="size-4.5 text-slate-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-slate-700">LinkedIn Not Connected</p>
+                  <p className="text-xs text-slate-500 font-normal mt-0.5">Please sign in to the portal using LinkedIn above.</p>
+                </div>
+              </div>
             )}
 
             <div className="relative flex py-1 items-center">

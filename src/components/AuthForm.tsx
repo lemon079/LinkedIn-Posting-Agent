@@ -17,9 +17,6 @@ export const AuthForm: React.FC<AuthFormProps> = () => {
   return (
     <div className="space-y-4 py-2 animate-fade-in-up">
       <div className="text-center space-y-1">
-        <h4 className="text-base font-bold text-slate-800">
-          Sign In to Dashboard
-        </h4>
         <p className="text-xs text-slate-500">
           Sign in with your LinkedIn account to sync your settings securely.
         </p>
@@ -28,7 +25,7 @@ export const AuthForm: React.FC<AuthFormProps> = () => {
       <Button
         onClick={handleLinkedInLogin}
         disabled={loading}
-        className="w-full bg-[#0a66c2] hover:bg-[#004182] active:bg-[#004182] text-white font-semibold py-5 rounded-xl flex items-center justify-center gap-2 shadow-sm duration-200 cursor-pointer text-sm"
+        className="w-full bg-[#0a66c2] hover:bg-brand-blue-hover active:bg-brand-blue-hover text-white font-semibold py-5 rounded-xl flex items-center justify-center gap-2 shadow-sm duration-200 cursor-pointer text-sm"
       >
         {loading ? (
           <Loader2 className="size-4 animate-spin" />
