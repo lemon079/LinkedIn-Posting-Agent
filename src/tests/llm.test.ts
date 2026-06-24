@@ -41,4 +41,27 @@ describe("createLLM", () => {
     expect(llm).toBeInstanceOf(ChatOllama);
     expect(llm.model).toBe("llama3");
   });
+
+  test("falls back to default cloud models if invalid model names are passed", () => {
+    const openaiLlm = createLLM({
+      provider: "openai",
+      apiKey: "test-key",
+      model: "llama3",
+    }) as ChatOpenAI;
+    expect(openaiLlm.model).toBe("gpt-4o");
+
+    const anthropicLlm = createLLM({
+      provider: "anthropic",
+      apiKey: "test-key",
+      model: "llama3",
+    }) as ChatAnthropic;
+    expect(anthropicLlm.model).toBe("claude-3-5-sonnet-latest");
+
+    const googleLlm = createLLM({
+      provider: "gemini",
+      apiKey: "test-key",
+      model: "llama3",
+    }) as ChatGoogle;
+    expect(googleLlm.model).toBe("gemini-2.5-flash");
+  });
 });

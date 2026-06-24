@@ -254,8 +254,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               <select
                 value={provider}
                 onChange={(e) => {
-                  setProvider(e.target.value);
+                  const val = e.target.value;
+                  setProvider(val);
                   setTestState({ status: "idle" });
+                  if (val !== "ollama") {
+                    setModelName("");
+                  }
                 }}
                 className="w-full bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
               >
