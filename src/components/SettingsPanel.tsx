@@ -39,6 +39,29 @@ interface SettingsPanelProps {
   user: User | null;
 }
 
+function cleanErrorMessage(rawError: string): string {
+  const err = rawError.toLowerCase();
+  if (err.includes("key") && (err.includes("invalid") || err.includes("not found") || err.includes("bad") || err.includes("401") || err.includes("403"))) {
+    return "Invalid API Key. Please verify and update your key.";
+  }
+  if (err.includes("fetch failed") || err.includes("econnrefused") || err.includes("enotfound") || err.includes("failed to fetch") || err.includes("network")) {
+    return "Network connection failed. Please check your internet connection and verify if the service is running.";
+  }
+  if (err.includes("rate limit") || err.includes("quota") || err.includes("429") || err.includes("exhausted")) {
+    return "API rate limit or quota exceeded. Please check your billing or try again later.";
+  }
+  if (err.includes("model") && (err.includes("not found") || err.includes("does not exist") || err.includes("404"))) {
+    return "The selected model was not found or is not supported.";
+  }
+  if (err.includes("unreachable")) {
+    return "The service is unreachable. Please verify the URL and check if the service is running.";
+  }
+  if (rawError.length < 80) {
+    return rawError;
+  }
+  return "Connection failed. Please verify your credentials and network settings.";
+}
+
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   isOpen,
   onClose,
@@ -123,14 +146,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       } else {
         setTestState({
           status: "error",
-          errorMsg: response.error || "Connection test failed",
+          errorMsg: cleanErrorMessage(response.error || "Connection test failed"),
           discoveredModels: response.models,
         });
       }
     } catch (err: unknown) {
       setTestState({
         status: "error",
-        errorMsg: err instanceof Error ? err.message : "Connection failed",
+        errorMsg: cleanErrorMessage(err instanceof Error ? err.message : "Connection failed"),
       });
     }
   };
@@ -185,7 +208,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   className="bg-white hover:bg-slate-50 border border-border text-slate-700 hover:text-rose-600 hover:border-rose-200 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition duration-150 cursor-pointer"
                 >
                   <LogOut className="size-3.5" />
-                  Sign Out
+                  <span className="hidden md:inline">Sign Out</span>
                 </Button>
               </div>
               <p className="text-xs text-slate-500 leading-relaxed">
@@ -249,7 +272,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     setOllamaBaseUrl(e.target.value);
                     setTestState({ status: "idle" });
                   }}
-                  className="w-full bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                  className="w-full bg-card border border-border text-slate-800 text-base md:text-sm placeholder:text-xs p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
                 />
                 <p className="text-xs text-slate-500">
                   Verify Ollama is running locally or on your private network.
@@ -277,7 +300,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     setApiKey(e.target.value);
                     setTestState({ status: "idle" });
                   }}
-                  className="w-full bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                  className="w-full bg-card border border-border text-slate-800 text-base md:text-sm placeholder:text-xs p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
                 />
               </div>
             )}
@@ -303,7 +326,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   <div className="space-y-2">
                     <div className="p-3 bg-rose-50 border border-rose-200 text-xs text-rose-800 rounded-xl space-y-1">
                       <p className="font-semibold">⚠️ Connection Error</p>
-                      <p>{ollamaFetchState.errorMsg || "Could not connect to Ollama. Make sure it's running on your machine."}</p>
+                      <p>{cleanErrorMessage(ollamaFetchState.errorMsg || "Could not connect to Ollama. Make sure it's running on your machine.")}</p>
                     </div>
                     <div className="flex gap-2">
                       <input
@@ -314,7 +337,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                           setModelName(e.target.value);
                           setTestState({ status: "idle" });
                         }}
-                        className="flex-1 bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                        className="flex-1 bg-card border border-border text-slate-800 text-base md:text-sm placeholder:text-xs p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
                       />
                       <Button
                         type="button"
@@ -342,7 +365,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                           setModelName(e.target.value);
                           setTestState({ status: "idle" });
                         }}
-                        className="flex-1 bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                        className="flex-1 bg-card border border-border text-slate-800 text-base md:text-sm placeholder:text-xs p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
                       />
                       <Button
                         type="button"
@@ -459,7 +482,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               placeholder="tvly-..."
               value={tavilyKey}
               onChange={(e) => setTavilyKey(e.target.value)}
-              className="w-full bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+              className="w-full bg-card border border-border text-slate-800 text-base md:text-sm placeholder:text-xs p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
             />
             <p className="text-xs text-slate-500">
               Optional. Used to fetch real-time facts and references from the web.
