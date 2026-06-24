@@ -23,12 +23,6 @@ const getHeaders = (keys?: CustomKeys) => {
   return h;
 };
 
-export async function fetchTopics(): Promise<string[]> {
-  const res = await fetch(`${API_BASE_URL}/api/topics`);
-  if (!res.ok) throw new Error("Failed to load topics");
-  return res.json();
-}
-
 export async function generateDraft(
   topic: string, context: string, keys?: CustomKeys
 ): Promise<DraftResponse> {

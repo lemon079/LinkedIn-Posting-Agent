@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { fetchTopics, generateDraft, publishPost, fetchUserSettings, saveUserSettings } from "../lib/api";
+import { generateDraft, publishPost, fetchUserSettings, saveUserSettings } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import type { User } from "@supabase/supabase-js";
 import { cleanErrorMessage } from "../lib/utils";
@@ -17,8 +17,6 @@ const isTauri = typeof window !== "undefined" && (
 );
 
 export function useAgent() {
-  const [topics, setTopics] = useState<string[]>([]);
-  const [selectedTopic, setSelectedTopic] = useState("");
   const [customTopic, setCustomTopic] = useState("");
   const [context, setContext] = useState("");
   const [draftText, setDraftText] = useState<string | null>(null);
@@ -92,13 +90,6 @@ export function useAgent() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // 3. Load public topics
-  useEffect(() => {
-    fetchTopics()
-      .then((t) => setTopics(t))
-      .catch((e) => console.error("Error loading topics:", e));
-  }, []);
-
   // 4. Save settings locally or to Postgres when settings panel is closed
   const prevSettingsOpen = useRef(isSettingsOpen);
   useEffect(() => {
@@ -156,7 +147,7 @@ export function useAgent() {
     setStatus({ gen: true, pub: false, err: null });
     setDraftText(null); setPostUrl(null);
     try {
-      const topic = selectedTopic || customTopic;
+      const topic = customTopic;
       const data = await generateDraft(topic, context, customKeys);
       setDraftText(data.draft); setThreadId(data.threadId); setActiveTab("edit");
     } catch (err: unknown) {
@@ -182,11 +173,11 @@ export function useAgent() {
   };
 
   return {
-    topics, selectedTopic, customTopic, context, draftText, threadId, postUrl, activeTab,
+    customTopic, context, draftText, threadId, postUrl, activeTab,
     isGenerating: status.gen, isPublishing: status.pub, error: status.err,
     provider, apiKey, modelName, ollamaBaseUrl, tavilyKey, liToken, liUrn, isSettingsOpen,
     user, token, isTauri,
-    setSelectedTopic, setCustomTopic, setContext, setDraftText, setActiveTab,
+    setCustomTopic, setContext, setDraftText, setActiveTab,
     setProvider, setApiKey, setModelName, setOllamaBaseUrl, setTavilyKey,
     setLiToken, setLiUrn, setIsSettingsOpen,
     handleGenerate, handlePublish,

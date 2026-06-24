@@ -22,8 +22,6 @@ jest.mock("use-media", () => ({
 
 describe("Frontend Dashboard UI", () => {
   const mockDefaultState = {
-    topics: ["Tech Trends", "TypeScript tips"],
-    selectedTopic: "",
     customTopic: "",
     context: "",
     draftText: null,
@@ -42,7 +40,6 @@ describe("Frontend Dashboard UI", () => {
     isSettingsOpen: false,
     user: null,
     isTauri: false,
-    setSelectedTopic: jest.fn(),
     setCustomTopic: jest.fn(),
     setContext: jest.fn(),
     setDraftText: jest.fn(),
