@@ -41,13 +41,13 @@ export function useAgent() {
     const fetchSettings = async (t: string) => {
       try {
         const settings = await fetchUserSettings(t);
-        setProvider(settings.llm_provider || "gemini");
-        setApiKey(settings.encrypted_api_key || "");
-        setModelName(settings.llm_model || "");
-        setOllamaBaseUrl(settings.ollama_base_url || "http://localhost:11434");
-        setTavilyKey(settings.encrypted_tavily_key || "");
-        setLiToken(settings.encrypted_linkedin_token || "");
-        setLiUrn(settings.linkedin_urn || "");
+        setProvider(settings.provider || "gemini");
+        setApiKey(settings.apiKey || "");
+        setModelName(settings.modelName || "");
+        setOllamaBaseUrl(settings.ollamaBaseUrl || "http://localhost:11434");
+        setTavilyKey(settings.tavilyKey || "");
+        setLiToken(settings.liToken || "");
+        setLiUrn(settings.liUrn || "");
       } catch (err) {
         console.error("Error loading user settings from PostgreSQL:", err);
       }
