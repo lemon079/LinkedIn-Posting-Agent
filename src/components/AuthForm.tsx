@@ -18,10 +18,10 @@ export const AuthForm: React.FC<AuthFormProps> = () => {
     <div className="space-y-4 py-2 animate-fade-in-up">
       <div className="text-center space-y-1">
         <h4 className="text-base font-bold text-slate-800">
-          Sign In to Agent Portal
+          Sign In to Dashboard
         </h4>
         <p className="text-xs text-slate-500">
-          Authenticate using your LinkedIn account to access and sync your settings securely.
+          Sign in with your LinkedIn account to sync your settings securely.
         </p>
       </div>
 

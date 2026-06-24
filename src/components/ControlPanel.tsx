@@ -24,11 +24,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     <Card className="bg-card border border-border shadow-sm rounded-2xl transition duration-300">
       <CardHeader className="border-b border-border pb-4 flex flex-row items-center gap-2">
         <Sliders className="size-4 text-brand-blue" />
-        <CardTitle className="text-sm font-bold tracking-tight text-slate-800">Configure Agent Parameters</CardTitle>
+        <CardTitle className="text-sm font-bold tracking-tight text-slate-800">Post Draft Settings</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 pt-4">
         <div className="space-y-1.5">
-          <Label htmlFor="topic-select" className="text-xs font-bold uppercase tracking-wider text-slate-500">Default Genres</Label>
+          <Label htmlFor="topic-select" className="text-xs font-bold uppercase tracking-wider text-slate-500">Topic Templates</Label>
           <Select onValueChange={(val) => setSelectedTopic(val === "custom" ? "" : val)}>
             <SelectTrigger id="topic-select" className="w-full bg-card border-border hover:bg-slate-50 transition-colors text-slate-800 h-11 px-3.5 py-3 rounded-xl text-base md:text-sm">
               <SelectValue placeholder="Select topic category" />

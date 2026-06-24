@@ -149,15 +149,15 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         <div>
           {isWide ? (
             <SheetTitle className="font-bold text-slate-900 text-lg leading-tight">
-              System Settings
+              Account & API Settings
             </SheetTitle>
           ) : (
             <DrawerTitle className="font-bold text-slate-900 text-lg leading-tight">
-              System Settings
+              Account & API Settings
             </DrawerTitle>
           )}
           <p className="text-xs text-slate-500 mt-0.5">
-            Configure credentials, local models, and external APIs.
+            Configure your account sync, AI engine, and search keys.
           </p>
         </div>
       </div>
@@ -169,7 +169,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           <div className="flex items-center gap-2 pb-1.5 border-b border-border">
             <UserIcon className="size-4 text-brand-blue" />
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Cloud Sync Profile
+              Account Sync
             </h3>
           </div>
 
@@ -193,7 +193,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 </Button>
               </div>
               <p className="text-xs text-slate-500 leading-relaxed">
-                ✓ Cloud sync is active. Your settings are encrypted and securely synced to your private database profile.
+                ✓ Settings synchronized. Your configurations are saved securely.
               </p>
             </div>
           ) : (
@@ -201,7 +201,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               <AuthForm onSuccess={() => { }} />
               <div className="border-t border-slate-200 pt-3">
                 <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                  <strong>Local Fallback Active:</strong> If you proceed without signing in, your settings are saved only in your local browser storage.
+                  If you proceed without signing in, settings will only be saved locally in this browser.
                 </p>
               </div>
             </div>
@@ -213,7 +213,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           <div className="flex items-center gap-2 pb-1.5 border-b border-border">
             <Layers className="size-4 text-brand-blue" />
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Language Model (LLM) Configuration
+              AI Engine Settings
             </h3>
           </div>
 
@@ -221,7 +221,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             {/* Provider Selection */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
-                <span>LLM Provider</span>
+                <span>AI Provider</span>
                 <span className="text-xs text-slate-450 font-normal">Required</span>
               </Label>
               <select
@@ -265,7 +265,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             {provider !== "ollama" && (
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-700">
-                  Provider API Key
+                  API Key
                 </Label>
                 <input
                   type="password"
@@ -451,7 +451,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           <div className="flex items-center gap-2 pb-1.5 border-b border-border">
             <Globe className="size-4 text-brand-blue" />
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Web Search Grounding
+              Web Search Integration
             </h3>
           </div>
           <div className="space-y-1.5">
@@ -466,7 +466,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               className="w-full bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
             />
             <p className="text-xs text-slate-500">
-              Optional. Real-time web search key to fetch references and ground posts in technical details.
+              Optional. Used to fetch real-time facts and references from the web.
             </p>
           </div>
         </div>
@@ -476,7 +476,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           <div className="flex items-center gap-2 pb-1.5 border-b border-border">
             <Link2 className="size-4 text-brand-blue" />
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              LinkedIn Account Credentials
+              LinkedIn Account
             </h3>
           </div>
 
@@ -509,7 +509,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
             <div className="relative flex py-1 items-center">
               <div className="flex-1 border-t border-slate-200"></div>
-              <span className="shrink mx-3 text-slate-400 text-xs font-semibold uppercase tracking-wider">Or Config Manually</span>
+              <span className="shrink mx-3 text-slate-400 text-xs font-semibold uppercase tracking-wider">Or Configure Manually</span>
               <div className="flex-1 border-t border-slate-200"></div>
             </div>
 
@@ -548,8 +548,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       <div className="p-6 border-t border-border bg-slate-50/30 flex items-center justify-between">
         <p className="text-xs text-slate-500 max-w-[50%]">
           {user
-            ? "Credentials are encrypted symmetrically and saved securely in database."
-            : "Credentials are saved locally in your browser storage and never stored on the server."}
+            ? "Your settings are securely saved in your cloud profile."
+            : "Your settings are saved locally in this browser."}
         </p>
         <Button
           onClick={onClose}

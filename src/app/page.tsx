@@ -89,7 +89,7 @@ export default function Home() {
       />
 
       {showLoginModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-[100] animate-fade-in transition-all duration-300">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-100 animate-fade-in transition-all duration-300">
           <div className="bg-card border border-border rounded-2xl shadow-xl max-w-sm w-full p-6 relative animate-fade-in-up">
             <button
               onClick={() => setShowLoginModal(false)}
