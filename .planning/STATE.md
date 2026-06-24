@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 Phase: N/A (Milestone complete)
 Plan: N/A
 Status: Complete
-Last activity: 2026-06-23 - Completed quick task 260623-gvr: resolve Vercel Next.js version detection build error
+Last activity: 2026-06-23 - Completed quick task 260623-qij: make it clean so that the default root directory is '.'
 
 Progress: [██████████] 100% (6/6 plans complete)
 
@@ -94,6 +94,8 @@ None yet.
 | 260623-mod | modularize the codebase, organize interfaces, and clean up obsolete files | 2026-06-23 | f385074 | N/A |
 | 260623-fq5 | use a random svg for favicon of the website | 2026-06-23 | aac79e4 | [260623-fq5-use-a-random-svg-for-favicon-of-the-webs](./quick/260623-fq5-use-a-random-svg-for-favicon-of-the-webs/) |
 | 260623-gvr | resolve Vercel Next.js version detection build error | 2026-06-23 | 039bfbf | [260623-gvr-resolve-vercel-next-js-version-detection](./quick/260623-gvr-resolve-vercel-next-js-version-detection/) |
+| 260623-gzw | clean project directories and configuration | 2026-06-23 | e8884d3 | [260623-gzw-clean-project-directories-and-set-defaul](./quick/260623-gzw-clean-project-directories-and-set-defaul/) |
+| 260623-qij | make it clean so that the default root directory is '.' | 2026-06-23 | 878fa17 | [260623-qij-make-it-clean-so-that-the-default-root-d](./quick/260623-qij-make-it-clean-so-that-the-default-root-d/) |
 
 ## Session Continuity
 
