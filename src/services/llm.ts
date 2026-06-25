@@ -28,24 +28,21 @@ export const createLLM = (opts: LLMOptions = {}) => {
     });
   }
   if (llmProvider === "openai") {
-    const model = (opts.model && (opts.model.startsWith("gpt-") || opts.model.startsWith("o1-"))) ? opts.model : "gpt-4o";
     return new ChatOpenAI({
-      model,
+      model: opts.model || "gpt-4o",
       temperature: 0.9,
       apiKey: llmKey,
     });
   }
   if (llmProvider === "anthropic") {
-    const model = (opts.model && opts.model.startsWith("claude-")) ? opts.model : "claude-3-5-sonnet-latest";
     return new ChatAnthropic({
-      model,
+      model: opts.model || "claude-3-5-sonnet-latest",
       temperature: 0.9,
       apiKey: llmKey,
     });
   }
-  const model = (opts.model && opts.model.startsWith("gemini-")) ? opts.model : "gemini-2.5-flash";
   return new ChatGoogle({
-    model,
+    model: opts.model || "gemini-2.5-flash",
     temperature: 0.9,
     maxRetries: 2,
     apiKey: llmKey,
