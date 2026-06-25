@@ -1,5 +1,6 @@
 import { createLLM } from "./llm";
 import { HumanMessage } from "@langchain/core/messages";
+import { DEFAULT_OLLAMA_URL } from "@/lib/constants";
 import type { HealthResult } from "../types/index.js";
 
 export const checkConnection = async (
@@ -7,7 +8,7 @@ export const checkConnection = async (
 ): Promise<HealthResult> => {
   try {
     if (provider === "ollama") {
-      const base = ollamaBaseUrl || "http://localhost:11434";
+      const base = ollamaBaseUrl || DEFAULT_OLLAMA_URL;
       const res = await fetch(`${base}/api/tags`);
       if (!res.ok) return { ok: false, error: `Ollama unreachable (${res.status})` };
       const data = await res.json() as { models: { name: string }[] };

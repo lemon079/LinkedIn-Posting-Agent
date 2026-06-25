@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { generateDraft, publishPost, fetchUserSettings, saveUserSettings } from "../lib/api";
 import { supabase } from "../lib/supabase";
+import { DEFAULT_OLLAMA_URL } from "../lib/constants";
 import type { User } from "@supabase/supabase-js";
 import { cleanErrorMessage } from "../lib/utils";
 
@@ -31,7 +32,7 @@ export function useAgent() {
   });
   const [apiKey, setApiKey] = useState(() => getSafeLocalStorage("llm_api_key", ""));
   const [modelName, setModelName] = useState(() => getSafeLocalStorage("llm_model", ""));
-  const [ollamaBaseUrl, setOllamaBaseUrl] = useState(() => getSafeLocalStorage("ollama_base_url", "http://localhost:11434"));
+  const [ollamaBaseUrl, setOllamaBaseUrl] = useState(() => getSafeLocalStorage("ollama_base_url", DEFAULT_OLLAMA_URL));
   const [tavilyKey, setTavilyKey] = useState(() => getSafeLocalStorage("tavily_key", ""));
 
   const [liToken, setLiToken] = useState(() => getSafeLocalStorage("li_token", ""));
@@ -60,7 +61,7 @@ export function useAgent() {
         setProvider((!isTauri && resolvedProvider === "ollama") ? "gemini" : resolvedProvider);
         setApiKey(settings.apiKey || "");
         setModelName(settings.modelName || "");
-        setOllamaBaseUrl(settings.ollamaBaseUrl || "http://localhost:11434");
+        setOllamaBaseUrl(settings.ollamaBaseUrl || DEFAULT_OLLAMA_URL);
         setTavilyKey(settings.tavilyKey || "");
         setLiToken(settings.liToken || "");
         setLiUrn(settings.liUrn || "");

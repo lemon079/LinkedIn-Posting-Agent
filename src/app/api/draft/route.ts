@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { agent } from "@/graph/index";
 import { config } from "@/config/env";
 import { genres } from "@/core/utils";
-import { getSupabaseClient, verifyAuth } from "@/services/supabase";
-import { decrypt } from "@/services/crypto";
+import { getRequestAuth } from "@/lib/server/auth";
+import { resolveAgentCredentials } from "@/lib/server/settings";
 
 export async function POST(request: Request) {
   try {
@@ -13,40 +13,8 @@ export async function POST(request: Request) {
     const threadId = Date.now().toString();
     const threadConfig = { configurable: { thread_id: threadId } };
 
-    const reqHeaders = request.headers;
-    let provider = reqHeaders.get("x-llm-provider") || undefined;
-    let apiKey = reqHeaders.get("x-llm-api-key") || undefined;
-    let model = reqHeaders.get("x-llm-model") || undefined;
-    let ollamaUrl = reqHeaders.get("x-ollama-base-url") || undefined;
-    let tavilyKey = reqHeaders.get("x-tavily-key") || undefined;
-    let liToken = reqHeaders.get("x-linkedin-token") || undefined;
-    let liUrn = reqHeaders.get("x-linkedin-urn") || undefined;
-
-    // Load from database if user is authenticated and Supabase is active
-    const user = await verifyAuth(request);
-    const authHeader = reqHeaders.get("authorization");
-    const token = authHeader?.startsWith("Bearer ") ? authHeader.split(" ")[1] : undefined;
-    const client = getSupabaseClient(token);
-
-    if (client && user) {
-      const { data, error } = await client
-        .from("user_settings")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error(`[DB] Error fetching settings for user ${user.id}: ${error.message}`);
-      } else if (data) {
-        provider = data.llm_provider || provider;
-        apiKey = data.encrypted_api_key ? decrypt(data.encrypted_api_key) : apiKey;
-        model = data.llm_model || model;
-        ollamaUrl = data.ollama_base_url || ollamaUrl;
-        tavilyKey = data.encrypted_tavily_key ? decrypt(data.encrypted_tavily_key) : tavilyKey;
-        liToken = data.encrypted_linkedin_token ? decrypt(data.encrypted_linkedin_token) : liToken;
-        liUrn = data.linkedin_urn || liUrn;
-      }
-    }
+    const { user, client } = await getRequestAuth(request);
+    const creds = await resolveAgentCredentials(request, client, user?.id);
 
     const initialState = {
       topic: selectedTopic,
@@ -55,13 +23,13 @@ export async function POST(request: Request) {
       postUrl: null,
       retries: 0,
       error: null,
-      llmProvider: provider || null,
-      llmApiKey: apiKey || null,
-      llmModel: model || null,
-      ollamaBaseUrl: ollamaUrl || null,
-      tavilyApiKey: tavilyKey || null,
-      linkedinToken: liToken || null,
-      linkedinUrn: liUrn || null,
+      llmProvider: creds.provider || null,
+      llmApiKey: creds.apiKey || null,
+      llmModel: creds.model || null,
+      ollamaBaseUrl: creds.ollamaUrl || null,
+      tavilyApiKey: creds.tavilyKey || null,
+      linkedinToken: creds.liToken || null,
+      linkedinUrn: creds.liUrn || null,
     };
 
     console.log(`[API] Drafting: "${selectedTopic}" (ID: ${threadId})`);

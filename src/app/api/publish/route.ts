@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { agent } from "@/graph/index";
-import { getSupabaseClient, verifyAuth } from "@/services/supabase";
-import { decrypt } from "@/services/crypto";
+import { getRequestAuth } from "@/lib/server/auth";
+import { resolveLinkedInCredentials } from "@/lib/server/settings";
 
 export async function POST(request: Request) {
   try {
@@ -12,30 +12,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing threadId or draft" }, { status: 400 });
     }
 
-    const reqHeaders = request.headers;
-    let token = reqHeaders.get("x-linkedin-token") || undefined;
-    let urn = reqHeaders.get("x-linkedin-urn") || undefined;
-
-    // Load from database if user is authenticated and Supabase is active
-    const user = await verifyAuth(request);
-    const authHeader = reqHeaders.get("authorization");
-    const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.split(" ")[1] : undefined;
-    const client = getSupabaseClient(bearerToken);
-
-    if (client && user) {
-      const { data, error } = await client
-        .from("user_settings")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error(`[DB] Error fetching settings for user ${user.id}: ${error.message}`);
-      } else if (data) {
-        token = data.encrypted_linkedin_token ? decrypt(data.encrypted_linkedin_token) : token;
-        urn = data.linkedin_urn || urn;
-      }
-    }
+    const { user, client } = await getRequestAuth(request);
+    const { liToken, liUrn } = await resolveLinkedInCredentials(request, client, user?.id);
 
     const threadConfig = { configurable: { thread_id: threadId } };
     const state = await agent.getState(threadConfig);
@@ -47,8 +25,8 @@ export async function POST(request: Request) {
     console.log(`[API] Resuming thread ID ${threadId}...`);
     await agent.updateState(threadConfig, {
       postContent: draft,
-      linkedinToken: token || null,
-      linkedinUrn: urn || null,
+      linkedinToken: liToken || null,
+      linkedinUrn: liUrn || null,
     });
     const finalState = await agent.invoke(null, threadConfig);
 
