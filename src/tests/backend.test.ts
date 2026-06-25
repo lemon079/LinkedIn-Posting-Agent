@@ -181,6 +181,21 @@ describe("Backend API Endpoints", () => {
       expect(json.error).toBe("Missing threadId or draft");
     });
 
+    test("returns 401 when LinkedIn is not connected", async () => {
+      (verifyAuth as jest.Mock).mockResolvedValue(null);
+
+      const request = new Request("http://localhost/api/publish", {
+        method: "POST",
+        body: JSON.stringify({ threadId: "123", draft: "My Final Draft" }),
+      });
+
+      const response = await publishPost(request);
+      expect(response.status).toBe(401);
+
+      const json = await response.json();
+      expect(json.error).toContain("LinkedIn not connected");
+    });
+
     test("resumes agent execution and returns published url", async () => {
       (verifyAuth as jest.Mock).mockResolvedValue(null);
       (agent.getState as jest.Mock).mockResolvedValue({
@@ -194,6 +209,10 @@ describe("Backend API Endpoints", () => {
 
       const request = new Request("http://localhost/api/publish", {
         method: "POST",
+        headers: {
+          "x-linkedin-token": "mock-li-token",
+          "x-linkedin-urn": "urn:li:person:123",
+        },
         body: JSON.stringify({ threadId: "123", draft: "My Final Draft" }),
       });
 
@@ -204,7 +223,7 @@ describe("Backend API Endpoints", () => {
       expect(json.postUrl).toBe("https://linkedin.com/123");
       expect(agent.updateState).toHaveBeenCalledWith(
         { configurable: { thread_id: "123" } },
-        { postContent: "My Final Draft", linkedinToken: null, linkedinUrn: null }
+        { postContent: "My Final Draft", linkedinToken: "mock-li-token", linkedinUrn: "urn:li:person:123" }
       );
     });
   });

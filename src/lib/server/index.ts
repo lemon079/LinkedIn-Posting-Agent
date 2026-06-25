@@ -3,6 +3,7 @@ export {
   fetchUserSettingsRow,
   mapRowToUserSettings,
   buildSettingsUpsert,
+  saveLinkedInCredentials,
   resolveAgentCredentials,
   resolveLinkedInCredentials,
 } from "./settings";

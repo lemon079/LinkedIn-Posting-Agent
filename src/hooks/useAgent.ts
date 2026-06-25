@@ -42,6 +42,7 @@ export function useAgent() {
   // Authentication State
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const pendingOAuth = useRef<{ token: string; urn: string } | null>(null);
 
   // Fallback check: if on web/mobile and provider is ollama, revert to gemini
   useEffect(() => {
@@ -63,8 +64,8 @@ export function useAgent() {
         setModelName(settings.modelName || "");
         setOllamaBaseUrl(settings.ollamaBaseUrl || DEFAULT_OLLAMA_URL);
         setTavilyKey(settings.tavilyKey || "");
-        setLiToken(settings.liToken || "");
-        setLiUrn(settings.liUrn || "");
+        setLiToken((prev) => settings.liToken || prev);
+        setLiUrn((prev) => settings.liUrn || prev);
       } catch (err) {
         console.error("Error loading user settings from PostgreSQL:", err);
       }
@@ -90,6 +91,20 @@ export function useAgent() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // 3. Flush pending LinkedIn OAuth credentials once Supabase session is ready
+  useEffect(() => {
+    if (!token || !pendingOAuth.current) return;
+
+    const { token: oauthToken, urn: oauthUrn } = pendingOAuth.current;
+    pendingOAuth.current = null;
+
+    saveUserSettings({
+      provider, apiKey, modelName, ollamaBaseUrl, tavilyKey,
+      liToken: oauthToken,
+      liUrn: oauthUrn,
+    }, token).catch((e) => console.error("Error saving OAuth settings to PostgreSQL:", e));
+  }, [token, provider, apiKey, modelName, ollamaBaseUrl, tavilyKey]);
 
   // 4. Save settings locally or to Postgres when settings panel is closed
   const prevSettingsOpen = useRef(isSettingsOpen);
@@ -117,29 +132,27 @@ export function useAgent() {
     const oauthToken = params.get("li_token");
     const oauthUrn = params.get("li_urn");
 
-    if (oauthToken && oauthUrn) {
-      setTimeout(() => {
-        setLiToken(oauthToken);
-        setLiUrn(oauthUrn);
-      }, 0);
+    if (!oauthToken || !oauthUrn) return;
 
-      if (token) {
-        saveUserSettings({
-          provider, apiKey, modelName, ollamaBaseUrl, tavilyKey,
-          liToken: oauthToken,
-          liUrn: oauthUrn
-        }, token).catch((e) => console.error("Error saving OAuth settings to PostgreSQL:", e));
-      } else {
-        localStorage.setItem("li_token", oauthToken);
-        localStorage.setItem("li_urn", oauthUrn);
-      }
+    setLiToken(oauthToken);
+    setLiUrn(oauthUrn);
+    localStorage.setItem("li_token", oauthToken);
+    localStorage.setItem("li_urn", oauthUrn);
 
-      // Clear query params from URL bar
-      const url = new URL(window.location.href);
-      url.searchParams.delete("li_token");
-      url.searchParams.delete("li_urn");
-      window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
+    if (token) {
+      saveUserSettings({
+        provider, apiKey, modelName, ollamaBaseUrl, tavilyKey,
+        liToken: oauthToken,
+        liUrn: oauthUrn,
+      }, token).catch((e) => console.error("Error saving OAuth settings to PostgreSQL:", e));
+    } else {
+      pendingOAuth.current = { token: oauthToken, urn: oauthUrn };
     }
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete("li_token");
+    url.searchParams.delete("li_urn");
+    window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
   }, [token, provider, apiKey, modelName, ollamaBaseUrl, tavilyKey]);
 
   const customKeys = { provider, apiKey, liToken, liUrn, modelName, ollamaBaseUrl, tavilyKey, token: token || undefined };

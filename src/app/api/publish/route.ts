@@ -15,6 +15,13 @@ export async function POST(request: Request) {
     const { user, client } = await getRequestAuth(request);
     const { liToken, liUrn } = await resolveLinkedInCredentials(request, client, user?.id);
 
+    if (!liToken || !liUrn) {
+      return NextResponse.json(
+        { error: "LinkedIn not connected. Please sign in with LinkedIn in Settings." },
+        { status: 401 }
+      );
+    }
+
     const threadConfig = { configurable: { thread_id: threadId } };
     const state = await agent.getState(threadConfig);
 

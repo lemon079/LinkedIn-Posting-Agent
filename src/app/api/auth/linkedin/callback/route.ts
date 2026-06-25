@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { config } from "@/config/env";
 import { supabase } from "@/services/supabase";
+import { saveLinkedInCredentials } from "@/lib/server/settings";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -87,6 +88,11 @@ export async function GET(request: Request) {
 
     if (linkError || !linkData?.properties?.action_link) {
       throw linkError || new Error("Failed to generate login link");
+    }
+
+    const userId = linkData.user?.id;
+    if (userId) {
+      await saveLinkedInCredentials(supabase, userId, accessToken, personUrn);
     }
 
     // 5. Redirect the user to the login link

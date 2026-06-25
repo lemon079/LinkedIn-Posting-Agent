@@ -81,6 +81,27 @@ export function buildSettingsUpsert(
   return updateData;
 }
 
+export async function saveLinkedInCredentials(
+  client: SupabaseClient,
+  userId: string,
+  liToken: string,
+  liUrn: string
+): Promise<void> {
+  const { error } = await client
+    .from("user_settings")
+    .upsert(
+      {
+        user_id: userId,
+        encrypted_linkedin_token: encrypt(liToken),
+        linkedin_urn: liUrn,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" }
+    );
+
+  if (error) throw new Error(error.message);
+}
+
 function readHeaderCredentials(request: Request): AgentCredentials {
   const headers = request.headers;
   return {
