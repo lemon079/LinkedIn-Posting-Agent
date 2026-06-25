@@ -6,7 +6,11 @@ import type {
   UserSettings
 } from "../types/index.js";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
+// Static exports (Tauri/Capacitor) call a remote backend; web deployments use same-origin /api routes.
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_EXPORT === "true"
+    ? (process.env.NEXT_PUBLIC_API_URL || "")
+    : "";
 
 const getHeaders = (keys?: CustomKeys) => {
   const h: Record<string, string> = { "Content-Type": "application/json" };
