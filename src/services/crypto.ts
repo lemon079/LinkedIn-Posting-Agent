@@ -1,8 +1,10 @@
 import crypto from "crypto";
 
 const algorithm = "aes-256-gcm";
-const keyString = process.env.ENCRYPTION_KEY || "default-fallback-secret-encryption-key-for-linkedin-posting-agent-32-bytes";
-// Generate exactly 32 bytes key from the keyString using SHA-256
+const keyString = process.env.ENCRYPTION_KEY;
+if (!keyString) {
+  throw new Error("CRITICAL: ENCRYPTION_KEY environment variable is not defined. Cryptographic key is required to encrypt and decrypt settings.");
+}
 const key = crypto.createHash("sha256").update(keyString).digest();
 
 export function encrypt(text: string): string {

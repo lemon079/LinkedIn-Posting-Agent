@@ -10,6 +10,10 @@ export function loadConfig(): AppConfig {
     LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET, LINKEDIN_REDIRECT_URI
   } = process.env;
 
+  if (!ENCRYPTION_KEY) {
+    throw new Error("CRITICAL: ENCRYPTION_KEY environment variable is not defined. Cryptographic key is required to encrypt and decrypt settings.");
+  }
+
   return {
     GOOGLE_API_KEY: GOOGLE_API_KEY || "",
     LINKEDIN_ACCESS_TOKEN: LINKEDIN_ACCESS_TOKEN || "",
