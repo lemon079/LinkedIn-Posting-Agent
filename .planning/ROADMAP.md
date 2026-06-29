@@ -25,13 +25,14 @@
 | 3. Prompt Opt | v1.0 | 1/1 | Complete | 2026-06-18 |
 | 4. Multi-User | v1.0 | 1/1 | Complete | 2026-06-23 |
 | 5. Notifications | v1.1 | 0/1 | Not started | - |
+| 6. File Upload | v1.1 | 0/1 | Not started | - |
 
 ### Phase 6: File/image uploading feature after post generation
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Implement client-side file upload controls and LinkedIn binary upload integrations to publish posts with image/PDF attachments.
+**Requirements**: MEDIA-01
 **Depends on:** Phase 5
-**Plans:** 0 plans
+**Plans:** 1 plan
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 6 to break down)
+- [ ] 06-01: File/image upload backend and frontend implementation
