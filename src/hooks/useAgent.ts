@@ -132,8 +132,15 @@ export function useAgent() {
     const params = new URLSearchParams(window.location.search);
     const oauthToken = params.get("li_token");
     const oauthUrn = params.get("li_urn");
+    const email = params.get("email");
+    const otp = params.get("otp");
 
     if (!oauthToken || !oauthUrn) return;
+
+    if (email && otp && supabase) {
+      supabase.auth.verifyOtp({ email, token: otp, type: "magiclink" })
+        .catch((e) => console.error("Error verifying OTP from redirect:", e));
+    }
 
     setTimeout(() => {
       setLiToken(oauthToken);
@@ -155,6 +162,8 @@ export function useAgent() {
     const url = new URL(window.location.href);
     url.searchParams.delete("li_token");
     url.searchParams.delete("li_urn");
+    url.searchParams.delete("email");
+    url.searchParams.delete("otp");
     window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
   }, [token, provider, apiKey, modelName, ollamaBaseUrl, tavilyKey]);
 

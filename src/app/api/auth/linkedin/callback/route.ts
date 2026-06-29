@@ -98,6 +98,12 @@ export async function GET(request: Request) {
     }
 
     // 5. Redirect the user to the login link
+    if (baseUrl.includes("localhost") && linkData.properties?.email_otp) {
+      return NextResponse.redirect(
+        `${baseUrl}/?li_token=${encodeURIComponent(accessToken)}&li_urn=${encodeURIComponent(personUrn)}&email=${encodeURIComponent(email)}&otp=${encodeURIComponent(linkData.properties.email_otp)}`
+      );
+    }
+
     return NextResponse.redirect(linkData.properties.action_link);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown authorization error";
