@@ -25,3 +25,13 @@
 | 3. Prompt Opt | v1.0 | 1/1 | Complete | 2026-06-18 |
 | 4. Multi-User | v1.0 | 1/1 | Complete | 2026-06-23 |
 | 5. Notifications | v1.1 | 0/1 | Not started | - |
+
+### Phase 6: File/image uploading feature after post generation
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 5
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 6 to break down)
