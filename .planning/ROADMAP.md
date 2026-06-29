@@ -25,7 +25,7 @@
 | 3. Prompt Opt | v1.0 | 1/1 | Complete | 2026-06-18 |
 | 4. Multi-User | v1.0 | 1/1 | Complete | 2026-06-23 |
 | 5. Notifications | v1.1 | 0/1 | Not started | - |
-| 6. File Upload | v1.1 | 0/1 | Not started | - |
+| 6. File Upload | v1.1 | 1/1 | Complete | 2026-06-29 |
 
 ### Phase 6: File/image uploading feature after post generation
 
@@ -35,4 +35,4 @@
 **Plans:** 1 plan
 
 Plans:
-- [ ] 06-01: File/image upload backend and frontend implementation
+- [x] 06-01: File/image upload backend and frontend implementation
