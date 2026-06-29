@@ -43,6 +43,12 @@ interface SettingsPanelProps {
   isTauri: boolean;
 }
 
+const CLOUD_MODELS: Record<string, string[]> = {
+  gemini: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
+  openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
+  anthropic: ["claude-3-5-sonnet-latest", "claude-3-5-haiku-latest", "claude-3-opus-20240229"],
+};
+
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   isOpen,
   onClose,
@@ -70,6 +76,25 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   }>({ status: "idle" });
 
   const isWide = useMedia("(min-width: 768px)");
+
+  const [isCustomMode, setIsCustomMode] = useState(false);
+
+  useEffect(() => {
+    if (provider !== "ollama" && modelName) {
+      const list = CLOUD_MODELS[provider] || [];
+      setTimeout(() => {
+        if (!list.includes(modelName)) {
+          setIsCustomMode(true);
+        } else {
+          setIsCustomMode(false);
+        }
+      }, 0);
+    } else {
+      setTimeout(() => {
+        setIsCustomMode(false);
+      }, 0);
+    }
+  }, [provider, isOpen, modelName]);
 
   const [ollamaModels, setOllamaModels] = useState<string[]>([]);
   const [ollamaFetchState, setOllamaFetchState] = useState<{
@@ -254,8 +279,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               <select
                 value={provider}
                 onChange={(e) => {
-                  setProvider(e.target.value);
+                  const newProvider = e.target.value;
+                  setProvider(newProvider);
                   setTestState({ status: "idle" });
+                  if (newProvider === "ollama") {
+                    setModelName("");
+                  } else {
+                    const list = CLOUD_MODELS[newProvider] || [];
+                    setModelName(list[0] || "");
+                  }
+                  setIsCustomMode(false);
                 }}
                 className="w-full bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
               >
@@ -423,6 +456,53 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         </button>
                       ))}
                     </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Model Name (Cloud Providers Only) */}
+            {provider !== "ollama" && (
+              <div className="space-y-1.5 animate-fade-in">
+                <Label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                  <span>Model Name</span>
+                  <span className="text-xs text-slate-450 font-normal">
+                    {provider === "gemini" ? "Google Gemini" : provider === "openai" ? "OpenAI GPT" : "Anthropic Claude"}
+                  </span>
+                </Label>
+                <select
+                  value={isCustomMode ? "custom" : (modelName || (CLOUD_MODELS[provider] || [])[0] || "")}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "custom") {
+                      setIsCustomMode(true);
+                      setModelName("");
+                    } else {
+                      setIsCustomMode(false);
+                      setModelName(val);
+                    }
+                    setTestState({ status: "idle" });
+                  }}
+                  className="w-full bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                >
+                  {(CLOUD_MODELS[provider] || []).map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                  <option value="custom">Custom Model Name...</option>
+                </select>
+
+                {isCustomMode && (
+                  <div className="space-y-1 mt-2">
+                    <input
+                      type="text"
+                      placeholder="Enter custom model name (e.g. gpt-4-32k)..."
+                      value={modelName}
+                      onChange={(e) => {
+                        setModelName(e.target.value);
+                        setTestState({ status: "idle" });
+                      }}
+                      className="w-full bg-card border border-border text-slate-800 text-base md:text-sm placeholder:text-xs p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                    />
                   </div>
                 )}
               </div>
