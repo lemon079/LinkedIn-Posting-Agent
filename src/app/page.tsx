@@ -18,10 +18,12 @@ export default function Home() {
     draftText, postUrl, isGenerating, isPublishing, error, activeTab,
     provider, apiKey, modelName, ollamaBaseUrl, tavilyKey, liToken, liUrn, isSettingsOpen,
     user, isTauri,
+    selectedFile,
     setCustomTopic, setContext, setDraftText,
     setActiveTab, handleGenerate, handlePublish,
     setProvider, setApiKey, setModelName, setOllamaBaseUrl, setTavilyKey,
     setLiToken, setLiUrn, setIsSettingsOpen,
+    setSelectedFile,
   } = agentState;
 
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -80,7 +82,18 @@ export default function Home() {
               <DraftTabs
                 activeTab={activeTab} setActiveTab={setActiveTab}
               />
-              {activeTab === "preview" ? <LinkedInFeed draftText={draftText} /> : <EditorPanel draftText={draftText} isPublishing={isPublishing} onChange={setDraftText} onPublish={onPublishClick} />}
+              {activeTab === "preview" ? (
+                <LinkedInFeed draftText={draftText} selectedFile={selectedFile} />
+              ) : (
+                <EditorPanel 
+                  draftText={draftText} 
+                  isPublishing={isPublishing} 
+                  selectedFile={selectedFile}
+                  setSelectedFile={setSelectedFile}
+                  onChange={setDraftText} 
+                  onPublish={onPublishClick} 
+                />
+              )}
             </div>
           )}
         </div>

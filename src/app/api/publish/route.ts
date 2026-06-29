@@ -6,7 +6,7 @@ import { resolveLinkedInCredentials } from "@/lib/server/settings";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { threadId, draft } = body;
+    const { threadId, draft, file } = body;
 
     if (!threadId || !draft) {
       return NextResponse.json({ error: "Missing threadId or draft" }, { status: 400 });
@@ -34,6 +34,7 @@ export async function POST(request: Request) {
       postContent: draft,
       linkedinToken: liToken || null,
       linkedinUrn: liUrn || null,
+      mediaFile: file || null,
     });
     const finalState = await agent.invoke(null, threadConfig);
 

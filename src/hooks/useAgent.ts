@@ -25,6 +25,7 @@ export function useAgent() {
   const [postUrl, setPostUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"preview" | "edit">("preview");
   const [status, setStatus] = useState({ gen: false, pub: false, err: null as string | null });
+  const [selectedFile, setSelectedFile] = useState<{ name: string; type: string; base64: string; } | null>(null);
 
   const [provider, setProvider] = useState(() => {
     const stored = getSafeLocalStorage("llm_provider", "gemini");
@@ -134,8 +135,10 @@ export function useAgent() {
 
     if (!oauthToken || !oauthUrn) return;
 
-    setLiToken(oauthToken);
-    setLiUrn(oauthUrn);
+    setTimeout(() => {
+      setLiToken(oauthToken);
+      setLiUrn(oauthUrn);
+    }, 0);
     localStorage.setItem("li_token", oauthToken);
     localStorage.setItem("li_urn", oauthUrn);
 
@@ -159,7 +162,7 @@ export function useAgent() {
 
   const handleGenerate = async () => {
     setStatus({ gen: true, pub: false, err: null });
-    setDraftText(null); setPostUrl(null);
+    setDraftText(null); setPostUrl(null); setSelectedFile(null);
     try {
       const topic = customTopic;
       const data = await generateDraft(topic, context, customKeys);
@@ -176,8 +179,8 @@ export function useAgent() {
     if (!threadId || !draftText) return;
     setStatus({ gen: false, pub: true, err: null });
     try {
-      const data = await publishPost(threadId, draftText, customKeys);
-      setPostUrl(data.postUrl); setDraftText(null); setThreadId(null);
+      const data = await publishPost(threadId, draftText, customKeys, selectedFile || undefined);
+      setPostUrl(data.postUrl); setDraftText(null); setThreadId(null); setSelectedFile(null);
     } catch (err: unknown) {
       const rawMsg = err instanceof Error ? err.message : "Unknown error";
       setStatus(p => ({ ...p, err: cleanErrorMessage(rawMsg) }));
@@ -191,9 +194,11 @@ export function useAgent() {
     isGenerating: status.gen, isPublishing: status.pub, error: status.err,
     provider, apiKey, modelName, ollamaBaseUrl, tavilyKey, liToken, liUrn, isSettingsOpen,
     user, token, isTauri,
+    selectedFile,
     setCustomTopic, setContext, setDraftText, setActiveTab,
     setProvider, setApiKey, setModelName, setOllamaBaseUrl, setTavilyKey,
     setLiToken, setLiUrn, setIsSettingsOpen,
+    setSelectedFile,
     handleGenerate, handlePublish,
   };
 }

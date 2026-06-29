@@ -1,13 +1,15 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { ThumbsUp, MessageSquare, Repeat2, Send } from "lucide-react";
+import { ThumbsUp, MessageSquare, Repeat2, Send, FileText } from "lucide-react";
 
 interface LinkedInFeedProps {
   draftText: string | null;
+  selectedFile?: { name: string; type: string; base64: string; } | null;
 }
 
 export const LinkedInFeed: React.FC<LinkedInFeedProps> = ({
-  draftText
+  draftText,
+  selectedFile
 }) => {
   if (!draftText) return null;
 
@@ -25,6 +27,28 @@ export const LinkedInFeed: React.FC<LinkedInFeedProps> = ({
       <CardContent className="p-0 text-sm leading-relaxed text-slate-800 whitespace-pre-wrap select-text font-sans selection:bg-brand-blue/10">
         {draftText}
       </CardContent>
+
+      {selectedFile && selectedFile.type.startsWith("image/") && (
+        <div className="rounded-lg overflow-hidden border border-border">
+          <img
+            src={selectedFile.base64}
+            alt="Post attachment"
+            className="w-full h-auto max-h-[320px] object-cover"
+          />
+        </div>
+      )}
+
+      {selectedFile && selectedFile.type === "application/pdf" && (
+        <div className="rounded-xl border border-border p-4 bg-slate-50 flex items-center gap-3">
+          <div className="p-3 bg-red-100 text-red-600 rounded-lg">
+            <FileText className="size-6" />
+          </div>
+          <div className="min-w-0 text-sm">
+            <p className="font-semibold text-slate-800 truncate">{selectedFile.name}</p>
+            <p className="text-xs text-slate-500 font-medium">Document • PDF</p>
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-between border-t border-border pt-3 text-xs text-slate-500 font-medium">
         <button className="flex items-center gap-1.5 hover:text-slate-800 transition px-2.5 py-1.5 rounded-md hover:bg-slate-50 cursor-pointer" type="button">

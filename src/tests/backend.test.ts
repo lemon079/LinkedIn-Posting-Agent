@@ -223,7 +223,39 @@ describe("Backend API Endpoints", () => {
       expect(json.postUrl).toBe("https://linkedin.com/123");
       expect(agent.updateState).toHaveBeenCalledWith(
         { configurable: { thread_id: "123" } },
-        { postContent: "My Final Draft", linkedinToken: "mock-li-token", linkedinUrn: "urn:li:person:123" }
+        { postContent: "My Final Draft", linkedinToken: "mock-li-token", linkedinUrn: "urn:li:person:123", mediaFile: null }
+      );
+    });
+
+    test("resumes agent execution and passes mediaFile when file is present", async () => {
+      (verifyAuth as jest.Mock).mockResolvedValue(null);
+      (agent.getState as jest.Mock).mockResolvedValue({
+        values: { postContent: "Draft" },
+        next: ["publishPost"],
+      });
+      (agent.invoke as jest.Mock).mockResolvedValue({
+        postUrl: "https://linkedin.com/123",
+        error: null,
+      });
+
+      const mockFile = { name: "test.png", type: "image/png", base64: "data:image/png;base64,123" };
+      const request = new Request("http://localhost/api/publish", {
+        method: "POST",
+        headers: {
+          "x-linkedin-token": "mock-li-token",
+          "x-linkedin-urn": "urn:li:person:123",
+        },
+        body: JSON.stringify({ threadId: "123", draft: "My Final Draft", file: mockFile }),
+      });
+
+      const response = await publishPost(request);
+      expect(response.status).toBe(200);
+
+      const json = await response.json();
+      expect(json.postUrl).toBe("https://linkedin.com/123");
+      expect(agent.updateState).toHaveBeenCalledWith(
+        { configurable: { thread_id: "123" } },
+        { postContent: "My Final Draft", linkedinToken: "mock-li-token", linkedinUrn: "urn:li:person:123", mediaFile: mockFile }
       );
     });
   });

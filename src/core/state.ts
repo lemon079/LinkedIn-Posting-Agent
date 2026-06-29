@@ -51,6 +51,10 @@ export const AgentState = Annotation.Root({
     reducer: (x, y) => y,
     default: () => null,
   }),
+  mediaFile: Annotation<{ name: string; type: string; base64: string; } | null>({
+    reducer: (x, y) => y,
+    default: () => null,
+  }),
 });
 
 export type State = typeof AgentState.State;

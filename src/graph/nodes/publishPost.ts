@@ -7,7 +7,8 @@ export const publishPost = async (state: State): Promise<Partial<State>> => {
   const response = await publishLinkedInPost(
     state.postContent,
     state.linkedinToken || undefined,
-    state.linkedinUrn || undefined
+    state.linkedinUrn || undefined,
+    state.mediaFile || undefined
   );
   
   if (response.error) {

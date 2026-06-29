@@ -17,11 +17,12 @@ export async function generateDraft(
 export async function publishPost(
   threadId: string,
   draft: string,
-  keys?: CustomKeys
+  keys?: CustomKeys,
+  file?: { name: string; type: string; base64: string; }
 ): Promise<PublishResponse> {
   return apiFetch<PublishResponse>("/api/publish", {
     method: "POST",
     headers: buildApiHeaders(keys),
-    body: JSON.stringify({ threadId, draft }),
+    body: JSON.stringify({ threadId, draft, file }),
   }, "Failed to publish");
 }
