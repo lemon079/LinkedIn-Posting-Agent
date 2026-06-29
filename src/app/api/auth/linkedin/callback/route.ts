@@ -20,6 +20,8 @@ export async function GET(request: Request) {
   }
 
   try {
+    const computedRedirectUri = `${baseUrl}/api/auth/linkedin/callback`;
+
     // 1. Exchange authorization code for access token
     const tokenRes = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
       method: "POST",
@@ -27,7 +29,7 @@ export async function GET(request: Request) {
       body: new URLSearchParams({
         grant_type: "authorization_code",
         code: String(code),
-        redirect_uri: config.LINKEDIN_REDIRECT_URI,
+        redirect_uri: computedRedirectUri,
         client_id: config.LINKEDIN_CLIENT_ID,
         client_secret: config.LINKEDIN_CLIENT_SECRET,
       }),

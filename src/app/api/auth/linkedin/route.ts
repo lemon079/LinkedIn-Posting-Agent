@@ -6,7 +6,9 @@ export async function GET(request: Request) {
   const state = searchParams.get("state") || "local";
 
   const clientId = config.LINKEDIN_CLIENT_ID;
-  const redirectUri = encodeURIComponent(config.LINKEDIN_REDIRECT_URI);
+  const requestUrl = new URL(request.url);
+  const computedRedirectUri = `${requestUrl.origin}/api/auth/linkedin/callback`;
+  const redirectUri = encodeURIComponent(computedRedirectUri);
 
   if (!clientId || !config.LINKEDIN_REDIRECT_URI) {
     return NextResponse.json(
