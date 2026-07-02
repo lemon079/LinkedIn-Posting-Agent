@@ -4,7 +4,7 @@ import { ThumbsUp, MessageSquare, Repeat2, Send, FileText } from "lucide-react";
 
 interface LinkedInFeedProps {
   draftText: string | null;
-  selectedFile?: { name: string; type: string; base64: string; } | null;
+  selectedFile?: { name: string; type: string; storagePath?: string; readUrl?: string; base64?: string; } | null;
 }
 
 export const LinkedInFeed: React.FC<LinkedInFeedProps> = ({
@@ -31,7 +31,7 @@ export const LinkedInFeed: React.FC<LinkedInFeedProps> = ({
       {selectedFile && selectedFile.type.startsWith("image/") && (
         <div className="rounded-lg overflow-hidden border border-border">
           <img
-            src={selectedFile.base64}
+            src={selectedFile.readUrl || selectedFile.base64}
             alt="Post attachment"
             className="w-full h-auto max-h-[320px] object-cover"
           />

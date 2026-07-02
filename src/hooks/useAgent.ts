@@ -25,7 +25,8 @@ export function useAgent() {
   const [postUrl, setPostUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"preview" | "edit">("preview");
   const [status, setStatus] = useState({ gen: false, pub: false, err: null as string | null });
-  const [selectedFile, setSelectedFile] = useState<{ name: string; type: string; base64: string; } | null>(null);
+  const [selectedFile, setSelectedFile] = useState<{ name: string; type: string; storagePath?: string; readUrl?: string; base64?: string; } | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const [provider, setProvider] = useState(() => {
     const stored = getSafeLocalStorage("llm_provider", "gemini");
@@ -198,16 +199,97 @@ export function useAgent() {
     }
   };
 
+  const handleUploadFile = async (file: File) => {
+    setIsUploading(true);
+    setStatus(p => ({ ...p, err: null }));
+    try {
+      if (!supabase) {
+        // Fallback: local mode (base64)
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === "string") {
+            setSelectedFile({
+              name: file.name,
+              type: file.type,
+              base64: reader.result,
+            });
+          }
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const signRes = await fetch(
+        `/api/media/upload/sign?filename=${encodeURIComponent(file.name)}&mimeType=${encodeURIComponent(file.type)}`,
+        { headers }
+      );
+
+      if (!signRes.ok) {
+        const errText = await signRes.text();
+        throw new Error(`Failed to get signed URL: ${errText}`);
+      }
+
+      const signData = await signRes.json();
+
+      if (signData.localMode) {
+        // Fallback: local mode (base64)
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === "string") {
+            setSelectedFile({
+              name: file.name,
+              type: file.type,
+              base64: reader.result,
+            });
+          }
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      const uploadRes = await fetch(signData.uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type
+        },
+        body: file
+      });
+
+      if (!uploadRes.ok) {
+        const errText = await uploadRes.text();
+        throw new Error(`Failed to upload file to storage: ${errText}`);
+      }
+
+      setSelectedFile({
+        name: file.name,
+        type: file.type,
+        storagePath: signData.storagePath,
+        readUrl: signData.readUrl
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unknown upload error";
+      setStatus(p => ({ ...p, err: cleanErrorMessage(msg) }));
+      setSelectedFile(null);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   return {
     customTopic, context, draftText, threadId, postUrl, activeTab,
     isGenerating: status.gen, isPublishing: status.pub, error: status.err,
     provider, apiKey, modelName, ollamaBaseUrl, tavilyKey, liToken, liUrn, isSettingsOpen,
     user, token, isTauri,
-    selectedFile,
+    selectedFile, isUploading,
     setCustomTopic, setContext, setDraftText, setActiveTab,
     setProvider, setApiKey, setModelName, setOllamaBaseUrl, setTavilyKey,
     setLiToken, setLiUrn, setIsSettingsOpen,
     setSelectedFile,
-    handleGenerate, handlePublish,
+    handleGenerate, handlePublish, handleUploadFile,
   };
 }

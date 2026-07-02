@@ -18,7 +18,7 @@ export async function publishPost(
   threadId: string,
   draft: string,
   keys?: CustomKeys,
-  file?: { name: string; type: string; base64: string; }
+  file?: { name: string; type: string; storagePath?: string; readUrl?: string; base64?: string; }
 ): Promise<PublishResponse> {
   return apiFetch<PublishResponse>("/api/publish", {
     method: "POST",

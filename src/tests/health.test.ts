@@ -64,7 +64,7 @@ describe("checkConnection", () => {
   test("cloud provider success", async () => {
     const mockInvoke = jest.spyOn(ChatGoogle.prototype, "invoke").mockResolvedValue({
       content: "OK",
-    } as unknown as import("@langchain/core/messages").BaseMessageChunk);
+    } as unknown as import("@langchain/core/messages").AIMessageChunk);
 
     const result = await checkConnection("gemini", "mock-api-key");
     expect(result).toEqual({ ok: true });

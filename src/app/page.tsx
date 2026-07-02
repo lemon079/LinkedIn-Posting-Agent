@@ -18,12 +18,12 @@ export default function Home() {
     draftText, postUrl, isGenerating, isPublishing, error, activeTab,
     provider, apiKey, modelName, ollamaBaseUrl, tavilyKey, liToken, liUrn, isSettingsOpen,
     user, isTauri,
-    selectedFile,
+    selectedFile, isUploading,
     setCustomTopic, setContext, setDraftText,
     setActiveTab, handleGenerate, handlePublish,
     setProvider, setApiKey, setModelName, setOllamaBaseUrl, setTavilyKey,
     setLiToken, setLiUrn, setIsSettingsOpen,
-    setSelectedFile,
+    setSelectedFile, handleUploadFile,
   } = agentState;
 
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -90,6 +90,8 @@ export default function Home() {
                   isPublishing={isPublishing} 
                   selectedFile={selectedFile}
                   setSelectedFile={setSelectedFile}
+                  isUploading={isUploading}
+                  onUploadFile={handleUploadFile}
                   onChange={setDraftText} 
                   onPublish={onPublishClick} 
                 />

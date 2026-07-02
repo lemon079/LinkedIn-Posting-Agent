@@ -7,8 +7,10 @@ import { Send, Paperclip, Trash2, FileText } from "lucide-react";
 interface EditorPanelProps {
   draftText: string; 
   isPublishing: boolean;
-  selectedFile: { name: string; type: string; base64: string; } | null;
-  setSelectedFile: (file: { name: string; type: string; base64: string; } | null) => void;
+  selectedFile: { name: string; type: string; storagePath?: string; readUrl?: string; base64?: string; } | null;
+  setSelectedFile: (file: { name: string; type: string; storagePath?: string; readUrl?: string; base64?: string; } | null) => void;
+  isUploading: boolean;
+  onUploadFile: (file: File) => void;
   onChange: (value: string) => void; 
   onPublish: () => void;
 }
@@ -18,6 +20,8 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   isPublishing, 
   selectedFile,
   setSelectedFile,
+  isUploading,
+  onUploadFile,
   onChange, 
   onPublish,
 }) => {
@@ -47,17 +51,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (typeof reader.result === "string") {
-        setSelectedFile({
-          name: file.name,
-          type: file.type,
-          base64: reader.result,
-        });
-      }
-    };
-    reader.readAsDataURL(file);
+    onUploadFile(file);
   };
 
   const handleRemoveFile = () => {
@@ -96,11 +90,11 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
       <div className="border border-border rounded-xl p-3 bg-slate-50/50 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold text-slate-500">Attachment (Optional)</span>
-          {!selectedFile && (
+          {!selectedFile && !isUploading && (
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              disabled={isPublishing}
+              disabled={isPublishing || isUploading}
               className="text-xs text-brand-blue hover:text-brand-blue-hover font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50"
             >
               <Paperclip className="size-3.5" /> Attach Image or PDF
@@ -114,10 +108,18 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
           onChange={handleFileChange}
           accept="image/png, image/jpeg, image/webp, application/pdf"
           className="hidden"
-          disabled={isPublishing}
+          disabled={isPublishing || isUploading}
         />
 
-        {selectedFile ? (
+        {isUploading ? (
+          <div className="flex items-center justify-center py-3 gap-2 text-xs text-slate-500 font-medium animate-pulse">
+            <svg className="animate-spin h-4 w-4 text-brand-blue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Uploading to storage...
+          </div>
+        ) : selectedFile ? (
           <div className="flex items-center justify-between bg-white border border-border p-2 rounded-lg shadow-xs animate-fade-in">
             <div className="flex items-center gap-2.5 min-w-0">
               {selectedFile.type === "application/pdf" ? (
@@ -126,7 +128,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                 </div>
               ) : (
                 <img
-                  src={selectedFile.base64}
+                  src={selectedFile.readUrl || selectedFile.base64}
                   alt="Preview"
                   className="size-10 object-cover rounded-md border border-slate-100"
                 />
@@ -159,9 +161,10 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
 
       <Button
         className="w-full bg-brand-blue hover:bg-brand-blue-hover text-white font-semibold py-5 rounded-xl transition flex items-center justify-center gap-2 shadow-sm duration-200"
-        onClick={onPublish} disabled={isPublishing || charCount > 3000 || charCount === 0}
+        onClick={onPublish}
+        disabled={isPublishing || isUploading || charCount > 3000 || charCount === 0}
       >
-        {isPublishing ? "Publishing Post..." : <><Send className="size-4" /> Approve & Publish Post</>}
+        {isPublishing ? "Publishing Post..." : isUploading ? "Uploading attachment..." : <><Send className="size-4" /> Approve & Publish Post</>}
       </Button>
     </div>
   );

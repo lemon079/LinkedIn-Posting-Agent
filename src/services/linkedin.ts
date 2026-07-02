@@ -5,7 +5,7 @@ export async function publishLinkedInPost(
   postContent: string, 
   customToken?: string,
   customUrn?: string,
-  mediaFile?: { name: string; type: string; base64: string; }
+  mediaFile?: { name: string; type: string; storagePath?: string; readUrl?: string; base64?: string; }
 ): Promise<PublishPostResponse> {
   const url = "https://api.linkedin.com/v2/ugcPosts";
   const authorUrn = customUrn || config.LINKEDIN_PERSON_URN;
@@ -64,9 +64,22 @@ export async function publishLinkedInPost(
         return { error: "LinkedIn registerUpload response was missing upload URL or asset URN" };
       }
 
-      // 3. Decode base64 data to binary buffer
-      const base64Data = mediaFile.base64.split(",")[1] || mediaFile.base64;
-      const buffer = Buffer.from(base64Data, "base64");
+      // 3. Obtain media body (stream from readUrl or decode base64 buffer)
+      let bodyData: BodyInit;
+      if (mediaFile.readUrl) {
+        console.log(`[LinkedIn-Publish] Downloading media from: ${mediaFile.readUrl}`);
+        const downloadRes = await fetch(mediaFile.readUrl);
+        if (!downloadRes.ok) {
+          return { error: `Failed to download media file from storage readUrl: ${downloadRes.statusText}` };
+        }
+        bodyData = downloadRes.body || await downloadRes.arrayBuffer();
+      } else if (mediaFile.base64) {
+        console.log("[LinkedIn-Publish] Decoding base64 media data (local fallback).");
+        const base64Data = mediaFile.base64.split(",")[1] || mediaFile.base64;
+        bodyData = Buffer.from(base64Data, "base64");
+      } else {
+        return { error: "mediaFile is missing both readUrl and base64 data" };
+      }
 
       // 4. Upload binary file
       const uploadResponse = await fetch(uploadUrl, {
@@ -74,7 +87,7 @@ export async function publishLinkedInPost(
         headers: {
           "Content-Type": "application/octet-stream",
         },
-        body: buffer
+        body: bodyData
       });
 
       if (!uploadResponse.ok) {

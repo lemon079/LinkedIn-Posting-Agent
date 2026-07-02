@@ -17,8 +17,12 @@ export async function POST(request: Request) {
 
     console.log(`[API-Publish][${requestId}] Parameters - ThreadId: ${threadId}, DraftLength: ${draft.length} chars`);
     if (file) {
-      const base64Len = file.base64 ? file.base64.length : 0;
-      console.log(`[API-Publish][${requestId}] Attachment details - Name: "${file.name}", Mime: "${file.type}", Base64 length: ${base64Len}`);
+      if (file.storagePath) {
+        console.log(`[API-Publish][${requestId}] Attachment details (Supabase) - Name: "${file.name}", Mime: "${file.type}", Key: "${file.storagePath}"`);
+      } else {
+        const base64Len = file.base64 ? file.base64.length : 0;
+        console.log(`[API-Publish][${requestId}] Attachment details (Local Fallback) - Name: "${file.name}", Mime: "${file.type}", Base64 length: ${base64Len}`);
+      }
     } else {
       console.log(`[API-Publish][${requestId}] No attachment file provided.`);
     }

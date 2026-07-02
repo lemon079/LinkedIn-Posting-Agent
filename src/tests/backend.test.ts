@@ -2,6 +2,7 @@ import { POST as healthCheckPost } from "../app/api/health-check/route";
 import { POST as draftPost } from "../app/api/draft/route";
 import { POST as publishPost } from "../app/api/publish/route";
 import { GET as settingsGet, POST as settingsPost } from "../app/api/user/settings/route";
+import { GET as mediaUploadSign } from "../app/api/media/upload/sign/route";
 import { checkConnection } from "../services/health";
 import { agent } from "../graph/index";
 import { verifyAuth, getSupabaseClient } from "../services/supabase";
@@ -14,10 +15,27 @@ jest.mock("../graph/index", () => ({
     updateState: jest.fn(),
   },
 }));
+
+const mockSupabaseStorage = {
+  createSignedUploadUrl: jest.fn(),
+  getPublicUrl: jest.fn(() => ({ data: { publicUrl: "http://mock-public-url" } })),
+  remove: jest.fn(),
+};
+
+const mockSupabaseAdmin = {
+  storage: {
+    from: jest.fn(() => mockSupabaseStorage),
+  },
+};
+
+let mockSupabaseInstance: any = mockSupabaseAdmin;
+
 jest.mock("../services/supabase", () => ({
   verifyAuth: jest.fn(),
   getSupabaseClient: jest.fn(),
+  get supabase() { return mockSupabaseInstance; }
 }));
+
 jest.mock("../services/crypto", () => ({
   encrypt: (val: string) => `encrypted-${val}`,
   decrypt: (val: string) => val.replace("encrypted-", ""),
@@ -257,6 +275,63 @@ describe("Backend API Endpoints", () => {
         { configurable: { thread_id: "123" } },
         { postContent: "My Final Draft", linkedinToken: "mock-li-token", linkedinUrn: "urn:li:person:123", mediaFile: mockFile }
       );
+    });
+  });
+
+  describe("GET /api/media/upload/sign", () => {
+    test("returns 400 on missing query parameters", async () => {
+      const request = new Request("http://localhost/api/media/upload/sign", {
+        method: "GET",
+      });
+      const response = await mediaUploadSign(request);
+      expect(response.status).toBe(400);
+      const json = await response.json();
+      expect(json.error).toBe("Missing filename or mimeType");
+    });
+
+    test("returns localMode true when supabase client is not initialized", async () => {
+      const request = new Request("http://localhost/api/media/upload/sign?filename=test.png&mimeType=image/png", {
+        method: "GET",
+      });
+      const oldInstance = mockSupabaseInstance;
+      mockSupabaseInstance = null;
+
+      const response = await mediaUploadSign(request);
+      expect(response.status).toBe(200);
+      const json = await response.json();
+      expect(json.localMode).toBe(true);
+
+      mockSupabaseInstance = oldInstance;
+    });
+
+    test("returns 401 when user is not authenticated", async () => {
+      (verifyAuth as jest.Mock).mockResolvedValue(null);
+      const request = new Request("http://localhost/api/media/upload/sign?filename=test.png&mimeType=image/png", {
+        method: "GET",
+      });
+      const response = await mediaUploadSign(request);
+      expect(response.status).toBe(401);
+      const json = await response.json();
+      expect(json.error).toBe("Unauthorized");
+    });
+
+    test("generates signed upload URL successfully", async () => {
+      (verifyAuth as jest.Mock).mockResolvedValue({ id: "user-123" });
+      mockSupabaseStorage.createSignedUploadUrl.mockResolvedValue({
+        data: { signedUrl: "http://supabase-signed-upload-url" },
+        error: null,
+      });
+
+      const request = new Request("http://localhost/api/media/upload/sign?filename=test.png&mimeType=image/png", {
+        method: "GET",
+      });
+      const response = await mediaUploadSign(request);
+      expect(response.status).toBe(200);
+
+      const json = await response.json();
+      expect(json.uploadUrl).toBe("http://supabase-signed-upload-url");
+      expect(json.storagePath).toContain("temp/user-123/");
+      expect(json.readUrl).toBe("http://mock-public-url");
     });
   });
 });
