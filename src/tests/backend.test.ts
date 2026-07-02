@@ -28,7 +28,7 @@ const mockSupabaseAdmin = {
   },
 };
 
-let mockSupabaseInstance: any = mockSupabaseAdmin;
+let mockSupabaseInstance: unknown = mockSupabaseAdmin;
 
 jest.mock("../services/supabase", () => ({
   verifyAuth: jest.fn(),

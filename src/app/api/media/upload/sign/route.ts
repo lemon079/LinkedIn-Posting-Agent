@@ -32,14 +32,48 @@ export async function GET(request: Request) {
     const safeFilename = filename.replace(/[^a-zA-Z0-9.-]/g, "_");
     const storagePath = `temp/${user.id}/${Date.now()}-${safeFilename}`;
 
-    const { data, error } = await supabase.storage
-      .from("temp-uploads")
-      .createSignedUploadUrl(storagePath);
+    let signedData: { signedUrl: string } | null = null;
+    let signedError: { message: string; status?: number; statusCode?: string } | null = null;
 
-    if (error || !data) {
-      console.error(`[API-Sign][${requestId}] Supabase createSignedUploadUrl failed:`, error);
+    try {
+      const { data, error } = await supabase.storage
+        .from("temp-uploads")
+        .createSignedUploadUrl(storagePath);
+      signedData = data;
+      signedError = error as unknown as { message: string; status?: number; statusCode?: string };
+    } catch (err: unknown) {
+      signedError = err as { message: string; status?: number; statusCode?: string };
+    }
+
+    // Self-healing: If bucket does not exist (404/does not exist error), auto-create it and retry
+    if (
+      signedError && 
+      (signedError.message?.includes("does not exist") || 
+       signedError.status === 400 || 
+       signedError.statusCode === "404" ||
+       signedError.message?.includes("related resource"))
+    ) {
+      console.log(`[API-Sign][${requestId}] Bucket "temp-uploads" does not exist. Auto-creating bucket...`);
+      const { error: createError } = await supabase.storage.createBucket("temp-uploads", {
+        public: true,
+      });
+
+      if (createError) {
+        console.error(`[API-Sign][${requestId}] Failed to auto-create bucket:`, createError.message);
+      } else {
+        console.log(`[API-Sign][${requestId}] Bucket "temp-uploads" created successfully. Retrying signed URL generation.`);
+        const { data, error } = await supabase.storage
+          .from("temp-uploads")
+          .createSignedUploadUrl(storagePath);
+        signedData = data;
+        signedError = error;
+      }
+    }
+
+    if (signedError || !signedData) {
+      console.error(`[API-Sign][${requestId}] Supabase createSignedUploadUrl failed:`, signedError);
       return NextResponse.json(
-        { error: error?.message || "Failed to create signed upload URL from Supabase" },
+        { error: signedError?.message || "Failed to create signed upload URL from Supabase" },
         { status: 500 }
       );
     }
@@ -50,7 +84,7 @@ export async function GET(request: Request) {
 
     console.log(`[API-Sign][${requestId}] Signed URL generated successfully. Path: "${storagePath}"`);
     return NextResponse.json({
-      uploadUrl: data.signedUrl,
+      uploadUrl: signedData.signedUrl,
       storagePath,
       readUrl: publicUrl
     });
