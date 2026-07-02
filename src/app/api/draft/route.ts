@@ -4,12 +4,13 @@ import { config } from "@/config/env";
 import { genres } from "@/core/utils";
 import { getRequestAuth } from "@/lib/server/auth";
 import { resolveAgentCredentials } from "@/lib/server/settings";
+import type { DraftRequest } from "@/interfaces/draft";
 
 export async function POST(request: Request) {
   const requestId = Date.now().toString();
   console.log(`[API-Draft][${requestId}] Incoming POST request received.`);
   try {
-    const body = await request.json();
+    const body = await request.json() as DraftRequest;
     const { topic, context } = body;
     const selectedTopic = topic || genres[Math.floor(Math.random() * genres.length)];
     const threadId = Date.now().toString();

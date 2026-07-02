@@ -190,7 +190,7 @@ export function useAgent() {
     setStatus({ gen: false, pub: true, err: null });
     try {
       const data = await publishPost(threadId, draftText, customKeys, selectedFile || undefined);
-      setPostUrl(data.postUrl); setDraftText(null); setThreadId(null); setSelectedFile(null);
+      setPostUrl(data.postUrl || null); setDraftText(null); setThreadId(null); setSelectedFile(null);
     } catch (err: unknown) {
       const rawMsg = err instanceof Error ? err.message : "Unknown error";
       setStatus(p => ({ ...p, err: cleanErrorMessage(rawMsg) }));

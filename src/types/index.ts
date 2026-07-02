@@ -30,21 +30,6 @@ export interface HealthResult {
   models?: string[];
 }
 
-export interface DraftResponse {
-  draft: string;
-  threadId: string;
-}
-
-export interface PublishResponse {
-  postUrl: string;
-}
-
-export interface HealthResponse {
-  ok: boolean;
-  error?: string;
-  models?: string[];
-}
-
 export interface CustomKeys {
   provider: string;
   apiKey: string;
@@ -56,12 +41,7 @@ export interface CustomKeys {
   token?: string;
 }
 
-export interface UserSettings {
-  provider?: string;
-  apiKey?: string;
-  modelName?: string;
-  ollamaBaseUrl?: string;
-  tavilyKey?: string;
-  liToken?: string;
-  liUrn?: string;
-}
+export type { DraftResponse } from "../interfaces/draft.js";
+export type { PublishResponse } from "../interfaces/publish.js";
+export type { HealthResponse } from "../interfaces/health.js";
+export type { UserSettings } from "../interfaces/settings.js";

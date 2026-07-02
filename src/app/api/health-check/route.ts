@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { checkConnection } from "@/services/health";
+import type { HealthRequest } from "@/interfaces/health";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = await request.json() as HealthRequest;
     const { provider, apiKey, model, ollamaBaseUrl } = body;
     if (!provider) {
       return NextResponse.json({ ok: false, error: "Missing provider" }, { status: 400 });

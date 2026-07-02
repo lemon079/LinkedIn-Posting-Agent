@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { agent } from "@/graph/index";
 import { getRequestAuth } from "@/lib/server/auth";
 import { resolveLinkedInCredentials } from "@/lib/server/settings";
+import type { PublishRequest } from "@/interfaces/publish";
 
 export async function POST(request: Request) {
   const requestId = Date.now().toString();
   console.log(`[API-Publish][${requestId}] Incoming POST request received.`);
   try {
-    const body = await request.json();
+    const body = await request.json() as PublishRequest;
     const { threadId, draft, file } = body;
 
     if (!threadId || !draft) {

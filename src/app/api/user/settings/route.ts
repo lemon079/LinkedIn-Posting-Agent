@@ -5,6 +5,7 @@ import {
   mapRowToUserSettings,
   saveUserSettings,
 } from "@/lib/server/settings";
+import type { UserSettings } from "@/interfaces/settings";
 
 export async function GET(request: Request) {
   const { user, client } = await getRequestAuth(request);
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await request.json();
+    const body = await request.json() as UserSettings;
     await saveUserSettings(client, user.id, body);
     return NextResponse.json({ ok: true });
   } catch (err: unknown) {
