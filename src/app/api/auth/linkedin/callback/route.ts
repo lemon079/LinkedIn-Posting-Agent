@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import { config } from "@/config/env";
-import { supabase } from "@/services/supabase";
-import { saveLinkedInCredentials } from "@/lib/server/settings";
+import { handleLinkedInCallback } from "@/services/auth";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -20,95 +18,30 @@ export async function GET(request: Request) {
   }
 
   try {
-    const computedRedirectUri = `${baseUrl}/api/auth/linkedin/callback`;
+    const result = await handleLinkedInCallback(code, baseUrl);
 
-    // 1. Exchange authorization code for access token
-    const tokenRes = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "authorization_code",
-        code: String(code),
-        redirect_uri: computedRedirectUri,
-        client_id: config.LINKEDIN_CLIENT_ID,
-        client_secret: config.LINKEDIN_CLIENT_SECRET,
-      }),
-    });
-
-    const tokenData = await tokenRes.json();
-    if (!tokenRes.ok || !tokenData.access_token) {
-      throw new Error(tokenData.error_description || tokenData.error || "Failed to exchange authorization token");
-    }
-
-    const accessToken = tokenData.access_token;
-
-    // 2. Fetch user profile info (OpenID Connect userinfo endpoint)
-    const profileRes = await fetch("https://api.linkedin.com/v2/userinfo", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-
-    const profileData = await profileRes.json();
-    if (!profileRes.ok || !profileData.sub) {
-      throw new Error("Failed to fetch user profile info");
-    }
-
-    const personUrn = `urn:li:person:${profileData.sub}`;
-    const email = profileData.email;
-
-    if (!email) {
-      throw new Error("Email not returned by LinkedIn OIDC");
-    }
-
-    // If Supabase is not active, run in local fallback mode
-    if (!supabase) {
+    if (result.localMode) {
       return NextResponse.redirect(
-        `${baseUrl}/?li_token=${encodeURIComponent(accessToken)}&li_urn=${encodeURIComponent(personUrn)}`
+        `${baseUrl}/?li_token=${encodeURIComponent(result.accessToken)}&li_urn=${encodeURIComponent(result.personUrn)}`
       );
     }
 
-    // 3. Try to create the user in Supabase
-    const { error: createError } = await supabase.auth.admin.createUser({
-      email,
-      email_confirm: true,
-    });
-
-    if (createError) {
-      // If the user already exists, it is fine, we continue to generate the login link
-      if (!createError.message.toLowerCase().includes("already") && createError.status !== 422) {
-        throw createError;
-      }
-    }
-
-    // 4. Generate a magic login link
-    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-      type: "magiclink",
-      email,
-      options: {
-        redirectTo: `${baseUrl}/?li_token=${encodeURIComponent(accessToken)}&li_urn=${encodeURIComponent(personUrn)}`,
-      },
-    });
-
-    if (linkError || !linkData?.properties?.action_link) {
-      throw linkError || new Error("Failed to generate login link");
-    }
-
-    const userId = linkData.user?.id;
-    if (userId) {
-      await saveLinkedInCredentials(supabase, userId, accessToken, personUrn);
-    }
-
-    // 5. Redirect the user to the login link
-    if (baseUrl.includes("localhost") && linkData.properties?.email_otp) {
+    if (baseUrl.includes("localhost") && result.emailOtp && result.email) {
       return NextResponse.redirect(
-        `${baseUrl}/?li_token=${encodeURIComponent(accessToken)}&li_urn=${encodeURIComponent(personUrn)}&email=${encodeURIComponent(email)}&otp=${encodeURIComponent(linkData.properties.email_otp)}`
+        `${baseUrl}/?li_token=${encodeURIComponent(result.accessToken)}&li_urn=${encodeURIComponent(result.personUrn)}&email=${encodeURIComponent(result.email)}&otp=${encodeURIComponent(result.emailOtp)}`
       );
     }
 
-    return NextResponse.redirect(linkData.properties.action_link);
+    if (result.actionLink) {
+      return NextResponse.redirect(result.actionLink);
+    }
+
+    throw new Error("Invalid callback state");
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown authorization error";
     console.error(`[API] OAuth Callback failed: ${msg}`);
     return NextResponse.redirect(`${baseUrl}/?error=${encodeURIComponent(msg)}`);
   }
 }
+
 export const dynamic = "force-dynamic";

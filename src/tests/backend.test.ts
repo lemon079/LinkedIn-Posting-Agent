@@ -6,6 +6,7 @@ import { GET as mediaUploadSign } from "../app/api/media/upload/sign/route";
 import { checkConnection } from "../services/health";
 import { agent } from "../graph/index";
 import { verifyAuth, getSupabaseClient } from "../services/supabase";
+import { getSignedUploadUrl } from "../services/storage";
 
 jest.mock("../services/health");
 jest.mock("../graph/index", () => ({
@@ -16,24 +17,14 @@ jest.mock("../graph/index", () => ({
   },
 }));
 
-const mockSupabaseStorage = {
-  createSignedUploadUrl: jest.fn(),
-  getPublicUrl: jest.fn(() => ({ data: { publicUrl: "http://mock-public-url" } })),
-  remove: jest.fn(),
-};
-
-const mockSupabaseAdmin = {
-  storage: {
-    from: jest.fn(() => mockSupabaseStorage),
-  },
-};
-
-let mockSupabaseInstance: unknown = mockSupabaseAdmin;
-
 jest.mock("../services/supabase", () => ({
   verifyAuth: jest.fn(),
   getSupabaseClient: jest.fn(),
-  get supabase() { return mockSupabaseInstance; }
+}));
+
+jest.mock("../services/storage", () => ({
+  getSignedUploadUrl: jest.fn(),
+  deleteStorageFile: jest.fn(),
 }));
 
 jest.mock("../services/crypto", () => ({
@@ -290,18 +281,16 @@ describe("Backend API Endpoints", () => {
     });
 
     test("returns localMode true when supabase client is not initialized", async () => {
+      (verifyAuth as jest.Mock).mockResolvedValue({ id: "user-123" });
       const request = new Request("http://localhost/api/media/upload/sign?filename=test.png&mimeType=image/png", {
         method: "GET",
       });
-      const oldInstance = mockSupabaseInstance;
-      mockSupabaseInstance = null;
+      (getSignedUploadUrl as jest.Mock).mockResolvedValue({ localMode: true });
 
       const response = await mediaUploadSign(request);
       expect(response.status).toBe(200);
       const json = await response.json();
       expect(json.localMode).toBe(true);
-
-      mockSupabaseInstance = oldInstance;
     });
 
     test("returns 401 when user is not authenticated", async () => {
@@ -317,9 +306,10 @@ describe("Backend API Endpoints", () => {
 
     test("generates signed upload URL successfully", async () => {
       (verifyAuth as jest.Mock).mockResolvedValue({ id: "user-123" });
-      mockSupabaseStorage.createSignedUploadUrl.mockResolvedValue({
-        data: { signedUrl: "http://supabase-signed-upload-url" },
-        error: null,
+      (getSignedUploadUrl as jest.Mock).mockResolvedValue({
+        uploadUrl: "http://supabase-signed-upload-url",
+        storagePath: "temp/user-123/123-test.png",
+        readUrl: "http://mock-public-url",
       });
 
       const request = new Request("http://localhost/api/media/upload/sign?filename=test.png&mimeType=image/png", {
@@ -330,7 +320,7 @@ describe("Backend API Endpoints", () => {
 
       const json = await response.json();
       expect(json.uploadUrl).toBe("http://supabase-signed-upload-url");
-      expect(json.storagePath).toContain("temp/user-123/");
+      expect(json.storagePath).toBe("temp/user-123/123-test.png");
       expect(json.readUrl).toBe("http://mock-public-url");
     });
   });

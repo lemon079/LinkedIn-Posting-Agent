@@ -102,6 +102,21 @@ export async function saveLinkedInCredentials(
   if (error) throw new Error(error.message);
 }
 
+export async function saveUserSettings(
+  client: SupabaseClient,
+  userId: string,
+  settings: UserSettings
+): Promise<void> {
+  const updateData = buildSettingsUpsert(userId, settings);
+  const { error } = await client
+    .from("user_settings")
+    .upsert(updateData, { onConflict: "user_id" });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 function readHeaderCredentials(request: Request): AgentCredentials {
   const headers = request.headers;
   return {
