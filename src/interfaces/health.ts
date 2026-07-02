@@ -10,3 +10,9 @@ export interface HealthResponse {
   error?: string;
   models?: string[];
 }
+
+export interface HealthResult {
+  ok: boolean;
+  error?: string;
+  models?: string[];
+}

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decrypt, encrypt } from "@/services/crypto";
 import { DEFAULT_OLLAMA_URL } from "@/lib/constants";
-import type { UserSettings } from "@/types/index.js";
+import type { UserSettings } from "@/interfaces";
 
 interface UserSettingsRow {
   llm_provider: string | null;

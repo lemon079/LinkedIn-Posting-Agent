@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import axios from "axios";
 import { generateDraft, publishPost, fetchUserSettings, saveUserSettings } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import { DEFAULT_OLLAMA_URL } from "../lib/constants";
@@ -224,17 +225,18 @@ export function useAgent() {
         headers["Authorization"] = `Bearer ${token}`;
       }
 
-      const signRes = await fetch(
-        `/api/media/upload/sign?filename=${encodeURIComponent(file.name)}&mimeType=${encodeURIComponent(file.type)}`,
-        { headers }
-      );
-
-      if (!signRes.ok) {
-        const errText = await signRes.text();
+      let signData;
+      try {
+        const signRes = await axios.get(
+          `/api/media/upload/sign?filename=${encodeURIComponent(file.name)}&mimeType=${encodeURIComponent(file.type)}`,
+          { headers }
+        );
+        signData = signRes.data;
+      } catch (err: unknown) {
+        const axiosError = err as { response?: { data?: { error?: string } }; message?: string };
+        const errText = axiosError.response?.data?.error || axiosError.message;
         throw new Error(`Failed to get signed URL: ${errText}`);
       }
-
-      const signData = await signRes.json();
 
       if (signData.localMode) {
         // Fallback: local mode (base64)
@@ -252,16 +254,15 @@ export function useAgent() {
         return;
       }
 
-      const uploadRes = await fetch(signData.uploadUrl, {
-        method: "PUT",
-        headers: {
-          "Content-Type": file.type
-        },
-        body: file
-      });
-
-      if (!uploadRes.ok) {
-        const errText = await uploadRes.text();
+      try {
+        await axios.put(signData.uploadUrl, file, {
+          headers: {
+            "Content-Type": file.type
+          }
+        });
+      } catch (err: unknown) {
+        const axiosError = err as { response?: { data?: unknown }; message?: string };
+        const errText = axiosError.response?.data ? String(axiosError.response.data) : axiosError.message;
         throw new Error(`Failed to upload file to storage: ${errText}`);
       }
 

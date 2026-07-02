@@ -1,5 +1,6 @@
-import { config } from "../config/env";
-import type { PublishPostResponse } from "../types/index.js";
+import { config } from "@/config/env";
+import type { PublishPostResponse } from "@/interfaces";
+import axios from "axios";
 
 export async function publishLinkedInPost(
   postContent: string, 
@@ -39,22 +40,22 @@ export async function publishLinkedInPost(
         }
       };
 
-      const registerResponse = await fetch(registerUrl, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-          "X-Restli-Protocol-Version": "2.0.0",
-        },
-        body: JSON.stringify(registerPayload)
-      });
-
-      if (!registerResponse.ok) {
-        const errText = await registerResponse.text();
-        return { error: `LinkedIn registerUpload failed: ${registerResponse.status} - ${errText}` };
+      let registerData;
+      try {
+        const registerResponse = await axios.post(registerUrl, registerPayload, {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+            "X-Restli-Protocol-Version": "2.0.0",
+          }
+        });
+        registerData = registerResponse.data;
+      } catch (err: unknown) {
+        const axiosError = err as { response?: { status?: number; data?: unknown }; message?: string };
+        const errText = axiosError.response?.data ? JSON.stringify(axiosError.response.data) : axiosError.message;
+        return { error: `LinkedIn registerUpload failed: ${axiosError.response?.status} - ${errText}` };
       }
 
-      const registerData = await registerResponse.json();
       const uploadUrl = registerData.value?.uploadMechanism?.[
         "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"
       ]?.uploadUrl;
@@ -65,14 +66,11 @@ export async function publishLinkedInPost(
       }
 
       // 3. Obtain media body (stream from readUrl or decode base64 buffer)
-      let bodyData: BodyInit;
+      let bodyData: unknown;
       if (mediaFile.readUrl) {
         console.log(`[LinkedIn-Publish] Downloading media from: ${mediaFile.readUrl}`);
-        const downloadRes = await fetch(mediaFile.readUrl);
-        if (!downloadRes.ok) {
-          return { error: `Failed to download media file from storage readUrl: ${downloadRes.statusText}` };
-        }
-        bodyData = downloadRes.body || await downloadRes.arrayBuffer();
+        const downloadRes = await axios.get(mediaFile.readUrl, { responseType: "stream" });
+        bodyData = downloadRes.data;
       } else if (mediaFile.base64) {
         console.log("[LinkedIn-Publish] Decoding base64 media data (local fallback).");
         const base64Data = mediaFile.base64.split(",")[1] || mediaFile.base64;
@@ -82,17 +80,16 @@ export async function publishLinkedInPost(
       }
 
       // 4. Upload binary file
-      const uploadResponse = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/octet-stream",
-        },
-        body: bodyData
-      });
-
-      if (!uploadResponse.ok) {
-        const errText = await uploadResponse.text();
-        return { error: `LinkedIn file binary upload failed: ${uploadResponse.status} - ${errText}` };
+      try {
+        await axios.put(uploadUrl, bodyData, {
+          headers: {
+            "Content-Type": "application/octet-stream",
+          }
+        });
+      } catch (err: unknown) {
+        const axiosError = err as { response?: { status?: number; data?: unknown }; message?: string };
+        const errText = axiosError.response?.data ? JSON.stringify(axiosError.response.data) : axiosError.message;
+        return { error: `LinkedIn file binary upload failed: ${axiosError.response?.status} - ${errText}` };
       }
     }
 
@@ -118,25 +115,29 @@ export async function publishLinkedInPost(
       }
     };
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
-        "X-Restli-Protocol-Version": "2.0.0",
-      },
-      body: JSON.stringify(payload)
-    });
+    let response;
+    try {
+      response = await axios.post(url, payload, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "X-Restli-Protocol-Version": "2.0.0",
+        }
+      });
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { status?: number; data?: unknown }; message?: string };
+      const errorText = axiosError.response?.data ? JSON.stringify(axiosError.response.data) : axiosError.message;
+      return { error: `LinkedIn API error: ${axiosError.response?.status} - ${errorText}` };
+    }
 
     if (response.status === 201) {
-      const linkedinId = response.headers.get("x-restli-id") || response.headers.get("x-linkedin-id");
+      const linkedinId = response.headers["x-restli-id"] || response.headers["x-linkedin-id"];
       const postUrl = linkedinId 
         ? `https://www.linkedin.com/feed/update/${linkedinId}` 
         : "https://www.linkedin.com/";
       return { postUrl };
     } else {
-      const errorText = await response.text();
-      return { error: `LinkedIn API error: ${response.status} - ${errorText}` };
+      return { error: `LinkedIn API error: expected 201, got ${response.status}` };
     }
   } catch (error) {
     if (error instanceof Error) {

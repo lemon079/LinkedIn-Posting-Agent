@@ -1,11 +1,11 @@
 import * as dotenv from "dotenv";
-import type { AppConfig } from "../types/index.js";
+import type { AppConfig } from "@/interfaces";
 
 dotenv.config();
 
 export function loadConfig(): AppConfig {
   const {
-    GOOGLE_API_KEY, LINKEDIN_ACCESS_TOKEN, LINKEDIN_PERSON_URN, TOPIC, CONTEXT,
+    GOOGLE_API_KEY, LINKEDIN_ACCESS_TOKEN, LINKEDIN_PERSON_URN, CONTEXT,
     SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ENCRYPTION_KEY,
     LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET, LINKEDIN_REDIRECT_URI
   } = process.env;
@@ -18,7 +18,6 @@ export function loadConfig(): AppConfig {
     GOOGLE_API_KEY: GOOGLE_API_KEY || "",
     LINKEDIN_ACCESS_TOKEN: LINKEDIN_ACCESS_TOKEN || "",
     LINKEDIN_PERSON_URN: LINKEDIN_PERSON_URN || "",
-    TOPIC,
     CONTEXT: CONTEXT || "",
     SUPABASE_URL: SUPABASE_URL || "",
     SUPABASE_SERVICE_ROLE_KEY: SUPABASE_SERVICE_ROLE_KEY || "",

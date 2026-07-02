@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { agent } from "@/graph/index";
 import { config } from "@/config/env";
-import { genres } from "@/core/utils";
 import { getRequestAuth } from "@/lib/server/auth";
 import { resolveAgentCredentials } from "@/lib/server/settings";
 import type { DraftRequest } from "@/interfaces/draft";
@@ -12,7 +11,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json() as DraftRequest;
     const { topic, context } = body;
-    const selectedTopic = topic || genres[Math.floor(Math.random() * genres.length)];
+    const selectedTopic = topic || "software engineering";
     const threadId = Date.now().toString();
     const threadConfig = { configurable: { thread_id: threadId } };
 

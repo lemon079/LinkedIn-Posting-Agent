@@ -1,30 +1,22 @@
 import { checkConnection } from "../services/health";
 import { ChatGoogle } from "@langchain/google";
+import axios from "axios";
+
+jest.mock("axios");
 
 describe("checkConnection", () => {
-  let originalFetch: typeof globalThis.fetch;
-
-  beforeAll(() => {
-    originalFetch = globalThis.fetch;
-  });
-
   afterEach(() => {
-    globalThis.fetch = originalFetch;
-    jest.restoreAllMocks();
+    jest.clearAllMocks();
   });
 
   test("ollama success with matching model", async () => {
-    globalThis.fetch = jest.fn().mockImplementation(async (url) => {
-      expect(url.toString()).toContain("/api/tags");
-      return {
-        ok: true,
-        json: async () => ({
-          models: [
-            { name: "llama3:latest" },
-            { name: "mistral:latest" },
-          ],
-        }),
-      } as Response;
+    (axios.get as jest.Mock).mockResolvedValue({
+      data: {
+        models: [
+          { name: "llama3:latest" },
+          { name: "mistral:latest" },
+        ],
+      },
     });
 
     const result = await checkConnection("ollama", undefined, "llama3", "http://localhost:11434");
@@ -32,28 +24,25 @@ describe("checkConnection", () => {
       ok: true,
       models: ["llama3:latest", "mistral:latest"],
     });
+    expect(axios.get).toHaveBeenCalledWith("http://localhost:11434/api/tags");
   });
 
   test("ollama failure when base URL unreachable", async () => {
-    globalThis.fetch = jest.fn().mockResolvedValue({
-      ok: false,
-      status: 503,
-    } as Response);
+    (axios.get as jest.Mock).mockRejectedValue(new Error("Network Error"));
 
     const result = await checkConnection("ollama", undefined, "llama3", "http://localhost:11434");
     expect(result.ok).toBe(false);
-    expect(result.error).toContain("Ollama unreachable");
+    expect(result.error).toContain("Network Error");
   });
 
   test("ollama failure when requested model not found", async () => {
-    globalThis.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
+    (axios.get as jest.Mock).mockResolvedValue({
+      data: {
         models: [
           { name: "mistral:latest" },
         ],
-      }),
-    } as Response);
+      },
+    });
 
     const result = await checkConnection("ollama", undefined, "llama3", "http://localhost:11434");
     expect(result.ok).toBe(false);

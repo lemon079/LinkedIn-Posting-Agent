@@ -1,7 +1,8 @@
-import { createLLM } from "./llm";
+import { createLLM } from "@/services/llm";
 import { HumanMessage } from "@langchain/core/messages";
 import { DEFAULT_OLLAMA_URL } from "@/lib/constants";
-import type { HealthResult } from "../types/index.js";
+import type { HealthResult } from "@/interfaces";
+import axios from "axios";
 
 export const checkConnection = async (
   provider: string, apiKey?: string, model?: string, ollamaBaseUrl?: string
@@ -9,9 +10,8 @@ export const checkConnection = async (
   try {
     if (provider === "ollama") {
       const base = ollamaBaseUrl || DEFAULT_OLLAMA_URL;
-      const res = await fetch(`${base}/api/tags`);
-      if (!res.ok) return { ok: false, error: `Ollama unreachable (${res.status})` };
-      const data = await res.json() as { models: { name: string }[] };
+      const res = await axios.get(`${base}/api/tags`);
+      const data = res.data as { models: { name: string }[] };
       const names = data.models?.map((m) => m.name) || [];
       if (model && !names.some((n) => n.startsWith(model))) {
         return { ok: false, error: `Model "${model}" not found. Available: ${names.join(", ")}`, models: names };

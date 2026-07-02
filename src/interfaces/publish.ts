@@ -16,3 +16,8 @@ export interface PublishResponse {
   postUrl?: string;
   error?: string;
 }
+
+export interface PublishPostResponse {
+  postUrl?: string;
+  error?: string;
+}

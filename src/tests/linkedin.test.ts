@@ -1,53 +1,56 @@
 import { publishLinkedInPost } from "../services/linkedin";
+import axios from "axios";
+
+jest.mock("axios");
 
 describe("publishLinkedInPost", () => {
-  let originalFetch: typeof globalThis.fetch;
-
-  beforeAll(() => {
-    originalFetch = globalThis.fetch;
-  });
-
   afterEach(() => {
-    globalThis.fetch = originalFetch;
-    jest.restoreAllMocks();
+    jest.clearAllMocks();
   });
 
   test("success call with x-restli-id", async () => {
-    globalThis.fetch = jest.fn().mockImplementation(async (url, options) => {
-      expect(url).toBe("https://api.linkedin.com/v2/ugcPosts");
-      const body = JSON.parse(options?.body as string);
-      expect(body.lifecycleState).toBe("PUBLISHED");
-      expect(body.specificContent["com.linkedin.ugc.ShareContent"].shareCommentary.text).toBe("Hello LinkedIn");
-
-      return {
-        status: 201,
-        headers: {
-          get: (name: string) => (name === "x-restli-id" ? "urn:li:share:12345" : null),
-        },
-      } as Response;
+    (axios.post as jest.Mock).mockResolvedValue({
+      status: 201,
+      headers: {
+        "x-restli-id": "urn:li:share:12345",
+      },
     });
 
     const result = await publishLinkedInPost("Hello LinkedIn", "mock-token", "mock-urn");
     expect(result.postUrl).toBe("https://www.linkedin.com/feed/update/urn:li:share:12345");
     expect(result.error).toBeUndefined();
+    expect(axios.post).toHaveBeenCalledWith(
+      "https://api.linkedin.com/v2/ugcPosts",
+      expect.objectContaining({
+        lifecycleState: "PUBLISHED",
+      }),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer mock-token",
+        }),
+      })
+    );
   });
 
   test("failure handling for non-201 response", async () => {
-    globalThis.fetch = jest.fn().mockResolvedValue({
-      status: 400,
-      text: async () => "Invalid URN parameter",
-    } as Response);
+    (axios.post as jest.Mock).mockRejectedValue({
+      response: {
+        status: 400,
+        data: "Invalid URN parameter",
+      },
+      message: "Request failed with status code 400",
+    });
 
     const result = await publishLinkedInPost("Hello LinkedIn", "mock-token", "mock-urn");
     expect(result.postUrl).toBeUndefined();
-    expect(result.error).toContain("LinkedIn API error: 400 - Invalid URN parameter");
+    expect(result.error).toContain("LinkedIn API error: 400 - \"Invalid URN parameter\"");
   });
 
   test("connection error handling", async () => {
-    globalThis.fetch = jest.fn().mockRejectedValue(new Error("DNS resolution failed"));
+    (axios.post as jest.Mock).mockRejectedValue(new Error("DNS resolution failed"));
 
     const result = await publishLinkedInPost("Hello LinkedIn", "mock-token", "mock-urn");
     expect(result.postUrl).toBeUndefined();
-    expect(result.error).toBe("DNS resolution failed");
+    expect(result.error).toBe("LinkedIn API error: undefined - DNS resolution failed");
   });
 });

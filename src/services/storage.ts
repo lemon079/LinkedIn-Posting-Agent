@@ -1,4 +1,4 @@
-import { supabase } from "./supabase.js";
+import { supabase } from "@/services/supabase";
 
 export interface SignedUploadUrlResponse {
   localMode?: boolean;

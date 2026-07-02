@@ -43,7 +43,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <Label htmlFor="context-input" className="text-xs font-bold uppercase tracking-wider text-slate-500">Additional Context</Label>
           <Textarea
             id="context-input"
-            className="w-full bg-card border-border min-h-[90px] rounded-xl focus-visible:ring-2 focus-visible:ring-brand-blue/20 focus-visible:border-brand-blue text-base md:text-sm placeholder-slate-400 text-slate-900 transition-colors duration-200"
+            className="w-full bg-card border-border h-[120px] max-h-[120px] overflow-y-auto resize-none rounded-xl focus-visible:ring-2 focus-visible:ring-brand-blue/20 focus-visible:border-brand-blue text-base md:text-sm placeholder-slate-400 text-slate-900 transition-colors duration-200"
             placeholder="Paste code blocks, docs references, or tone limits..." value={context}
             onChange={(e) => setContext(e.target.value)}
           />

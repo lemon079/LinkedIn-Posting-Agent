@@ -1,6 +1,6 @@
 import { publishLinkedInPost } from "../../services/linkedin";
 import type { State } from "../../core/state";
-import { deleteStorageFile } from "../../services/storage.js";
+import { deleteStorageFile } from "@/services/storage";
 
 export const publishPost = async (state: State): Promise<Partial<State>> => {
   if (state.error || !state.postContent) return {};
