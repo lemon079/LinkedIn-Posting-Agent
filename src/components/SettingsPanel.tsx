@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
@@ -305,7 +306,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 <Label className="text-xs font-semibold text-slate-700">
                   Ollama Base URL
                 </Label>
-                <input
+                <Input
                   type="text"
                   placeholder="http://localhost:11434"
                   value={ollamaBaseUrl}
@@ -313,7 +314,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     setOllamaBaseUrl(e.target.value);
                     setTestState({ status: "idle" });
                   }}
-                  className="w-full bg-card border border-border text-slate-800 text-base md:text-sm placeholder:text-xs p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
                 />
                 <p className="text-xs text-slate-500">
                   Verify Ollama is running locally or on your private network.
@@ -327,7 +327,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 <Label className="text-xs font-semibold text-slate-700">
                   API Key
                 </Label>
-                <input
+                <Input
                   type="password"
                   placeholder={
                     provider === "gemini"
@@ -341,7 +341,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     setApiKey(e.target.value);
                     setTestState({ status: "idle" });
                   }}
-                  className="w-full bg-card border border-border text-slate-800 text-base md:text-sm placeholder:text-xs p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
                 />
               </div>
             )}
@@ -370,7 +369,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       <p>{cleanErrorMessage(ollamaFetchState.errorMsg || "Could not connect to Ollama. Make sure it's running on your machine.")}</p>
                     </div>
                     <div className="flex gap-2">
-                      <input
+                      <Input
                         type="text"
                         placeholder="e.g. llama3, mistral"
                         value={modelName}
@@ -378,7 +377,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                           setModelName(e.target.value);
                           setTestState({ status: "idle" });
                         }}
-                        className="flex-1 bg-card border border-border text-slate-800 text-base md:text-sm placeholder:text-xs p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                        className="flex-1"
                       />
                       <Button
                         type="button"
@@ -398,7 +397,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       <p>No models found on your machine. Pull a model using <code className="bg-amber-100/60 px-1 py-0.5 rounded font-mono">ollama pull &lt;model-name&gt;</code>.</p>
                     </div>
                     <div className="flex gap-2">
-                      <input
+                      <Input
                         type="text"
                         placeholder="e.g. llama3, mistral"
                         value={modelName}
@@ -406,7 +405,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                           setModelName(e.target.value);
                           setTestState({ status: "idle" });
                         }}
-                        className="flex-1 bg-card border border-border text-slate-800 text-base md:text-sm placeholder:text-xs p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                        className="flex-1"
                       />
                       <Button
                         type="button"
@@ -493,7 +492,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
                 {isCustomMode && (
                   <div className="space-y-1 mt-2">
-                    <input
+                    <Input
                       type="text"
                       placeholder="Enter custom model name (e.g. gpt-4-32k)..."
                       value={modelName}
@@ -501,7 +500,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         setModelName(e.target.value);
                         setTestState({ status: "idle" });
                       }}
-                      className="w-full bg-card border border-border text-slate-800 text-base md:text-sm placeholder:text-xs p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
                     />
                   </div>
                 )}
@@ -565,12 +563,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             <Label className="text-xs font-semibold text-slate-700">
               Tavily API Key
             </Label>
-            <input
+            <Input
               type="password"
               placeholder="tvly-..."
               value={tavilyKey}
               onChange={(e) => setTavilyKey(e.target.value)}
-              className="w-full bg-card border border-border text-slate-800 text-base md:text-sm placeholder:text-xs p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
             />
             <p className="text-xs text-slate-500">
               Optional. Used to fetch real-time facts and references from the web.

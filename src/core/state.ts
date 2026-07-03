@@ -51,7 +51,7 @@ export const AgentState = Annotation.Root({
     reducer: (x, y) => y,
     default: () => null,
   }),
-  mediaFile: Annotation<{ name: string; type: string; storagePath?: string; readUrl?: string; base64?: string; } | null>({
+  mediaFiles: Annotation<Array<{ name: string; type: string; storagePath?: string; readUrl?: string; base64?: string; }> | null>({
     reducer: (x, y) => y,
     default: () => null,
   }),

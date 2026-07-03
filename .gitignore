@@ -43,3 +43,6 @@ next-env.d.ts
 # legacy/temp backups
 /client_old
 /next-temp
+
+# GSD planning artifacts (local only)
+/.planning

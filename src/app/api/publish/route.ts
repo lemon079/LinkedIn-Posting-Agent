@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   console.log(`[API-Publish][${requestId}] Incoming POST request received.`);
   try {
     const body = await request.json() as PublishRequest;
-    const { threadId, draft, file } = body;
+    const { threadId, draft, files } = body;
 
     if (!threadId || !draft) {
       console.error(`[API-Publish][${requestId}] Validation error: Missing threadId or draft.`);
@@ -17,15 +17,18 @@ export async function POST(request: Request) {
     }
 
     console.log(`[API-Publish][${requestId}] Parameters - ThreadId: ${threadId}, DraftLength: ${draft.length} chars`);
-    if (file) {
-      if (file.storagePath) {
-        console.log(`[API-Publish][${requestId}] Attachment details (Supabase) - Name: "${file.name}", Mime: "${file.type}", Key: "${file.storagePath}"`);
-      } else {
-        const base64Len = file.base64 ? file.base64.length : 0;
-        console.log(`[API-Publish][${requestId}] Attachment details (Local Fallback) - Name: "${file.name}", Mime: "${file.type}", Base64 length: ${base64Len}`);
+    if (files && files.length > 0) {
+      console.log(`[API-Publish][${requestId}] Provided ${files.length} attachment file(s).`);
+      for (const f of files) {
+        if (f.storagePath) {
+          console.log(`[API-Publish][${requestId}] Attachment details (Supabase) - Name: "${f.name}", Mime: "${f.type}", Key: "${f.storagePath}"`);
+        } else {
+          const base64Len = f.base64 ? f.base64.length : 0;
+          console.log(`[API-Publish][${requestId}] Attachment details (Local Fallback) - Name: "${f.name}", Mime: "${f.type}", Base64 length: ${base64Len}`);
+        }
       }
     } else {
-      console.log(`[API-Publish][${requestId}] No attachment file provided.`);
+      console.log(`[API-Publish][${requestId}] No attachment files provided.`);
     }
 
     const { user, client } = await getRequestAuth(request);
@@ -61,7 +64,7 @@ export async function POST(request: Request) {
       postContent: draft,
       linkedinToken: liToken || null,
       linkedinUrn: liUrn || null,
-      mediaFile: file || null,
+      mediaFiles: files || null,
     });
     
     console.log(`[API-Publish][${requestId}] Invoking agent publish node...`);

@@ -1,131 +1,143 @@
-# LinkedIn Daily Posting Agent
+# LinkedIn Posting Agent
 
-An intelligent, stateful AI agent and dashboard designed to automate, search, draft, validate, and publish technical LinkedIn posts on-demand. The application runs as a web dashboard, desktop app (via Tauri), or mobile container (via Capacitor), using a unified TypeScript codebase.
-
----
-
-
-### 1. Unified React & Next.js Framework
-* **Why**: Next.js provides standard React frontend capabilities combined with high-performance edge/serverless API routes. This allows us to run our UI, authentication redirects, and backend orchestration logic in a single unified codebase.
-* **Role**: The frontend compiles to a pure client-side SPA (`out/`) to fit into Tauri/Capacitor native containers, while the backend API routes run on a server to manage database communication and protect third-party keys.
-
-### 2. LangGraph Stateful Orchestration
-* **Why**: LangGraph enables us to model the drafting, grounding, validation, and human-in-the-loop approval as a stateful graph (a state machine). It allows breakpoints where execution pauses for human approval before committing the post to LinkedIn.
-* **Role**: Manages transitions between nodes: `generatePost` (AI draft generation) ➔ `validatePost` ➔ `publishPost` (LinkedIn API).
-
-### 3. Native App Containers: Tauri & Capacitor
-* **Why**: 
-  * **Tauri (Desktop)**: Uses Rust to compile a native webview container. Tauri apps are lightweight (~5MB) and fast compared to standard Electron wrappers (~100MB+).
-  * **Capacitor (Mobile)**: Embeds the static exported files into iOS/Android native projects with full platform capabilities, eliminating the need to write separate native code.
-
-### 4. Supabase & Crypto Sync
-* **Why**: To enable a multi-user environment, we use **Supabase** for user authentication and user settings synchronization.
-* **Role**: Sensitive API keys (Google, OpenAI, Anthropic, Tavily, and LinkedIn OAuth tokens) are encrypted locally using an AES encryption key before being synced to Supabase, guaranteeing user data privacy.
+A full-stack AI agent and web dashboard that drafts, validates, and publishes technical LinkedIn posts on-demand. Built with Next.js, LangGraph, and Supabase — runs as a web app, desktop app (Tauri), or mobile container (Capacitor).
 
 ---
 
-## 📂 Project Directory Structure
+## ✨ Features
+
+- **AI-powered drafting** — LangGraph agent with Gemini, OpenAI, or Anthropic orchestrates post generation with optional Tavily web-search grounding
+- **Rich editing experience** — Fully editable draft with LinkedIn-style preview, character-by-character streaming animation, and tab-based edit/preview toggle
+- **Multi-image attachments** — Upload up to 20 images per post via drag-and-drop or file picker; images publish alongside copy to LinkedIn via the UGC API
+- **One-click publishing** — Posts directly to your LinkedIn profile via OAuth using the UGC Share API
+- **Cloud settings sync** — User credentials and API keys are AES-encrypted and synced to Supabase; settings persist across devices
+- **Native app support** — Ships as a Tauri desktop app and Capacitor mobile container alongside the web portal
+
+---
+
+## 📂 Project Structure
 
 ```
-├── .planning/            # GSD planning, roadmap, and task logs
-├── public/               # Static assets & favicon vector images
-├── scripts/              # Static build helper scripts
+├── public/               # Static assets & favicon
+├── scripts/              # Build helper scripts
 ├── src/
-│   ├── app/              # Next.js pages (App Router) & backend API endpoints
-│   ├── components/       # Reusable React components (Control Panel, Editor, etc.)
-│   ├── core/             # Core state schemas and AI prompt templates
-│   ├── graph/            # LangGraph state nodes, builders, and execution routes
-│   ├── hooks/            # Client state hooks (useAgent)
-│   ├── lib/              # Database clients, API helpers, and shared utilities
-│   ├── services/         # Integrations (LinkedIn REST, LLM instantiations, Supabase)
-│   └── tests/            # Automated Mocha/Node unit tests
-├── src-tauri/            # Rust/Tauri workspace configs & native desktop build config
-└── capacitor.config.ts   # Capacitor mobile wrapper configuration
+│   ├── app/              # Next.js App Router pages + serverless API routes
+│   ├── components/       # React UI components (Editor, ControlPanel, Feed, etc.)
+│   │   └── ui/           # shadcn/ui primitives (Button, Sheet, Attachment, etc.)
+│   ├── core/             # State schemas & AI prompt templates
+│   ├── graph/            # LangGraph nodes (generatePost, validatePost, publishPost)
+│   ├── hooks/            # Client state hook (useAgent)
+│   ├── lib/              # API helpers, Supabase client, utilities
+│   ├── services/         # LinkedIn REST client & LLM instantiation
+│   └── tests/            # Unit tests
+├── src-tauri/            # Tauri desktop wrapper (Rust)
+└── capacitor.config.ts   # Capacitor mobile wrapper config
 ```
 
 ---
 
-## ⚙️ Configuration (.env)
+## ⚙️ Configuration
 
-Duplicate `.env.example` to `.env` and configure:
+Copy `.env.example` to `.env` and fill in the values:
 
-| Key | Description |
+| Variable | Description |
 | :--- | :--- |
-| `GOOGLE_API_KEY` | Gemini API key for default AI models. |
-| `TAVILY_API_KEY` | Optional. Used by the agent to search the web for grounding. |
-| `SUPABASE_URL` | Supabase project URL for cloud synchronization. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Database service role key for decryption. |
-| `ENCRYPTION_KEY` | 32-byte hex key for encrypting user credentials before cloud sync. |
-| `LINKEDIN_CLIENT_ID` | OAuth Client ID from LinkedIn Developer Portal. |
-| `LINKEDIN_CLIENT_SECRET` | OAuth Client Secret from LinkedIn Developer Portal. |
-| `LINKEDIN_REDIRECT_URI` | Redirection callback (e.g. `http://localhost:3000/api/auth/linkedin/callback`). |
-| `NEXT_PUBLIC_API_URL` | Public backend URL (used by static client containers). |
+| `GOOGLE_API_KEY` | Gemini API key (default AI provider) |
+| `TAVILY_API_KEY` | Optional — enables web-search grounding during draft generation |
+| `SUPABASE_URL` | Supabase project URL for user auth & settings sync |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key for server-side database access |
+| `ENCRYPTION_KEY` | 32-byte hex key — encrypts user credentials before cloud sync |
+| `LINKEDIN_CLIENT_ID` | LinkedIn OAuth app Client ID |
+| `LINKEDIN_CLIENT_SECRET` | LinkedIn OAuth app Client Secret |
+| `LINKEDIN_REDIRECT_URI` | OAuth callback URL (e.g. `http://localhost:3000/api/auth/linkedin/callback`) |
+| `NEXT_PUBLIC_API_URL` | Public backend URL used by static native containers |
 
 ---
 
-## 🛠️ Development Workflow
+## 🚀 Development
 
-### Running Locally
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
-2. Start the dev server:
-   ```bash
-   npm run dev
-   ```
-3. Open `http://localhost:3000` to view the web portal.
+### Run Locally
 
-### Testing & Linting
-* Run ESLint checks:
-  ```bash
-  npm run lint
-  ```
-* Run all unit tests:
-  ```bash
-  npm run test
-  ```
+```bash
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+### Lint & Type Check
+
+```bash
+npm run lint        # ESLint
+npx tsc --noEmit    # TypeScript
+```
+
+### Run Tests
+
+```bash
+npm run test
+```
 
 ---
 
-## 📦 Packaging & Building Native Apps
+## 📦 Native App Builds
 
-Native app containers run purely as client-side static assets, fetching from your hosted production Next.js backend server.
+The native apps (Tauri/Capacitor) run as a static client-side SPA pointing at a hosted Next.js backend. Build the static frontend first:
 
-### 1. Build Static Frontend
-Compile the frontend to the static `out/` directory:
 ```bash
 npm run build:static
 ```
 
-### 2. Desktop Installer (Tauri)
-* **Start Dev Mode**:
-  ```bash
-  npx tauri dev
-  ```
-* **Build Native Installers**:
-  ```bash
-  npx tauri build
-  ```
-  Installers will compile into `src-tauri/target/release/bundle/`.
+### Desktop (Tauri)
 
-### 3. Mobile Bundles (Capacitor)
-1. Add target platforms:
-   ```bash
-   npx cap add android
-   npx cap add ios
-   ```
-2. Sync the compiled `out/` assets to the native containers:
-   ```bash
-   npm run build:static
-   npx cap sync
-   ```
-3. Open in native editors to compile:
-   ```bash
-   npx cap open android   # Opens Android Studio
-   npx cap open ios       # Opens Xcode
-   ```
+```bash
+npx tauri dev       # Dev mode
+npx tauri build     # Produce installer → src-tauri/target/release/bundle/
+```
+
+### Mobile (Capacitor)
+
+```bash
+npx cap add android
+npx cap add ios
+npm run build:static && npx cap sync
+npx cap open android   # Opens Android Studio
+npx cap open ios       # Opens Xcode
+```
 
 ---
-* **Reason**: Windows locks the `src/app/api` directory because a dev server (like `npx tauri dev` or Next.js dev server) is watching it.
-* **Solution**: Close all active dev servers (`Ctrl+C`) and run the build command again.
+
+## 🏗️ Architecture
+
+```
+Browser / Native App
+        │
+        ▼
+   Next.js App Router
+   ├── /app            — React dashboard (Client Components)
+   └── /app/api        — Serverless API routes (LangGraph, LinkedIn, Auth)
+                │
+                ▼
+         LangGraph Agent
+    generatePost → validatePost → publishPost
+         │              │              │
+      Gemini/        (skip if       LinkedIn
+      OpenAI/         valid)        UGC API
+      Anthropic
+         │
+      Tavily Search (optional grounding)
+```
+
+**State management**: `useAgent` hook owns all client state and calls `/api/agent/run` and `/api/agent/publish`. LangGraph persists state in-memory across the multi-step graph using `MemorySaver`.
+
+**Settings sync**: On settings-panel close, credentials are encrypted with AES-256 and upserted to Supabase (if signed in), or saved to `localStorage` (local mode).
+
+---
+
+## 🔑 LinkedIn OAuth Setup
+
+1. Create an app at [LinkedIn Developer Portal](https://www.linkedin.com/developers/)
+2. Add `Sign In with LinkedIn using OpenID Connect` and `Share on LinkedIn` products
+3. Set the OAuth redirect URI to `http://localhost:3000/api/auth/linkedin/callback` (or your production URL)
+4. Copy the Client ID and Client Secret into `.env`
+5. Open the dashboard, click **Configure Credentials → Sign In with LinkedIn**

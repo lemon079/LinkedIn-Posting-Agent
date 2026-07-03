@@ -9,21 +9,25 @@ export const publishPost = async (state: State): Promise<Partial<State>> => {
     state.postContent,
     state.linkedinToken || undefined,
     state.linkedinUrn || undefined,
-    state.mediaFile || undefined
+    state.mediaFiles || undefined
   );
   
   if (response.error) {
     return { error: response.error };
   }
 
-  // If publish succeeded and we uploaded a temporary file to Supabase, clean it up
-  if (state.mediaFile?.storagePath) {
-    console.log(`[Publish-Node] Cleaning up temp storage file: ${state.mediaFile.storagePath}`);
-    const { success, error: removeError } = await deleteStorageFile(state.mediaFile.storagePath);
-    if (!success && removeError) {
-      console.error(`[Publish-Node] Failed to delete temp file ${state.mediaFile.storagePath}:`, removeError);
-    } else {
-      console.log(`[Publish-Node] Temp storage file deleted successfully.`);
+  // If publish succeeded and we uploaded temporary files to Supabase, clean them up
+  if (state.mediaFiles && state.mediaFiles.length > 0) {
+    for (const file of state.mediaFiles) {
+      if (file.storagePath) {
+        console.log(`[Publish-Node] Cleaning up temp storage file: ${file.storagePath}`);
+        const { success, error: removeError } = await deleteStorageFile(file.storagePath);
+        if (!success && removeError) {
+          console.error(`[Publish-Node] Failed to delete temp file ${file.storagePath}:`, removeError);
+        } else {
+          console.log(`[Publish-Node] Temp storage file deleted successfully.`);
+        }
+      }
     }
   }
   

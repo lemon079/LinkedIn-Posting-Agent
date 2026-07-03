@@ -2,6 +2,7 @@ import React from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sliders, Sparkles } from "lucide-react";
 
@@ -26,24 +27,24 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     <Card className="bg-card border border-border shadow-sm rounded-2xl transition duration-300">
       <CardHeader className="border-b border-border pb-4 flex flex-row items-center gap-2">
         <Sliders className="size-4 text-brand-blue" />
-        <CardTitle className="text-sm font-bold tracking-tight text-slate-800">Post Draft Settings</CardTitle>
+        <CardTitle className="text-sm font-bold tracking-tight text-foreground">Post Draft Settings</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 pt-4">
         <div className="space-y-1.5">
-          <Label htmlFor="custom-topic" className="text-xs font-bold uppercase tracking-wider text-slate-500">Post Topic</Label>
-          <input
+          <Label htmlFor="custom-topic" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Post Topic</Label>
+          <Input
             id="custom-topic"
-            className="w-full bg-card border border-border text-slate-900 px-3.5 py-3 rounded-xl focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 outline-none transition placeholder-slate-400 text-base md:text-sm disabled:opacity-50"
             placeholder="Enter post topic..."
             value={customTopic}
             onChange={(e) => setCustomTopic(e.target.value)}
+            disabled={isGenerating}
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="context-input" className="text-xs font-bold uppercase tracking-wider text-slate-500">Additional Context</Label>
+          <Label htmlFor="context-input" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Additional Context</Label>
           <Textarea
             id="context-input"
-            className="w-full bg-card border-border h-[120px] max-h-[120px] overflow-y-auto resize-none rounded-xl focus-visible:ring-2 focus-visible:ring-brand-blue/20 focus-visible:border-brand-blue text-base md:text-sm placeholder-slate-400 text-slate-900 transition-colors duration-200"
+            className="w-full bg-card border-border h-30 max-h-30 overflow-y-auto resize-none rounded-xl focus-visible:ring-2 focus-visible:ring-brand-blue/20 focus-visible:border-brand-blue text-base md:text-sm placeholder-muted-foreground text-foreground transition-colors duration-200"
             placeholder="Paste code blocks, docs references, or tone limits..." value={context}
             onChange={(e) => setContext(e.target.value)}
           />

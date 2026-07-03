@@ -9,7 +9,7 @@ export interface MediaFileMetadata {
 export interface PublishRequest {
   threadId: string;
   draft: string;
-  file?: MediaFileMetadata | null;
+  files?: MediaFileMetadata[] | null;
 }
 
 export interface PublishResponse {

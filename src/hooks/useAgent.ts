@@ -22,12 +22,14 @@ export function useAgent() {
   const [customTopic, setCustomTopic] = useState("");
   const [context, setContext] = useState("");
   const [draftText, setDraftText] = useState<string | null>(null);
+  const [streamingText, setStreamingText] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [postUrl, setPostUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"preview" | "edit">("preview");
   const [status, setStatus] = useState({ gen: false, pub: false, err: null as string | null });
-  const [selectedFile, setSelectedFile] = useState<{ name: string; type: string; storagePath?: string; readUrl?: string; base64?: string; } | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<Array<{ name: string; type: string; storagePath?: string; readUrl?: string; base64?: string; }>>([]);
+  const [uploadingCount, setUploadingCount] = useState(0);
+  const isUploading = uploadingCount > 0;
 
   const [provider, setProvider] = useState(() => {
     const stored = getSafeLocalStorage("llm_provider", "gemini");
@@ -173,11 +175,11 @@ export function useAgent() {
 
   const handleGenerate = async () => {
     setStatus({ gen: true, pub: false, err: null });
-    setDraftText(null); setPostUrl(null); setSelectedFile(null);
+    setDraftText(null); setPostUrl(null); setSelectedFiles([]); setStreamingText(null);
     try {
       const topic = customTopic;
       const data = await generateDraft(topic, context, customKeys);
-      setDraftText(data.draft); setThreadId(data.threadId); setActiveTab("edit");
+      setStreamingText(data.draft); setThreadId(data.threadId); setActiveTab("edit");
     } catch (err: unknown) {
       const rawMsg = err instanceof Error ? err.message : "Unknown error";
       setStatus(p => ({ ...p, err: cleanErrorMessage(rawMsg) }));
@@ -190,8 +192,8 @@ export function useAgent() {
     if (!threadId || !draftText) return;
     setStatus({ gen: false, pub: true, err: null });
     try {
-      const data = await publishPost(threadId, draftText, customKeys, selectedFile || undefined);
-      setPostUrl(data.postUrl || null); setDraftText(null); setThreadId(null); setSelectedFile(null);
+      const data = await publishPost(threadId, draftText, customKeys, selectedFiles.length > 0 ? selectedFiles : undefined);
+      setPostUrl(data.postUrl || null); setDraftText(null); setThreadId(null); setSelectedFiles([]);
     } catch (err: unknown) {
       const rawMsg = err instanceof Error ? err.message : "Unknown error";
       setStatus(p => ({ ...p, err: cleanErrorMessage(rawMsg) }));
@@ -201,7 +203,7 @@ export function useAgent() {
   };
 
   const handleUploadFile = async (file: File) => {
-    setIsUploading(true);
+    setUploadingCount(prev => prev + 1);
     setStatus(p => ({ ...p, err: null }));
     try {
       if (!supabase) {
@@ -209,11 +211,11 @@ export function useAgent() {
         const reader = new FileReader();
         reader.onloadend = () => {
           if (typeof reader.result === "string") {
-            setSelectedFile({
+            setSelectedFiles(prev => [...prev, {
               name: file.name,
               type: file.type,
-              base64: reader.result,
-            });
+              base64: reader.result as string,
+            }]);
           }
         };
         reader.readAsDataURL(file);
@@ -243,11 +245,11 @@ export function useAgent() {
         const reader = new FileReader();
         reader.onloadend = () => {
           if (typeof reader.result === "string") {
-            setSelectedFile({
+            setSelectedFiles(prev => [...prev, {
               name: file.name,
               type: file.type,
-              base64: reader.result,
-            });
+              base64: reader.result as string,
+            }]);
           }
         };
         reader.readAsDataURL(file);
@@ -266,31 +268,30 @@ export function useAgent() {
         throw new Error(`Failed to upload file to storage: ${errText}`);
       }
 
-      setSelectedFile({
+      setSelectedFiles(prev => [...prev, {
         name: file.name,
         type: file.type,
         storagePath: signData.storagePath,
         readUrl: signData.readUrl
-      });
+      }]);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown upload error";
       setStatus(p => ({ ...p, err: cleanErrorMessage(msg) }));
-      setSelectedFile(null);
     } finally {
-      setIsUploading(false);
+      setUploadingCount(prev => Math.max(0, prev - 1));
     }
   };
 
   return {
-    customTopic, context, draftText, threadId, postUrl, activeTab,
+    customTopic, context, draftText, streamingText, threadId, postUrl, activeTab,
     isGenerating: status.gen, isPublishing: status.pub, error: status.err,
     provider, apiKey, modelName, ollamaBaseUrl, tavilyKey, liToken, liUrn, isSettingsOpen,
     user, token, isTauri,
-    selectedFile, isUploading,
-    setCustomTopic, setContext, setDraftText, setActiveTab,
+    selectedFiles, isUploading,
+    setCustomTopic, setContext, setDraftText, setStreamingText, setActiveTab,
     setProvider, setApiKey, setModelName, setOllamaBaseUrl, setTavilyKey,
     setLiToken, setLiUrn, setIsSettingsOpen,
-    setSelectedFile,
+    setSelectedFiles,
     handleGenerate, handlePublish, handleUploadFile,
   };
 }
