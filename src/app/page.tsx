@@ -32,7 +32,6 @@ export default function Home() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [devPreview, setDevPreview] = useState(false);
 
-  // In dev mode, resolve the effective draft so components see sample content
   const effectiveDraft = IS_DEV && devPreview ? SAMPLE_POST : draftText;
   const effectiveStreaming = IS_DEV && devPreview ? null : streamingText;
 
@@ -48,36 +47,11 @@ export default function Home() {
     <div className="min-h-screen bg-background text-foreground flex flex-col antialiased selection:bg-brand-blue/20">
       <Header
         onOpenSettings={() => {
-          if (!isGenerating) {
-            setIsSettingsOpen(true);
-          }
+          if (!isGenerating) setIsSettingsOpen(true);
         }}
         disabled={isGenerating}
       />
 
-      {/* Dev-only preview toggle bar */}
-      {IS_DEV && (
-        <div className="border-b border-border bg-amber-50/70 px-6 py-2 flex items-center gap-3">
-          <FlaskConical className="size-3.5 text-amber-600 shrink-0" />
-          <span className="text-xs font-semibold text-amber-700">Dev Mode</span>
-          <button
-            type="button"
-            onClick={() => setDevPreview((v) => !v)}
-            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-              devPreview ? "bg-amber-500" : "bg-slate-200"
-            }`}
-          >
-            <span
-              className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform duration-200 ease-in-out ${
-                devPreview ? "translate-x-4" : "translate-x-0"
-              }`}
-            />
-          </button>
-          <span className="text-xs text-amber-600">
-            {devPreview ? "Showing sample post — upload files to test" : "Toggle to load a sample post"}
-          </span>
-        </div>
-      )}
       <main className="flex-1 p-6 max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
         <div className="lg:col-span-2">
           <ControlPanel
@@ -89,6 +63,7 @@ export default function Home() {
             onGenerate={handleGenerate}
           />
         </div>
+
         <div className="lg:col-span-3 space-y-6">
           {error && <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-sm font-medium animate-fade-in-up">⚠️ {error}</div>}
           {postUrl && (
@@ -99,7 +74,7 @@ export default function Home() {
           )}
           {(isGenerating || effectiveStreaming !== null || effectiveDraft !== null) ? (
             <div className="space-y-4 animate-fade-in-up">
-              {activeTab === "preview" && effectiveDraft !== null ? (
+              {activeTab === "preview" && effectiveDraft !== null && !(IS_DEV && devPreview) ? (
                 <LinkedInFeed draftText={effectiveDraft} selectedFiles={selectedFiles} />
               ) : (
                 <EditorPanel
@@ -136,13 +111,26 @@ export default function Home() {
         modelName={modelName} setModelName={setModelName}
         ollamaBaseUrl={ollamaBaseUrl} setOllamaBaseUrl={setOllamaBaseUrl}
         tavilyKey={tavilyKey} setTavilyKey={setTavilyKey}
-        liToken={liToken}
-        setLiToken={setLiToken}
-        liUrn={liUrn}
-        setLiUrn={setLiUrn}
-        user={user}
-        isTauri={isTauri}
+        liToken={liToken} setLiToken={setLiToken}
+        liUrn={liUrn} setLiUrn={setLiUrn}
+        user={user} isTauri={isTauri}
       />
+
+      {/* Dev-only floating toggle — bottom-right corner */}
+      {IS_DEV && (
+        <button
+          type="button"
+          title={devPreview ? "Exit dev preview" : "Enter dev preview"}
+          onClick={() => setDevPreview((v) => !v)}
+          className={`fixed bottom-5 right-5 z-50 flex items-center justify-center size-10 rounded-full shadow-lg transition-all duration-200 cursor-pointer border-2 ${
+            devPreview
+              ? "bg-amber-500 border-amber-600 text-white shadow-amber-200"
+              : "bg-card border-border text-muted-foreground hover:border-amber-400 hover:text-amber-500"
+          }`}
+        >
+          <FlaskConical className="size-4" />
+        </button>
+      )}
 
       <Dialog open={showLoginModal} onOpenChange={setShowLoginModal}>
         <DialogContent className="sm:max-w-sm">

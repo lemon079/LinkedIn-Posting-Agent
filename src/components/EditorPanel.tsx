@@ -203,7 +203,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
             </DialogTrigger>
             <DialogContent className="sm:max-w-lg">
               <DialogHeader>
-                <DialogTitle>Post Preview</DialogTitle>
+                <DialogTitle></DialogTitle>
               </DialogHeader>
               <div className="pt-2">
                 <LinkedInFeed draftText={currentText} selectedFiles={selectedFiles} />
