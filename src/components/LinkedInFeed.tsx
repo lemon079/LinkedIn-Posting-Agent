@@ -117,10 +117,10 @@ export const LinkedInFeed: React.FC<LinkedInFeedProps> = ({ draftText, selectedF
         {/* Author row */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-brand-blue text-white flex items-center justify-center font-bold text-sm shadow-md shadow-brand-blue/20 shrink-0">
-            LA
+            PR
           </div>
           <div className="text-xs">
-            <h4 className="font-bold text-foreground">LinkedIn Agent</h4>
+            <h4 className="font-bold text-foreground">Praxis</h4>
             <p className="text-muted-foreground font-normal">Autonomous AI Technical Content Ghostwriter</p>
           </div>
         </div>

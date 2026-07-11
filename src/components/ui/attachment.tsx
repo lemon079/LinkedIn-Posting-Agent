@@ -52,7 +52,7 @@ const attachmentMediaVariants = cva(
       variant: {
         icon: "",
         image:
-          "opacity-60 group-data-[state=done]/attachment:opacity-100 group-data-[state=idle]/attachment:opacity-100 *:[img]:aspect-square *:[img]:w-full *:[img]:object-cover",
+          "opacity-60 group-data-[state=done]/attachment:opacity-100 group-data-[state=idle]/attachment:opacity-100 *:[img]:aspect-square *:[img]:w-full *:[img]:object-contain",
       },
     },
     defaultVariants: {
@@ -179,11 +179,39 @@ function AttachmentTrigger({
 }
 
 function AttachmentGroup({ className, ...props }: React.ComponentProps<"div">) {
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      // Only intervene if scrolling vertically
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        const isScrollable = el.scrollWidth > el.clientWidth;
+        if (!isScrollable) return;
+
+        // Check boundaries
+        const isAtStart = el.scrollLeft === 0 && e.deltaY < 0;
+        const isAtEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth && e.deltaY > 0;
+        
+        if (!isAtStart && !isAtEnd) {
+          e.preventDefault();
+          el.scrollBy({ left: e.deltaY < 0 ? -60 : 60 });
+        }
+      }
+    };
+
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, []);
+
   return (
     <div
+      ref={scrollRef}
       data-slot="attachment-group"
       className={cn(
-        "flex min-w-0 scroll-fade-x snap-x snap-mandatory scroll-px-1 scrollbar-none gap-3 overflow-x-auto overscroll-x-contain py-1 *:data-[slot=attachment]:flex-none *:data-[slot=attachment]:snap-start",
+        "flex min-w-0 snap-x snap-mandatory scroll-px-1 scrollbar-none gap-3 overflow-x-auto overscroll-x-contain py-1 *:data-[slot=attachment]:flex-none *:data-[slot=attachment]:snap-start relative custom-scroll-fade",
         className
       )}
       {...props}

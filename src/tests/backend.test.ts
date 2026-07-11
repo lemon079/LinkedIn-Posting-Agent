@@ -14,6 +14,7 @@ jest.mock("../graph/index", () => ({
     invoke: jest.fn(),
     getState: jest.fn(),
     updateState: jest.fn(),
+    streamEvents: jest.fn(),
   },
 }));
 
@@ -88,7 +89,6 @@ describe("Backend API Endpoints", () => {
         llm_model: "gpt-4",
         ollama_base_url: "http://localhost:11434",
         encrypted_api_key: "encrypted-open-key",
-        encrypted_tavily_key: "encrypted-tavily-key",
         encrypted_linkedin_token: "encrypted-li-token",
         linkedin_urn: "urn:li:person:123",
       };
@@ -116,7 +116,6 @@ describe("Backend API Endpoints", () => {
         apiKey: "open-key",
         modelName: "gpt-4",
         ollamaBaseUrl: "http://localhost:11434",
-        tavilyKey: "tavily-key",
         liToken: "li-token",
         liUrn: "urn:li:person:123",
         linkedInConnected: true,
@@ -155,9 +154,17 @@ describe("Backend API Endpoints", () => {
   describe("POST /api/draft", () => {
     test("runs state graph, checks next transition, and returns draft", async () => {
       (verifyAuth as jest.Mock).mockResolvedValue(null);
-      (agent.invoke as jest.Mock).mockResolvedValue({});
+      (agent.streamEvents as jest.Mock).mockReturnValue({
+        [Symbol.asyncIterator]: async function* () {
+          // Yield no events during mock stream, just simulate run
+        }
+      });
       (agent.getState as jest.Mock).mockResolvedValue({
-        values: { postContent: "Mock Draft content", error: null },
+        values: { 
+          postContent: "Mock Draft content", 
+          error: null,
+          reasoningSteps: [{ title: "Outline & Planning", output: "Planning output" }]
+        },
         next: ["publishPost"],
       });
 
@@ -169,10 +176,14 @@ describe("Backend API Endpoints", () => {
       const response = await draftPost(request);
       expect(response.status).toBe(200);
 
-      const json = await response.json();
-      expect(json.draft).toBe("Mock Draft content");
-      expect(json.status).toBe("needs_approval");
-      expect(agent.invoke).toHaveBeenCalled();
+      const text = await response.text();
+      const finalLine = text.split("\n").find(l => l.startsWith("data: ") && l.includes('"type":"final"'));
+      expect(finalLine).toBeDefined();
+
+      const finalJson = JSON.parse(finalLine!.slice(6));
+      expect(finalJson.draft).toBe("Mock Draft content");
+      expect(finalJson.reasoningSteps).toEqual([{ title: "Outline & Planning", output: "Planning output" }]);
+      expect(agent.streamEvents).toHaveBeenCalled();
     });
   });
 
@@ -232,7 +243,7 @@ describe("Backend API Endpoints", () => {
       expect(json.postUrl).toBe("https://linkedin.com/123");
       expect(agent.updateState).toHaveBeenCalledWith(
         { configurable: { thread_id: "123" } },
-        { postContent: "My Final Draft", linkedinToken: "mock-li-token", linkedinUrn: "urn:li:person:123", mediaFile: null }
+        { postContent: "My Final Draft", linkedinToken: "mock-li-token", linkedinUrn: "urn:li:person:123", mediaFiles: null }
       );
     });
 
@@ -254,7 +265,7 @@ describe("Backend API Endpoints", () => {
           "x-linkedin-token": "mock-li-token",
           "x-linkedin-urn": "urn:li:person:123",
         },
-        body: JSON.stringify({ threadId: "123", draft: "My Final Draft", file: mockFile }),
+        body: JSON.stringify({ threadId: "123", draft: "My Final Draft", files: [mockFile] }),
       });
 
       const response = await publishPost(request);
@@ -264,7 +275,7 @@ describe("Backend API Endpoints", () => {
       expect(json.postUrl).toBe("https://linkedin.com/123");
       expect(agent.updateState).toHaveBeenCalledWith(
         { configurable: { thread_id: "123" } },
-        { postContent: "My Final Draft", linkedinToken: "mock-li-token", linkedinUrn: "urn:li:person:123", mediaFile: mockFile }
+        { postContent: "My Final Draft", linkedinToken: "mock-li-token", linkedinUrn: "urn:li:person:123", mediaFiles: [mockFile] }
       );
     });
   });

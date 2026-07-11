@@ -2,6 +2,13 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { useMedia } from "use-media";
@@ -18,7 +25,6 @@ import {
   Sparkles,
   Layers,
   Link2,
-  Globe,
   User as UserIcon,
   LogOut
 } from "lucide-react";
@@ -34,8 +40,6 @@ interface SettingsPanelProps {
   setModelName: (val: string) => void;
   ollamaBaseUrl: string;
   setOllamaBaseUrl: (val: string) => void;
-  tavilyKey: string;
-  setTavilyKey: (val: string) => void;
   liToken: string;
   setLiToken: (val: string) => void;
   liUrn: string;
@@ -61,8 +65,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   setModelName,
   ollamaBaseUrl,
   setOllamaBaseUrl,
-  tavilyKey,
-  setTavilyKey,
   liToken,
   setLiToken,
   liUrn,
@@ -277,10 +279,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 <span>AI Provider</span>
                 <span className="text-xs text-slate-450 font-normal">Required</span>
               </Label>
-              <select
+              <Select
                 value={provider}
-                onChange={(e) => {
-                  const newProvider = e.target.value;
+                onValueChange={(newProvider) => {
                   setProvider(newProvider);
                   setTestState({ status: "idle" });
                   if (newProvider === "ollama") {
@@ -291,13 +292,17 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   }
                   setIsCustomMode(false);
                 }}
-                className="w-full bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
               >
-                <option value="gemini">Google</option>
-                <option value="openai">OpenAI</option>
-                <option value="anthropic">Anthropic</option>
-                {isTauri && <option value="ollama">Ollama</option>}
-              </select>
+                <SelectTrigger className="w-full bg-card border-border h-10 text-slate-800 text-sm rounded-xl">
+                  <SelectValue placeholder="Select provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="gemini">Google</SelectItem>
+                  <SelectItem value="openai">OpenAI</SelectItem>
+                  <SelectItem value="anthropic">Anthropic</SelectItem>
+                  {isTauri && <SelectItem value="ollama">Ollama</SelectItem>}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Ollama Base URL (Ollama Only) */}
@@ -419,21 +424,24 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 )}
 
                 {(ollamaFetchState.status === "success" || (ollamaFetchState.status === "idle" && ollamaModels.length > 0)) && (
-                  <select
+                  <Select
                     value={modelName}
-                    onChange={(e) => {
-                      setModelName(e.target.value);
+                    onValueChange={(val) => {
+                      setModelName(val);
                       setTestState({ status: "idle" });
                     }}
-                    className="w-full bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
                   >
-                    <option value="">Select a model...</option>
-                    {ollamaModels.map((m) => (
-                      <option key={m} value={m}>
-                        {m}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full bg-card border-border h-10 text-slate-800 text-sm rounded-xl">
+                      <SelectValue placeholder="Select a model..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ollamaModels.map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {m}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
 
                 {/* Available models pills (if discovered from Ollama tags) */}
@@ -469,10 +477,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     {provider === "gemini" ? "Google Gemini" : provider === "openai" ? "OpenAI GPT" : "Anthropic Claude"}
                   </span>
                 </Label>
-                <select
+                <Select
                   value={isCustomMode ? "custom" : (modelName || (CLOUD_MODELS[provider] || [])[0] || "")}
-                  onChange={(e) => {
-                    const val = e.target.value;
+                  onValueChange={(val) => {
                     if (val === "custom") {
                       setIsCustomMode(true);
                       setModelName("");
@@ -482,13 +489,19 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     }
                     setTestState({ status: "idle" });
                   }}
-                  className="w-full bg-card border border-border text-slate-800 text-base md:text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
                 >
-                  {(CLOUD_MODELS[provider] || []).map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                  <option value="custom">Custom Model Name...</option>
-                </select>
+                  <SelectTrigger className="w-full bg-card border-border h-10 text-slate-800 text-sm rounded-xl">
+                    <SelectValue placeholder="Select model..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(CLOUD_MODELS[provider] || []).map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {m}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="custom">Custom Model Name...</SelectItem>
+                  </SelectContent>
+                </Select>
 
                 {isCustomMode && (
                   <div className="space-y-1 mt-2">
@@ -552,28 +565,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         </div>
 
         {/* Section: Web Search Grounding */}
-        <div className="space-y-4 pt-2">
-          <div className="flex items-center gap-2 pb-1.5 border-b border-border">
-            <Globe className="size-4 text-brand-blue" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Web Search Integration
-            </h3>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-slate-700">
-              Tavily API Key
-            </Label>
-            <Input
-              type="password"
-              placeholder="tvly-..."
-              value={tavilyKey}
-              onChange={(e) => setTavilyKey(e.target.value)}
-            />
-            <p className="text-xs text-slate-500">
-              Optional. Used to fetch real-time facts and references from the web.
-            </p>
-          </div>
-        </div>
 
         {/* Section: LinkedIn Integration */}
         <div className="space-y-4 pt-2">

@@ -11,7 +11,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, disabled }) => (
   <header className="border-b border-border p-4 sm:p-5 bg-card sticky top-0 z-50 flex items-center justify-between shadow-sm animate-fade-in-up">
     <div className="flex items-center gap-2">
       <h1 className="text-base sm:text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
-        <span className="text-brand-blue">LinkedIn</span> Posting Agent
+        <span className="text-brand-blue">Praxis</span>
       </h1>
     </div>
     <div className="flex items-center gap-3">

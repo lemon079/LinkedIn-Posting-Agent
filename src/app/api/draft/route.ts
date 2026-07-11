@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   console.log(`[API-Draft][${requestId}] Incoming POST request received.`);
   try {
     const body = await request.json() as DraftRequest;
-    const { topic, context } = body;
+    const { topic, context, domain } = body;
     const selectedTopic = topic || "software engineering";
     const threadId = Date.now().toString();
     const threadConfig = { configurable: { thread_id: threadId } };
@@ -28,48 +28,102 @@ export async function POST(request: Request) {
     }
 
     const creds = await resolveAgentCredentials(request, client, user?.id);
-    console.log(`[API-Draft][${requestId}] Resolved credentials - Provider: ${creds.provider || "gemini"}, Model: ${creds.model || "default"}, TavilyKey: ${creds.tavilyKey ? "PRESENT" : "MISSING"}, ApiKey: ${creds.apiKey ? "PRESENT" : "MISSING"}`);
+    console.log(`[API-Draft][${requestId}] Resolved credentials - Provider: ${creds.provider || "gemini"}, Model: ${creds.model || "default"}, ApiKey: ${creds.apiKey ? "PRESENT" : "MISSING"}`);
 
     const initialState = {
       topic: selectedTopic,
+      domain: domain || null,
       context: context !== undefined ? context : config.CONTEXT,
-      postContent: null,
-      postUrl: null,
-      retries: 0,
-      error: null,
       llmProvider: creds.provider || null,
       llmApiKey: creds.apiKey || null,
       llmModel: creds.model || null,
       ollamaBaseUrl: creds.ollamaUrl || null,
-      tavilyApiKey: creds.tavilyKey || null,
       linkedinToken: creds.liToken || null,
       linkedinUrn: creds.liUrn || null,
     };
 
-    console.log(`[API-Draft][${requestId}] Invoking agent graph for thread ID: ${threadId}...`);
-    await agent.invoke(initialState, threadConfig);
-    console.log(`[API-Draft][${requestId}] Agent graph invocation completed.`);
+    console.log(`[API-Draft][${requestId}] Invoking streaming agent graph for thread ID: ${threadId}...`);
 
-    const state = await agent.getState(threadConfig);
+    const responseStream = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        const sendEvent = (eventData: unknown) => {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(eventData)}\n\n`));
+        };
 
-    if (state.values.error) {
-      console.error(`[API-Draft][${requestId}] Agent execution failed with error: ${state.values.error}`);
-      return NextResponse.json({ error: state.values.error }, { status: 500 });
-    }
-    if (state.next?.[0] !== "publishPost") {
-      console.error(`[API-Draft][${requestId}] Agent stopped at unexpected state: ${state.next?.[0]}`);
-      return NextResponse.json(
-        { error: `Agent stopped unexpectedly. Next: ${state.next?.[0]}` },
-        { status: 500 }
-      );
-    }
+        try {
+          // Send initial thread ID
+          sendEvent({ type: "thread", threadId });
 
-    const draftLength = state.values.postContent ? state.values.postContent.length : 0;
-    console.log(`[API-Draft][${requestId}] Draft generated successfully (${draftLength} chars). Returning response.`);
-    return NextResponse.json({
-      threadId,
-      draft: state.values.postContent,
-      status: "needs_approval",
+          const eventStream = agent.streamEvents(initialState, {
+            version: "v2",
+            configurable: threadConfig.configurable,
+          });
+
+          let currentStepTitle = "";
+
+          for await (const event of eventStream) {
+            if (event.event === "on_chain_start") {
+              const nodeName = event.name;
+              if (["generateDraft", "reviewAndRefine"].includes(nodeName)) {
+                let title = "";
+                if (nodeName === "generateDraft") title = "Planning & Drafting";
+                else if (nodeName === "reviewAndRefine") title = "Review & Polish";
+
+                currentStepTitle = title;
+                sendEvent({ type: "node_start", node: nodeName, title });
+              }
+            } else if (event.event === "on_chat_model_stream" && currentStepTitle) {
+              const content = event.data.chunk?.content;
+              if (typeof content === "string" && content) {
+                sendEvent({ type: "token", node: currentStepTitle, text: content });
+              } else if (Array.isArray(content)) {
+                for (const part of content) {
+                  if (part.type === "text" && part.text) {
+                    if (part.thought) {
+                      sendEvent({ type: "thinking", node: "Model Thinking", text: part.text });
+                    } else {
+                      sendEvent({ type: "token", node: currentStepTitle, text: part.text });
+                    }
+                  }
+                }
+              }
+            } else if (event.event === "on_chain_end") {
+              const nodeName = event.name;
+              if (["generateDraft", "reviewAndRefine"].includes(nodeName)) {
+                sendEvent({ type: "node_end", node: nodeName, title: currentStepTitle });
+              }
+            }
+          }
+
+          const state = await agent.getState(threadConfig);
+          if (state.values.error) {
+            sendEvent({ type: "error", message: state.values.error });
+          } else if (state.next?.[0] !== "publishPost") {
+            sendEvent({ type: "error", message: `Agent stopped unexpectedly. Next: ${state.next?.[0]}` });
+          } else {
+            sendEvent({
+              type: "final",
+              threadId,
+              draft: state.values.postContent,
+              reasoningSteps: state.values.reasoningSteps,
+            });
+          }
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : "Unknown error";
+          sendEvent({ type: "error", message: msg });
+        } finally {
+          controller.close();
+        }
+      }
+    });
+
+    return new Response(responseStream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      }
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";

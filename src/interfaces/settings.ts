@@ -3,7 +3,6 @@ export interface UserSettings {
   apiKey?: string;
   modelName?: string;
   ollamaBaseUrl?: string;
-  tavilyKey?: string;
   liToken?: string;
   liUrn?: string;
 }

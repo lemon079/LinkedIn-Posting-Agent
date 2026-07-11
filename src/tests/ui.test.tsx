@@ -20,11 +20,19 @@ jest.mock("use-media", () => ({
   useMedia: () => true, // Default wide layout (min-width: 768px)
 }));
 
+// Mock react-markdown to prevent ESM import parser errors in CommonJS Jest
+jest.mock("react-markdown", () => {
+  return function MockReactMarkdown({ children }: { children: string }) {
+    return <>{children}</>;
+  };
+});
+
 describe("Frontend Dashboard UI", () => {
   const mockDefaultState = {
     customTopic: "",
     context: "",
     draftText: null,
+    streamingText: null,
     postUrl: null,
     isGenerating: false,
     isPublishing: false,
@@ -34,12 +42,14 @@ describe("Frontend Dashboard UI", () => {
     apiKey: "",
     modelName: "gemini-2.5-flash",
     ollamaBaseUrl: "http://localhost:11434",
-    tavilyKey: "",
     liToken: "",
     liUrn: "",
     isSettingsOpen: false,
     user: null,
     isTauri: false,
+    reasoningSteps: [],
+    selectedFiles: [],
+    isUploading: false,
     setCustomTopic: jest.fn(),
     setContext: jest.fn(),
     setDraftText: jest.fn(),
@@ -50,10 +60,12 @@ describe("Frontend Dashboard UI", () => {
     setApiKey: jest.fn(),
     setModelName: jest.fn(),
     setOllamaBaseUrl: jest.fn(),
-    setTavilyKey: jest.fn(),
     setLiToken: jest.fn(),
     setLiUrn: jest.fn(),
     setIsSettingsOpen: jest.fn(),
+    setReasoningSteps: jest.fn(),
+    setSelectedFiles: jest.fn(),
+    handleUploadFile: jest.fn(),
   };
 
   beforeEach(() => {
@@ -66,8 +78,7 @@ describe("Frontend Dashboard UI", () => {
     render(<Home />);
 
     // Verify Title
-    expect(screen.getByText("LinkedIn")).toBeInTheDocument();
-    expect(screen.getByText("Posting Agent")).toBeInTheDocument();
+    expect(screen.getByText("Praxis")).toBeInTheDocument();
 
     // Verify empty placeholder text
     expect(
@@ -92,7 +103,7 @@ describe("Frontend Dashboard UI", () => {
 
     // Verify loading status message
     expect(
-      screen.getByText("Ghostwriter is researching & drafting post...")
+      screen.getByText("Drafting Post...")
     ).toBeInTheDocument();
 
     // Verify the Settings button is disabled
@@ -125,17 +136,13 @@ describe("Frontend Dashboard UI", () => {
 
     render(<Home />);
 
-    // Verify draft tab buttons are shown
-    expect(screen.getByRole("button", { name: /Interactive Editor/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /LinkedIn Mockup/i })).toBeInTheDocument();
-
     // Verify draft text is rendered in the editor text area
     const textarea = screen.getByDisplayValue("My awesome tech post draft!");
     expect(textarea).toBeInTheDocument();
 
     // Verify publish button is visible
     expect(
-      screen.getByRole("button", { name: /Approve & Publish Post/i })
+      screen.getByRole("button", { name: /Publish/i })
     ).toBeInTheDocument();
   });
 

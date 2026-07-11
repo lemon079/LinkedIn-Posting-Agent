@@ -65,6 +65,7 @@ export async function POST(request: Request) {
       linkedinToken: liToken || null,
       linkedinUrn: liUrn || null,
       mediaFiles: files || null,
+      error: null,
     });
     
     console.log(`[API-Publish][${requestId}] Invoking agent publish node...`);

@@ -10,6 +10,13 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { AuthForm } from "./AuthForm";
 import { supabase } from "../lib/supabase";
 import { healthCheck } from "../lib/api";
@@ -23,7 +30,6 @@ import {
   Sparkles,
   Layers,
   Link2,
-  Globe,
   User as UserIcon,
   LogOut,
   X,
@@ -31,9 +37,25 @@ import {
 import { useSidebar } from "@/components/ui/sidebar";
 
 const CLOUD_MODELS: Record<string, string[]> = {
-  gemini: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
-  openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
-  anthropic: ["claude-3-5-sonnet-latest", "claude-3-5-haiku-latest", "claude-3-opus-20240229"],
+  gemini: [
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-pro",
+    "gemini-2.0-flash"
+  ],
+
+  openai: [
+    "gpt-4o-mini",
+    "gpt-4.1-mini",
+    "gpt-4.1",
+    "gpt-4o"
+  ],
+
+  anthropic: [
+    "claude-3-5-haiku-latest",
+    "claude-3-5-sonnet-latest",
+    "claude-3-7-sonnet-latest"
+  ]
 };
 
 interface AppSidebarProps {
@@ -45,8 +67,6 @@ interface AppSidebarProps {
   setModelName: (val: string) => void;
   ollamaBaseUrl: string;
   setOllamaBaseUrl: (val: string) => void;
-  tavilyKey: string;
-  setTavilyKey: (val: string) => void;
   liToken: string;
   setLiToken: (val: string) => void;
   liUrn: string;
@@ -64,8 +84,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   setModelName,
   ollamaBaseUrl,
   setOllamaBaseUrl,
-  tavilyKey,
-  setTavilyKey,
   liToken,
   setLiToken,
   liUrn,
@@ -282,10 +300,9 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                 <span>AI Provider</span>
                 <span className="text-xs text-sidebar-foreground/40 font-normal">Required</span>
               </Label>
-              <select
+              <Select
                 value={provider}
-                onChange={(e) => {
-                  const newProvider = e.target.value;
+                onValueChange={(newProvider) => {
                   setProvider(newProvider);
                   setTestState({ status: "idle" });
                   if (newProvider === "ollama") {
@@ -296,13 +313,17 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                   }
                   setIsCustomMode(false);
                 }}
-                className="w-full bg-card border border-sidebar-border text-sidebar-foreground text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
               >
-                <option value="gemini">Google</option>
-                <option value="openai">OpenAI</option>
-                <option value="anthropic">Anthropic</option>
-                {isTauri && <option value="ollama">Ollama</option>}
-              </select>
+                <SelectTrigger className="w-full bg-card border-sidebar-border h-10 text-sidebar-foreground text-sm rounded-xl">
+                  <SelectValue placeholder="Select provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="gemini">Google</SelectItem>
+                  <SelectItem value="openai">OpenAI</SelectItem>
+                  <SelectItem value="anthropic">Anthropic</SelectItem>
+                  {isTauri && <SelectItem value="ollama">Ollama</SelectItem>}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Ollama Base URL */}
@@ -378,14 +399,21 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                   </div>
                 )}
                 {(ollamaFetchState.status === "success" || (ollamaFetchState.status === "idle" && ollamaModels.length > 0)) && (
-                  <select
+                  <Select
                     value={modelName}
-                    onChange={(e) => { setModelName(e.target.value); setTestState({ status: "idle" }); }}
-                    className="w-full bg-card border border-sidebar-border text-sidebar-foreground text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
+                    onValueChange={(val) => { setModelName(val); setTestState({ status: "idle" }); }}
                   >
-                    <option value="">Select a model...</option>
-                    {ollamaModels.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
+                    <SelectTrigger className="w-full bg-card border-sidebar-border h-10 text-sidebar-foreground text-sm rounded-xl">
+                      <SelectValue placeholder="Select a model..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ollamaModels.map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {m}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
               </div>
             )}
@@ -399,10 +427,9 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                     {provider === "gemini" ? "Google Gemini" : provider === "openai" ? "OpenAI GPT" : "Anthropic Claude"}
                   </span>
                 </Label>
-                <select
+                <Select
                   value={isCustomMode ? "custom" : (modelName || (CLOUD_MODELS[provider] || [])[0] || "")}
-                  onChange={(e) => {
-                    const val = e.target.value;
+                  onValueChange={(val) => {
                     if (val === "custom") {
                       setIsCustomMode(true);
                       setModelName("");
@@ -412,11 +439,19 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                     }
                     setTestState({ status: "idle" });
                   }}
-                  className="w-full bg-card border border-sidebar-border text-sidebar-foreground text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition duration-200"
                 >
-                  {(CLOUD_MODELS[provider] || []).map((m) => <option key={m} value={m}>{m}</option>)}
-                  <option value="custom">Custom Model Name...</option>
-                </select>
+                  <SelectTrigger className="w-full bg-card border-sidebar-border h-10 text-sidebar-foreground text-sm rounded-xl">
+                    <SelectValue placeholder="Select model..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(CLOUD_MODELS[provider] || []).map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {m}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="custom">Custom Model Name...</SelectItem>
+                  </SelectContent>
+                </Select>
                 {isCustomMode && (
                   <Input
                     type="text"
@@ -458,27 +493,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           </div>
         </div>
 
-        {/* Web Search */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 pb-1.5 border-b border-sidebar-border">
-            <Globe className="size-4 text-brand-blue" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-sidebar-foreground/60">
-              Web Search Integration
-            </h3>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-sidebar-foreground/80">Tavily API Key</Label>
-            <Input
-              type="password"
-              placeholder="tvly-..."
-              value={tavilyKey}
-              onChange={(e) => setTavilyKey(e.target.value)}
-            />
-            <p className="text-xs text-sidebar-foreground/50">
-              Optional. Used to fetch real-time facts and references.
-            </p>
-          </div>
-        </div>
 
         {/* LinkedIn */}
         <div className="space-y-4">

@@ -3,4 +3,5 @@ export interface LLMOptions {
   apiKey?: string;
   model?: string;
   ollamaBaseUrl?: string;
+  maxReasoningTokens?: number;
 }

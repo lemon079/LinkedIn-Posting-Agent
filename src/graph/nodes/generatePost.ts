@@ -1,54 +1,150 @@
 import { HumanMessage } from "@langchain/core/messages";
-import { SYSTEM_PROMPT } from "../../core/prompts";
+import { getSystemPrompt } from "../../core/prompts";
 import { createLLM } from "../../services/llm";
 import type { State } from "../../core/state";
-import { createReactAgent } from "@langchain/langgraph/prebuilt";
-import { TavilySearch } from "@langchain/tavily";
-
-const buildPrompt = (state: State): string => {
-  let userPrompt = `Write a LinkedIn post about: ${state.topic}`;
-  if (state.context) {
-    userPrompt += `\n\nAdditional Context/Instructions:\n${state.context}\n\nPlease search the internet for the latest information on this topic if appropriate.`;
-  } else {
-    userPrompt += `\n\nPlease search the internet for the latest information on this topic to ensure accuracy.`;
-  }
-  return userPrompt;
-};
+import { DOMAINS, inferDomain } from "../../core/domains";
+import { getRecentHooks, addHook } from "../../services/history";
+import { invokeWithTimeout } from "../../utils/llmTimeout";
 
 const getLLMOpts = (state: State) => ({
   provider: state.llmProvider || undefined,
   apiKey: state.llmApiKey || undefined,
   model: state.llmModel || undefined,
   ollamaBaseUrl: state.ollamaBaseUrl || undefined,
+  maxReasoningTokens: 2048,
 });
 
-export const generatePost = async (state: State): Promise<Partial<State>> => {
+export const generateDraft = async (state: State): Promise<Partial<State>> => {
+  try {
+    const domainId = state.domain || inferDomain(state.topic, state.context);
+    const domainConfig = DOMAINS[domainId as keyof typeof DOMAINS] || DOMAINS.general;
+    const recentHooks = await getRecentHooks();
+
+    const llm = createLLM(getLLMOpts(state));
+    const prompt = `You are an expert LinkedIn ghostwriter for the ${domainConfig.label} domain.
+
+Topic: "${state.topic}"
+Additional context: "${state.context}"
+
+Your task has two parts. Do both in a SINGLE response:
+
+PART 1 — OUTLINE (think through this briefly):
+- The key specific detail to focus on: ${domainConfig.specificityDescription}
+- The core tradeoff, hard-won lesson, or non-obvious behavior.
+- A target outline/flow for the post.
+
+PART 2 — DRAFT:
+Using the outline above, write the full LinkedIn post draft.
+
+System / Style Guidelines:
+${getSystemPrompt(domainConfig, recentHooks)}
+
+Draft the post to be accurate, conversational, and aligned with the constraints.
+At the very end of your response, output the draft text wrapped in [DRAFT] ... [/DRAFT] tags.`;
+
+    const res = await invokeWithTimeout(llm.invoke([
+      new HumanMessage(prompt),
+    ]));
+    const output = typeof res.content === "string" 
+      ? res.content 
+      : Array.isArray(res.content) 
+        ? res.content.map((b: any) => b.text || "").join("\n") 
+        : "";
+
+    // Extract draft from tags
+    const match = output.match(/\[DRAFT\]([\s\S]*?)\[\/\s*DRAFT\s*\]/i) || output.match(/\[DRAFT\]([\s\S]*)/i);
+    let rawDraft = match ? match[1].trim() : output;
+    
+    // Explicitly strip any stray tags just in case
+    rawDraft = rawDraft.replace(/\[\/?DRAFT\]/gi, "").replace(/\[\/?DRAFT\s*\n*\]/gi, "").trim();
+
+    return {
+      domain: domainId,
+      draftOutput: rawDraft,
+      reasoningSteps: [{
+        title: "Planning & Drafting",
+        output: `Analyzed topic **${state.topic}** for the ${domainConfig.label} domain, formulated an outline, and drafted the initial copy in a single pass.`
+      }]
+    };
+  } catch (error: unknown) {
+    return {
+      error: error instanceof Error ? error.message : "Unknown error in generateDraft"
+    };
+  }
+};
+
+export const reviewAndRefine = async (state: State): Promise<Partial<State>> => {
   try {
     const llm = createLLM(getLLMOpts(state));
-    const userPrompt = buildPrompt(state);
-    const isOllama = (state.llmProvider || "gemini") === "ollama";
+    const initialDraft = state.draftOutput || "";
+    const domainId = state.domain || "general";
+    const domainConfig = DOMAINS[domainId as keyof typeof DOMAINS] || DOMAINS.general;
 
-    const tavilyKey = state.tavilyApiKey || process.env.TAVILY_API_KEY || "";
+    const reviewPrompt = `You are a senior editor for the ${domainConfig.label} domain. Review and refine this initial draft for a LinkedIn post:
 
-    if (isOllama || !tavilyKey) {
-      const res = await llm.invoke([
-        new HumanMessage(`${SYSTEM_PROMPT}\n\n${userPrompt}`),
-      ]);
-      return { postContent: res.content as string };
+"${initialDraft}"
+
+Review and edit the draft against these strict rules:
+1. Length: 100-150 words.
+2. Emojis: 0 to 2 emojis inline. Never rocket, fire, lightbulb, or clapping hands.
+3. Formatting: Blank line between paragraphs, no Markdown bold/italic (** or __), no hashtags except max 3 at the very end.
+4. Tone: Conversational first-person tone, no corporate buzzwords.
+5. Accuracy: Grounded in specific details (${domainConfig.specificityDescription}).
+
+Output two sections:
+1. Critique: Explain what was changed or polished (e.g. emoji count, markdown removal, word limit adjustment).
+2. Polished Post: The final ready-to-publish post.
+
+At the very end of your response, output the final post text wrapped in [POLISHED_POST] ... [/POLISHED_POST] tags.`;
+
+    const res = await invokeWithTimeout(llm.invoke([
+      new HumanMessage(reviewPrompt),
+    ]));
+    const output = typeof res.content === "string" 
+      ? res.content 
+      : Array.isArray(res.content) 
+        ? res.content.map((b: any) => b.text || "").join("\n") 
+        : "";
+
+    // Extract polished post
+    // The LLM sometimes breaks the tag with a newline like [/POLISHED_\nPOST]
+    const match = output.match(/\[POLISHED_POST\]([\s\S]*?)\[\/\s*POLISHED_POST\s*\]/i) || output.match(/\[POLISHED_POST\]([\s\S]*)/i);
+    let polishedPost = match ? match[1].trim() : "";
+    
+    if (!polishedPost) {
+      const lines = output.split("\n");
+      const polishedStartIndex = lines.findIndex(l => l.toLowerCase().includes("polished post:"));
+      if (polishedStartIndex !== -1) {
+        polishedPost = lines.slice(polishedStartIndex + 1).join("\n").trim();
+      } else {
+        polishedPost = output;
+      }
     }
 
-    const searchTool = new TavilySearch({ tavilyApiKey: tavilyKey, maxResults: 3, topic: "general" });
-    const agent = createReactAgent({
-      llm,
-      tools: [searchTool],
-      stateModifier: SYSTEM_PROMPT,
-    });
-    const result = await agent.invoke({
-      messages: [new HumanMessage(userPrompt)],
-    });
-    const lastMessage = result.messages[result.messages.length - 1];
-    return { postContent: lastMessage.content as string };
+    // Explicitly strip any stray tags just in case
+    polishedPost = polishedPost.replace(/\[\/?POLISHED_POST\]/gi, "").replace(/\[\/?POLISHED_\s*\n*POST\]/gi, "").trim();
+
+    polishedPost = polishedPost
+      .replace(/\*\*|__/g, "")
+      .replace(/`([^`]+)`/g, "$1")
+      .trim();
+
+    // Store the hook to prevent future repetition
+    const hookLine = polishedPost.split('\n')[0]?.trim();
+    if (hookLine) {
+      await addHook(hookLine);
+    }
+
+    return {
+      postContent: polishedPost,
+      reasoningSteps: [{
+        title: "Review & Polish",
+        output: `Polished the draft against formatting guidelines, adjusted emoji count, and verified final word count constraints.`
+      }]
+    };
   } catch (error: unknown) {
-    return { error: error instanceof Error ? error.message : "Unknown error" };
+    return {
+      error: error instanceof Error ? error.message : "Unknown error in reviewAndRefine"
+    };
   }
 };

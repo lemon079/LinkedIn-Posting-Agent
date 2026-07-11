@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useMemo } from "react";
+import { EditorReasoning } from "./EditorReasoning";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,6 +37,7 @@ interface EditorPanelProps {
   onUploadFile: (file: File) => void;
   onChange: (value: string) => void;
   onPublish: () => void;
+  reasoningSteps?: Array<{ title: string; output: string }>;
 }
 
 function SkeletonLine({ width, className }: { width: string; className?: string }) {
@@ -64,10 +66,35 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   onUploadFile,
   onChange,
   onPublish,
+  reasoningSteps,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isAccordionOpen, setIsAccordionOpen] = useState(false);
+  const [prevIsGenerating, setPrevIsGenerating] = useState(false);
+  const [prevAnswerStarted, setPrevAnswerStarted] = useState(false);
   const [streamedLength, setStreamedLength] = useState(0);
   const [prevStreamingText, setPrevStreamingText] = useState<string | null>(null);
+
+  const answerStarted = (draftText !== null && draftText !== "") || (streamingText !== null && streamingText !== "");
+
+  // Sync state transitions:
+  if (isGenerating && !prevIsGenerating) {
+    setPrevIsGenerating(true);
+    setIsAccordionOpen(true); // Open when generation starts
+  }
+  if (!isGenerating && prevIsGenerating) {
+    setPrevIsGenerating(false);
+  }
+
+  if (answerStarted && !prevAnswerStarted) {
+    setPrevAnswerStarted(true);
+    setIsAccordionOpen(false); // Collapse when answer starts
+  }
+  if (!answerStarted && prevAnswerStarted) {
+    setPrevAnswerStarted(false);
+  }
+
+  const isCurrentlyOpen = isAccordionOpen;
 
   if (streamingText !== prevStreamingText) {
     setPrevStreamingText(streamingText);
@@ -137,9 +164,9 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
       return;
     }
 
-    const validTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+    const validTypes = ["image/jpeg", "image/png", "image/webp"];
     if (!validTypes.includes(file.type)) {
-      alert("Unsupported file type. Please select a JPEG, PNG, WebP image, or PDF document.");
+      alert("Unsupported file type. Please select a JPEG, PNG, or WebP image.");
       return;
     }
 
@@ -173,8 +200,13 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
 
         <div className="flex items-center gap-3">
           {/* Character counter */}
-          <div className="flex items-center gap-2 text-xs">
-            <svg className="w-5 h-5 -rotate-90" viewBox="0 0 36 36">
+          <div 
+            className="flex items-center gap-2 text-xs" 
+            aria-live="polite" 
+            aria-atomic="true"
+            aria-label={`Character count: ${charCount} out of 3000`}
+          >
+            <svg className="w-5 h-5 -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
               <circle className="stroke-slate-100" cx="18" cy="18" r="16" fill="none" strokeWidth="3.5" />
               <circle
                 className={`transition-all duration-300 ${colorClass}`}
@@ -217,6 +249,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
             className="h-9 px-4 text-xs font-semibold bg-brand-blue hover:bg-brand-blue-hover text-white gap-1.5 shadow-sm duration-200 cursor-pointer"
             onClick={onPublish}
             disabled={isControlsDisabled || charCount > 3000 || charCount === 0}
+            aria-busy={isPublishing ? "true" : "false"}
           >
             {isPublishing ? (
               <>Publishing...</>
@@ -230,6 +263,14 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
           </Button>
         </div>
       </div>
+
+      <EditorReasoning 
+        reasoningSteps={reasoningSteps}
+        answerStarted={answerStarted}
+        isCurrentlyOpen={isCurrentlyOpen}
+        isAccordionOpen={isAccordionOpen}
+        setIsAccordionOpen={setIsAccordionOpen}
+      />
 
       {isStreamActive ? (
         /* Skeleton Overlay that matches standard Textarea styling exactly */
@@ -274,6 +315,8 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
           value={draftText || ""}
           onChange={(e) => onChange(e.target.value)}
           disabled={isPublishing}
+          aria-label="Interactive Draft Editor"
+          aria-invalid={charCount > 3000 ? "true" : "false"}
         />
       )}
 
@@ -337,31 +380,11 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                       <DialogTitle className="truncate pr-6">{file.name}</DialogTitle>
                     </DialogHeader>
                     <div className="pt-2 flex flex-col items-center justify-center min-h-[200px]">
-                      {isImage ? (
-                        <img
-                          src={file.readUrl || file.base64}
-                          alt={file.name}
-                          className="max-w-full max-h-[60vh] object-contain rounded-lg border border-border shadow-sm"
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center gap-3 p-6 bg-slate-50 border border-border rounded-2xl w-full">
-                          <FileText className="size-16 text-red-500" />
-                          <div className="text-center">
-                            <p className="font-semibold text-slate-800 break-all">{file.name}</p>
-                            <p className="text-xs text-slate-500 mt-1">PDF Document</p>
-                          </div>
-                          {file.readUrl && (
-                            <a
-                              href={file.readUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="mt-2 text-xs text-brand-blue hover:underline font-semibold"
-                            >
-                              Open Document in New Tab →
-                            </a>
-                          )}
-                        </div>
-                      )}
+                      <img
+                        src={file.readUrl || file.base64}
+                        alt={file.name}
+                        className="max-w-full max-h-[60vh] object-contain rounded-lg border border-border shadow-sm"
+                      />
                     </div>
                   </DialogContent>
                 </Dialog>
@@ -391,8 +414,8 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                   <Paperclip className="size-4 text-slate-500" />
                 </AttachmentMedia>
                 <AttachmentContent>
-                  <AttachmentTitle>Attach image or PDF</AttachmentTitle>
-                  <AttachmentDescription>PNG, JPG, PDF up to 4MB</AttachmentDescription>
+                  <AttachmentTitle>Attach image</AttachmentTitle>
+                  <AttachmentDescription>PNG, JPG up to 4MB</AttachmentDescription>
                 </AttachmentContent>
               </Attachment>
             )}
@@ -408,8 +431,8 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
               <Paperclip className="size-4 text-slate-500" />
             </AttachmentMedia>
             <AttachmentContent>
-              <AttachmentTitle>Attach image or PDF</AttachmentTitle>
-              <AttachmentDescription>PNG, JPG, PDF up to 4MB</AttachmentDescription>
+              <AttachmentTitle>Attach image</AttachmentTitle>
+              <AttachmentDescription>PNG, JPG up to 4MB</AttachmentDescription>
             </AttachmentContent>
           </Attachment>
         )}
@@ -418,7 +441,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
           type="file"
           ref={fileInputRef}
           onChange={handleFileChange}
-          accept="image/png, image/jpeg, image/webp, application/pdf"
+          accept="image/png, image/jpeg, image/webp"
           className="hidden"
           disabled={isControlsDisabled}
           multiple

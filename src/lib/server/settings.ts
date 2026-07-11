@@ -8,7 +8,6 @@ interface UserSettingsRow {
   encrypted_api_key: string | null;
   llm_model: string | null;
   ollama_base_url: string | null;
-  encrypted_tavily_key: string | null;
   encrypted_linkedin_token: string | null;
   linkedin_urn: string | null;
 }
@@ -18,7 +17,6 @@ export interface AgentCredentials {
   apiKey?: string;
   model?: string;
   ollamaUrl?: string;
-  tavilyKey?: string;
   liToken?: string;
   liUrn?: string;
 }
@@ -46,7 +44,6 @@ export function mapRowToUserSettings(data: UserSettingsRow): UserSettings & { li
     apiKey: data.encrypted_api_key ? decrypt(data.encrypted_api_key) : "",
     modelName: data.llm_model || "",
     ollamaBaseUrl: data.ollama_base_url || DEFAULT_OLLAMA_URL,
-    tavilyKey: data.encrypted_tavily_key ? decrypt(data.encrypted_tavily_key) : "",
     liToken: data.encrypted_linkedin_token ? decrypt(data.encrypted_linkedin_token) : "",
     liUrn: data.linkedin_urn || "",
     linkedInConnected: !!data.encrypted_linkedin_token,
@@ -67,9 +64,6 @@ export function buildSettingsUpsert(
 
   if (settings.apiKey !== undefined) {
     updateData.encrypted_api_key = settings.apiKey ? encrypt(settings.apiKey) : "";
-  }
-  if (settings.tavilyKey !== undefined) {
-    updateData.encrypted_tavily_key = settings.tavilyKey ? encrypt(settings.tavilyKey) : "";
   }
   if (settings.liToken !== undefined) {
     updateData.encrypted_linkedin_token = settings.liToken ? encrypt(settings.liToken) : "";
@@ -124,7 +118,6 @@ function readHeaderCredentials(request: Request): AgentCredentials {
     apiKey: headers.get("x-llm-api-key") || undefined,
     model: headers.get("x-llm-model") || undefined,
     ollamaUrl: headers.get("x-ollama-base-url") || undefined,
-    tavilyKey: headers.get("x-tavily-key") || undefined,
     liToken: headers.get("x-linkedin-token") || undefined,
     liUrn: headers.get("x-linkedin-urn") || undefined,
   };
@@ -139,7 +132,6 @@ function mergeDbCredentials(
     apiKey: row.encrypted_api_key ? decrypt(row.encrypted_api_key) : creds.apiKey,
     model: row.llm_model || creds.model,
     ollamaUrl: row.ollama_base_url || creds.ollamaUrl,
-    tavilyKey: row.encrypted_tavily_key ? decrypt(row.encrypted_tavily_key) : creds.tavilyKey,
     liToken: row.encrypted_linkedin_token ? decrypt(row.encrypted_linkedin_token) : creds.liToken,
     liUrn: row.linkedin_urn || creds.liUrn,
   };

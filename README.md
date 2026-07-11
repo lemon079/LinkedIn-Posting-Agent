@@ -1,4 +1,4 @@
-# LinkedIn Posting Agent
+# Praxis
 
 A full-stack AI agent and web dashboard that drafts, validates, and publishes technical LinkedIn posts on-demand. Built with Next.js, LangGraph, and Supabase — runs as a web app, desktop app (Tauri), or mobile container (Capacitor).
 
@@ -6,9 +6,11 @@ A full-stack AI agent and web dashboard that drafts, validates, and publishes te
 
 ## ✨ Features
 
-- **AI-powered drafting** — LangGraph agent with Gemini, OpenAI, or Anthropic orchestrates post generation with optional Tavily web-search grounding
+- **AI-powered drafting** — LangGraph agent with Gemini, OpenAI, or Anthropic orchestrates post generation
+- **Transparent Chain-of-Thought** — Explicit multi-node LangGraph reasoning lets you inspect the AI's internal process before final output generation, separated logically with a UI toggle
 - **Rich editing experience** — Fully editable draft with LinkedIn-style preview, character-by-character streaming animation, and tab-based edit/preview toggle
 - **Multi-image attachments** — Upload up to 20 images per post via drag-and-drop or file picker; images publish alongside copy to LinkedIn via the UGC API
+- **Modern Responsive UI** — Built with Shadcn UI, DM Sans typography, and native CSS Grid transitions for a lightweight, mobile-first collapsible settings experience
 - **One-click publishing** — Posts directly to your LinkedIn profile via OAuth using the UGC Share API
 - **Cloud settings sync** — User credentials and API keys are AES-encrypted and synced to Supabase; settings persist across devices
 - **Native app support** — Ships as a Tauri desktop app and Capacitor mobile container alongside the web portal
@@ -43,7 +45,6 @@ Copy `.env.example` to `.env` and fill in the values:
 | Variable | Description |
 | :--- | :--- |
 | `GOOGLE_API_KEY` | Gemini API key (default AI provider) |
-| `TAVILY_API_KEY` | Optional — enables web-search grounding during draft generation |
 | `SUPABASE_URL` | Supabase project URL for user auth & settings sync |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key for server-side database access |
 | `ENCRYPTION_KEY` | 32-byte hex key — encrypts user credentials before cloud sync |
@@ -124,8 +125,6 @@ Browser / Native App
       Gemini/        (skip if       LinkedIn
       OpenAI/         valid)        UGC API
       Anthropic
-         │
-      Tavily Search (optional grounding)
 ```
 
 **State management**: `useAgent` hook owns all client state and calls `/api/agent/run` and `/api/agent/publish`. LangGraph persists state in-memory across the multi-step graph using `MemorySaver`.

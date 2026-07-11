@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ControlPanel } from "@/components/ControlPanel";
 import { EditorPanel } from "@/components/EditorPanel";
 import { SettingsPanel } from "@/components/SettingsPanel";
@@ -10,6 +10,7 @@ import { FileText, FlaskConical } from "lucide-react";
 import { AuthForm } from "@/components/AuthForm";
 import { LinkedInFeed } from "@/components/LinkedInFeed";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { toast } from "sonner";
 import { SAMPLE_POST } from "@/lib/devSamplePost";
 
 const IS_DEV = process.env.NODE_ENV === "development";
@@ -17,20 +18,27 @@ const IS_DEV = process.env.NODE_ENV === "development";
 export default function Home() {
   const agentState = useAgent();
   const {
-    customTopic, context,
+    customTopic, context, domain,
     draftText, streamingText, postUrl, isGenerating, isPublishing, error, activeTab,
-    provider, apiKey, modelName, ollamaBaseUrl, tavilyKey, liToken, liUrn, isSettingsOpen,
+    provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, isSettingsOpen,
     user, isTauri,
     selectedFiles, isUploading,
-    setCustomTopic, setContext, setDraftText, setStreamingText,
+    reasoningSteps,
+    setCustomTopic, setContext, setDomain, setDraftText, setStreamingText,
     handleGenerate, handlePublish,
-    setProvider, setApiKey, setModelName, setOllamaBaseUrl, setTavilyKey,
+    setProvider, setApiKey, setModelName, setOllamaBaseUrl,
     setLiToken, setLiUrn, setIsSettingsOpen,
     setSelectedFiles, handleUploadFile,
   } = agentState;
 
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [devPreview, setDevPreview] = useState(false);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
 
   const effectiveDraft = IS_DEV && devPreview ? SAMPLE_POST : draftText;
   const effectiveStreaming = IS_DEV && devPreview ? null : streamingText;
@@ -52,20 +60,21 @@ export default function Home() {
         disabled={isGenerating}
       />
 
-      <main className="flex-1 p-6 max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
-        <div className="lg:col-span-2">
+      <main className="flex-1 p-6 max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-5 gap-3 lg:gap-6 items-start">
+        <aside className="lg:col-span-2">
           <ControlPanel
             customTopic={customTopic}
             context={context}
+            domain={domain}
             isGenerating={isGenerating}
             setCustomTopic={setCustomTopic}
             setContext={setContext}
+            setDomain={setDomain}
             onGenerate={handleGenerate}
           />
-        </div>
+        </aside>
 
-        <div className="lg:col-span-3 space-y-6">
-          {error && <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-sm font-medium animate-fade-in-up">⚠️ {error}</div>}
+        <section className="lg:col-span-3 space-y-6">
           {postUrl && (
             <div className="bg-green-50 border border-green-200 text-green-700 p-4 rounded-xl text-sm space-y-1.5 shadow-sm animate-fade-in-up">
               <p className="font-bold">🎉 Post published successfully!</p>
@@ -92,6 +101,7 @@ export default function Home() {
                   onUploadFile={handleUploadFile}
                   onChange={setDraftText}
                   onPublish={onPublishClick}
+                  reasoningSteps={reasoningSteps}
                 />
               )}
             </div>
@@ -101,7 +111,7 @@ export default function Home() {
               <p className="text-xs sm:text-sm font-medium text-slate-500 text-center px-4">Configure parameters and generate a post draft.</p>
             </div>
           )}
-        </div>
+        </section>
       </main>
 
       <SettingsPanel
@@ -110,7 +120,6 @@ export default function Home() {
         apiKey={apiKey} setApiKey={setApiKey}
         modelName={modelName} setModelName={setModelName}
         ollamaBaseUrl={ollamaBaseUrl} setOllamaBaseUrl={setOllamaBaseUrl}
-        tavilyKey={tavilyKey} setTavilyKey={setTavilyKey}
         liToken={liToken} setLiToken={setLiToken}
         liUrn={liUrn} setLiUrn={setLiUrn}
         user={user} isTauri={isTauri}

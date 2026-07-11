@@ -2,6 +2,10 @@ import { Annotation } from "@langchain/langgraph";
 
 export const AgentState = Annotation.Root({
   topic: Annotation<string>(),
+  domain: Annotation<string | null>({
+    reducer: (x, y) => y,
+    default: () => null,
+  }),
   context: Annotation<string>({
     reducer: (x, y) => y,
     default: () => "",
@@ -22,6 +26,23 @@ export const AgentState = Annotation.Root({
     reducer: (x, y) => y,
     default: () => null,
   }),
+  reasoningSteps: Annotation<Array<{ title: string; output: string }>>({
+    reducer: (x, y) => (x || []).concat(y || []),
+    default: () => [],
+  }),
+  planOutput: Annotation<string>({
+    reducer: (x, y) => y,
+    default: () => "",
+  }),
+  researchOutput: Annotation<string>({
+    reducer: (x, y) => y,
+    default: () => "",
+  }),
+  draftOutput: Annotation<string>({
+    reducer: (x, y) => y,
+    default: () => "",
+  }),
+
 
   linkedinToken: Annotation<string | null>({
     reducer: (x, y) => y,
@@ -44,10 +65,6 @@ export const AgentState = Annotation.Root({
     default: () => null,
   }),
   ollamaBaseUrl: Annotation<string | null>({
-    reducer: (x, y) => y,
-    default: () => null,
-  }),
-  tavilyApiKey: Annotation<string | null>({
     reducer: (x, y) => y,
     default: () => null,
   }),

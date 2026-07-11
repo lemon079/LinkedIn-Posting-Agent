@@ -11,25 +11,25 @@
   --color-card-foreground: #191919; 
   --color-popover: #ffffff; 
   --color-popover-foreground: #191919;
-  --color-primary: #0a66c2; 
+  --color-primary: #6A89A7; 
   --color-primary-foreground: #ffffff; 
-  --color-secondary: #e8f3ff;
-  --color-secondary-foreground: #0a66c2; 
+  --color-secondary: #BDDDFC;
+  --color-secondary-foreground: #384959; 
   --color-muted: #f3f2ef; 
   --color-muted-foreground: #666666;
-  --color-accent: #e8f3ff; 
-  --color-accent-foreground: #0a66c2; 
+  --color-accent: #BDDDFC; 
+  --color-accent-foreground: #384959; 
   --color-destructive: #c9372c;
   --color-destructive-foreground: #ffffff; 
   --color-border: #e0e0e0; 
   --color-input: #e0e0e0;
-  --color-ring: #80b8f1; 
+  --color-ring: #88BDF2; 
   --color-radius: 0.5rem;
 
-  --color-brand-blue: #0a66c2; 
-  --color-brand-blue-hover: #004182;
+  --color-brand-blue: #6A89A7; 
+  --color-brand-blue-hover: #384959;
   --color-bg-primary: #f3f2ef; 
-  --color-bg-secondary: #e8f3ff;
+  --color-bg-secondary: #BDDDFC;
   --color-card-bg: #ffffff; 
   --color-border-color: #e0e0e0;
 
@@ -174,5 +174,31 @@ body {
   }
   html {
     @apply font-sans;
+  }
+}
+
+@layer utilities {
+  .custom-scroll-fade::before,
+  .custom-scroll-fade::after {
+    content: "";
+    position: sticky;
+    top: 0;
+    bottom: 0;
+    width: 32px;
+    pointer-events: none;
+    z-index: 20;
+    flex-shrink: 0;
+  }
+
+  .custom-scroll-fade::before {
+    left: 0;
+    background: linear-gradient(to right, var(--color-muted), transparent);
+    margin-right: -32px;
+  }
+
+  .custom-scroll-fade::after {
+    right: 0;
+    background: linear-gradient(to left, var(--color-muted), transparent);
+    margin-left: -32px;
   }
 }

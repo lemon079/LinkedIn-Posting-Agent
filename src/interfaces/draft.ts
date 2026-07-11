@@ -1,6 +1,7 @@
 export interface DraftRequest {
   topic?: string;
   context?: string;
+  domain?: string | null;
 }
 
 export interface DraftResponse {
@@ -8,4 +9,5 @@ export interface DraftResponse {
   draft: string;
   status: "needs_approval";
   error?: string;
+  reasoningSteps?: Array<{ title: string; output: string }>;
 }

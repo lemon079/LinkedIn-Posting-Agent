@@ -5,6 +5,5 @@ export interface CustomKeys {
   liUrn: string;
   modelName: string;
   ollamaBaseUrl: string;
-  tavilyKey: string;
   token?: string;
 }

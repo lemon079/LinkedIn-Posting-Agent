@@ -82,10 +82,10 @@ export const ChatSkeletonLoader: React.FC<ChatSkeletonLoaderProps> = ({ text, on
       {/* Ghostwriter Profile Header */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-full bg-brand-blue text-white flex items-center justify-center font-bold text-sm shadow-md shadow-brand-blue/20 animate-pulse">
-          LA
+          PR
         </div>
         <div className="text-xs">
-          <h4 className="font-bold text-slate-800">LinkedIn Agent</h4>
+          <h4 className="font-bold text-slate-800">Praxis</h4>
           <p className="text-slate-500 font-normal">Streaming generated draft...</p>
         </div>
       </div>
