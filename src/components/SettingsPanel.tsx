@@ -45,7 +45,6 @@ interface SettingsPanelProps {
   liUrn: string;
   setLiUrn: (val: string) => void;
   user: User | null;
-  isTauri: boolean;
 }
 
 const CLOUD_MODELS: Record<string, string[]> = {
@@ -70,7 +69,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   liUrn,
   setLiUrn,
   user,
-  isTauri,
 }) => {
   const [testState, setTestState] = useState<{
     status: "idle" | "testing" | "success" | "error";
@@ -79,10 +77,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   }>({ status: "idle" });
 
   const isWide = useMedia("(min-width: 768px)");
-
-  const [serverBaseUrl, setServerBaseUrl] = useState(() =>
-    typeof window !== "undefined" ? localStorage.getItem("server_base_url") || "" : ""
-  );
 
   const [isCustomMode, setIsCustomMode] = useState(false);
 
@@ -304,7 +298,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   <SelectItem value="gemini">Google</SelectItem>
                   <SelectItem value="openai">OpenAI</SelectItem>
                   <SelectItem value="anthropic">Anthropic</SelectItem>
-                  {isTauri && <SelectItem value="ollama">Ollama</SelectItem>}
+                  <SelectItem value="ollama">Ollama</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -522,33 +516,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 )}
               </div>
             )}
-
-            {/* Server Base URL Setting (for Native / Remote Deployment) */}
-            <div className="space-y-1.5 pt-3 border-t border-border/50">
-              <Label className="text-xs font-semibold text-foreground flex items-center justify-between">
-                <span>Backend Server URL</span>
-                <span className="text-[10px] text-muted font-normal">Remote API Domain</span>
-              </Label>
-              <Input
-                type="url"
-                placeholder="https://linkedin-agent.vercel.app"
-                value={serverBaseUrl}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setServerBaseUrl(val);
-                  if (typeof window !== "undefined") {
-                    if (val.trim()) {
-                      localStorage.setItem("server_base_url", val.trim());
-                    } else {
-                      localStorage.removeItem("server_base_url");
-                    }
-                  }
-                }}
-              />
-              <p className="text-[11px] text-muted leading-tight">
-                Specifies the hosted backend server endpoint used by Desktop (.exe) and Mobile (.apk) native apps.
-              </p>
-            </div>
 
             {/* Test Connection Actions */}
             <div className="pt-2">

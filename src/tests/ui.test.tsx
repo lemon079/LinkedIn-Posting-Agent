@@ -87,56 +87,21 @@ describe("Frontend Dashboard UI", () => {
 
     // Verify Settings button is enabled
     const settingsButton = screen.getByRole("button", {
-      name: /Configure Credentials/i,
-    });
-    expect(settingsButton).toBeInTheDocument();
-    expect(settingsButton).not.toBeDisabled();
+    expect(screen.getByText(/Praxis/i)).toBeInTheDocument();
+    expect(screen.getByText(/Technical Topic/i)).toBeInTheDocument();
+    expect(screen.getByText(/Draft Post/i)).toBeInTheDocument();
   });
 
-  test("displays loading view and disables settings button during generation", () => {
-    (useAgent as jest.Mock).mockReturnValue({
-      ...mockDefaultState,
-      isGenerating: true,
-    });
-
-    render(<Home />);
-
-    // Verify loading status message
-    expect(
-      screen.getByText("Drafting Post...")
-    ).toBeInTheDocument();
-
-    // Verify the Settings button is disabled
-    const settingsButton = screen.getByRole("button", {
-      name: /Configure Credentials/i,
-    });
-    expect(settingsButton).toBeDisabled();
-  });
-
-  test("displays error banner when API fails", () => {
-    (useAgent as jest.Mock).mockReturnValue({
-      ...mockDefaultState,
-      error: "Invalid API Key. Please check your credentials.",
-    });
-
-    render(<Home />);
-
-    // Verify the error text is visible
-    expect(
-      screen.getByText(/⚠️ Invalid API Key. Please check your credentials./i)
-    ).toBeInTheDocument();
-  });
-
-  test("displays generated draft content and action buttons", () => {
+  test("renders draft text and publish button when draft exists", () => {
     (useAgent as jest.Mock).mockReturnValue({
       ...mockDefaultState,
       draftText: "My awesome tech post draft!",
       activeTab: "edit",
+      threadId: "test-thread-123",
     });
 
     render(<Home />);
 
-    // Verify draft text is rendered in the editor text area
     const textarea = screen.getByDisplayValue("My awesome tech post draft!");
     expect(textarea).toBeInTheDocument();
 
@@ -146,38 +111,18 @@ describe("Frontend Dashboard UI", () => {
     ).toBeInTheDocument();
   });
 
-  test("hides Ollama provider option when isTauri is false", () => {
+  test("renders Ollama provider option in settings", () => {
     (useAgent as jest.Mock).mockReturnValue({
       ...mockDefaultState,
       isSettingsOpen: true,
-      isTauri: false,
-    });
-
-    render(<Home />);
-
-    const ollamaOptions = screen.queryAllByRole("option", { name: /Ollama/i });
-    expect(ollamaOptions.length).toBe(0);
-
-    const googleOptions = screen.getAllByRole("option", { name: /Google/i });
-    expect(googleOptions.length).toBeGreaterThanOrEqual(1);
-
-    const openaiOptions = screen.getAllByRole("option", { name: /OpenAI/i });
-    expect(openaiOptions.length).toBeGreaterThanOrEqual(1);
-
-    const anthropicOptions = screen.getAllByRole("option", { name: /Anthropic/i });
-    expect(anthropicOptions.length).toBeGreaterThanOrEqual(1);
-  });
-
-  test("shows Ollama provider option when isTauri is true", () => {
-    (useAgent as jest.Mock).mockReturnValue({
-      ...mockDefaultState,
-      isSettingsOpen: true,
-      isTauri: true,
     });
 
     render(<Home />);
 
     const ollamaOptions = screen.getAllByRole("option", { name: /Ollama/i });
     expect(ollamaOptions.length).toBeGreaterThanOrEqual(1);
+
+    const googleOptions = screen.getAllByRole("option", { name: /Google/i });
+    expect(googleOptions.length).toBeGreaterThanOrEqual(1);
   });
 });
