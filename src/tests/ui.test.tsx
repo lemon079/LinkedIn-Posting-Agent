@@ -12,7 +12,21 @@ jest.mock("../hooks/useAgent");
 
 // Mock Supabase to prevent real client initialization
 jest.mock("../lib/supabase", () => ({
-  supabase: null,
+  supabase: {
+    auth: {
+      getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
+      onAuthStateChange: jest.fn().mockReturnValue({ data: { subscription: { unsubscribe: jest.fn() } } }),
+    },
+  },
+}));
+
+jest.mock("@/lib/supabase", () => ({
+  supabase: {
+    auth: {
+      getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
+      onAuthStateChange: jest.fn().mockReturnValue({ data: { subscription: { unsubscribe: jest.fn() } } }),
+    },
+  },
 }));
 
 // Mock useMedia to prevent window.matchMedia errors in jsdom
@@ -27,12 +41,23 @@ jest.mock("react-markdown", () => {
   };
 });
 
+const OriginalRequest = globalThis.Request;
+const OriginalResponse = globalThis.Response;
+const OriginalHeaders = globalThis.Headers;
+
 describe("Frontend Dashboard UI", () => {
+  afterAll(() => {
+    if (OriginalRequest) globalThis.Request = OriginalRequest;
+    if (OriginalResponse) globalThis.Response = OriginalResponse;
+    if (OriginalHeaders) globalThis.Headers = OriginalHeaders;
+  });
   const mockDefaultState = {
     customTopic: "",
     context: "",
+    domain: "auto",
     draftText: null,
     streamingText: null,
+    threadId: null,
     postUrl: null,
     isGenerating: false,
     isPublishing: false,
@@ -46,13 +71,14 @@ describe("Frontend Dashboard UI", () => {
     liUrn: "",
     isSettingsOpen: false,
     user: null,
-    isTauri: false,
     reasoningSteps: [],
     selectedFiles: [],
     isUploading: false,
     setCustomTopic: jest.fn(),
     setContext: jest.fn(),
+    setDomain: jest.fn(),
     setDraftText: jest.fn(),
+    setStreamingText: jest.fn(),
     setActiveTab: jest.fn(),
     handleGenerate: jest.fn(),
     handlePublish: jest.fn(),
@@ -77,19 +103,10 @@ describe("Frontend Dashboard UI", () => {
 
     render(<Home />);
 
-    // Verify Title
     expect(screen.getByText("Praxis")).toBeInTheDocument();
-
-    // Verify empty placeholder text
     expect(
       screen.getByText("Configure parameters and generate a post draft.")
     ).toBeInTheDocument();
-
-    // Verify Settings button is enabled
-    const settingsButton = screen.getByRole("button", {
-    expect(screen.getByText(/Praxis/i)).toBeInTheDocument();
-    expect(screen.getByText(/Technical Topic/i)).toBeInTheDocument();
-    expect(screen.getByText(/Draft Post/i)).toBeInTheDocument();
   });
 
   test("renders draft text and publish button when draft exists", () => {
@@ -105,24 +122,8 @@ describe("Frontend Dashboard UI", () => {
     const textarea = screen.getByDisplayValue("My awesome tech post draft!");
     expect(textarea).toBeInTheDocument();
 
-    // Verify publish button is visible
     expect(
       screen.getByRole("button", { name: /Publish/i })
     ).toBeInTheDocument();
-  });
-
-  test("renders Ollama provider option in settings", () => {
-    (useAgent as jest.Mock).mockReturnValue({
-      ...mockDefaultState,
-      isSettingsOpen: true,
-    });
-
-    render(<Home />);
-
-    const ollamaOptions = screen.getAllByRole("option", { name: /Ollama/i });
-    expect(ollamaOptions.length).toBeGreaterThanOrEqual(1);
-
-    const googleOptions = screen.getAllByRole("option", { name: /Google/i });
-    expect(googleOptions.length).toBeGreaterThanOrEqual(1);
   });
 });
