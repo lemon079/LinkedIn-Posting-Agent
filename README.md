@@ -38,27 +38,6 @@ Install Praxis directly on your Windows Desktop or Android device:
 
 ---
 
-## 📂 Project Structure
-
-```
-├── public/               # Static assets & favicon
-├── scripts/              # Build helper scripts
-├── src/
-│   ├── app/              # Next.js App Router pages + serverless API routes
-│   ├── components/       # React UI components (Editor, ControlPanel, Feed, etc.)
-│   │   └── ui/           # shadcn/ui primitives (Button, Sheet, Attachment, etc.)
-│   ├── core/             # State schemas & AI prompt templates
-│   ├── graph/            # LangGraph nodes (generatePost, validatePost, publishPost)
-│   ├── hooks/            # Client state hook (useAgent)
-│   ├── lib/              # API helpers, Supabase client, utilities
-│   ├── services/         # LinkedIn REST client & LLM instantiation
-│   └── tests/            # Unit tests
-├── src-tauri/            # Tauri desktop wrapper (Rust)
-└── capacitor.config.ts   # Capacitor mobile wrapper config
-```
-
----
-
 ## ⚙️ Configuration
 
 Copy `.env.example` to `.env` and fill in the values:
