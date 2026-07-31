@@ -45,7 +45,6 @@
 ---
 
 ## ⚙️ Environment Configuration
->>>>>>> feature/generation-limit
 
 Copy `.env.example` to `.env` and configure your API keys and credentials:
 
