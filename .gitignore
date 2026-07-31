@@ -46,3 +46,5 @@ next-env.d.ts
 
 # GSD planning artifacts (local only)
 /.planning
+/dist
+/android
