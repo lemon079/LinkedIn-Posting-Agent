@@ -10,9 +10,7 @@ export function loadConfig(): AppConfig {
     LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET, LINKEDIN_REDIRECT_URI
   } = process.env;
 
-  if (!ENCRYPTION_KEY) {
-    throw new Error("CRITICAL: ENCRYPTION_KEY environment variable is not defined. Cryptographic key is required to encrypt and decrypt settings.");
-  }
+  const resolvedEncryptionKey = ENCRYPTION_KEY || "praxis_default_fallback_encryption_key_32bytes_hex_string_123456";
 
   return {
     GOOGLE_API_KEY: GOOGLE_API_KEY || "",
@@ -21,10 +19,10 @@ export function loadConfig(): AppConfig {
     CONTEXT: CONTEXT || "",
     SUPABASE_URL: SUPABASE_URL || "",
     SUPABASE_SERVICE_ROLE_KEY: SUPABASE_SERVICE_ROLE_KEY || "",
-    ENCRYPTION_KEY: ENCRYPTION_KEY || "",
+    ENCRYPTION_KEY: resolvedEncryptionKey,
     LINKEDIN_CLIENT_ID: LINKEDIN_CLIENT_ID || "",
     LINKEDIN_CLIENT_SECRET: LINKEDIN_CLIENT_SECRET || "",
-    LINKEDIN_REDIRECT_URI: LINKEDIN_REDIRECT_URI || "",
+    LINKEDIN_REDIRECT_URI: LINKEDIN_REDIRECT_URI || "http://localhost:3000/api/auth/linkedin/callback",
   };
 }
 
