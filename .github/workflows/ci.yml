@@ -10,6 +10,9 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
 jobs:
   lint-and-typecheck:
     name: Lint & TypeScript Check
