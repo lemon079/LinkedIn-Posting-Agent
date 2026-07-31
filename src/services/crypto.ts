@@ -33,4 +33,12 @@ export function decrypt(cipherText: string): string {
   decrypted += decipher.final("utf8");
   return decrypted;
 }
-export type Crypt = { encrypt: typeof encrypt; decrypt: typeof decrypt; };
+export function safeDecrypt(cipherText: string): string {
+  try {
+    return decrypt(cipherText);
+  } catch {
+    return "";
+  }
+}
+
+export type Crypt = { encrypt: typeof encrypt; decrypt: typeof decrypt; safeDecrypt: typeof safeDecrypt; };

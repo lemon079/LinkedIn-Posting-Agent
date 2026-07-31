@@ -5,33 +5,51 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --color-background: #f3f2ef; 
-  --color-foreground: #191919; 
+  /* ── Stitch Design System: Praxis ── */
+  --color-background: #fbf8ff; 
+  --color-foreground: #1a1b23; 
   --color-card: #ffffff;
-  --color-card-foreground: #191919; 
+  --color-card-foreground: #1a1b23; 
   --color-popover: #ffffff; 
-  --color-popover-foreground: #191919;
-  --color-primary: #6A89A7; 
+  --color-popover-foreground: #1a1b23;
+  --color-primary: #5c7cfa; 
   --color-primary-foreground: #ffffff; 
-  --color-secondary: #BDDDFC;
-  --color-secondary-foreground: #384959; 
-  --color-muted: #f3f2ef; 
-  --color-muted-foreground: #666666;
-  --color-accent: #BDDDFC; 
-  --color-accent-foreground: #384959; 
-  --color-destructive: #c9372c;
+  --color-secondary: #bdddff;
+  --color-secondary-foreground: #42617d; 
+  --color-muted: #eeedf8; 
+  --color-muted-foreground: #444654;
+  --color-accent: #dde1ff; 
+  --color-accent-foreground: #001453; 
+  --color-destructive: #ba1a1a;
   --color-destructive-foreground: #ffffff; 
-  --color-border: #e0e0e0; 
-  --color-input: #e0e0e0;
-  --color-ring: #88BDF2; 
+  --color-border: #c4c5d6; 
+  --color-input: #c4c5d6;
+  --color-ring: #b8c4ff; 
   --color-radius: 0.5rem;
 
-  --color-brand-blue: #6A89A7; 
-  --color-brand-blue-hover: #384959;
-  --color-bg-primary: #f3f2ef; 
-  --color-bg-secondary: #BDDDFC;
+  --color-brand-blue: #5c7cfa; 
+  --color-brand-blue-hover: #2c50cd;
+  --color-bg-primary: #fbf8ff; 
+  --color-bg-secondary: #bdddff;
   --color-card-bg: #ffffff; 
-  --color-border-color: #e0e0e0;
+  --color-border-color: #c4c5d6;
+
+  /* ── Stitch surface layers ── */
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f4f2fd;
+  --color-surface-container: #eeedf8;
+  --color-surface-container-high: #e8e7f2;
+  --color-surface-container-highest: #e2e1ec;
+  --color-outline: #747685;
+  --color-outline-variant: #c4c5d6;
+
+  /* ── Stitch tertiary accent (amber) ── */
+  --color-tertiary: #8d4b00;
+  --color-tertiary-container: #ffdcc3;
+
+  /* ── Stitch elevation shadows ── */
+  --shadow-level-1: 0px 4px 20px rgba(0, 0, 0, 0.04);
+  --shadow-level-2: 0px 12px 32px rgba(0, 0, 0, 0.08);
 
   --animate-fade-in-up: fadeInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   --animate-shimmer-sweep: shimmer-sweep 1.6s linear infinite;
@@ -52,40 +70,40 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0); 
   --popover-foreground: oklch(0.145 0 0); 
-  --primary: oklch(0.205 0 0); 
+  --primary: oklch(0.55 0.22 264); 
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0); 
-  --secondary-foreground: oklch(0.205 0 0); 
-  --muted: oklch(0.97 0 0); 
-  --muted-foreground: oklch(0.556 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
+  --secondary: oklch(0.88 0.06 250); 
+  --secondary-foreground: oklch(0.42 0.04 245); 
+  --muted: oklch(0.94 0.01 280); 
+  --muted-foreground: oklch(0.45 0.02 270);
+  --destructive: oklch(0.50 0.20 25);
   --destructive-foreground: #ffffff; 
-  --border: oklch(0.922 0 0); 
-  --input: oklch(0.922 0 0); 
-  --ring: oklch(0.708 0 0);
+  --border: oklch(0.82 0.02 270); 
+  --input: oklch(0.82 0.02 270); 
+  --ring: oklch(0.80 0.08 264);
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --background: oklch(0.985 0.005 290);
+  --foreground: oklch(0.15 0.01 270);
+  --accent: oklch(0.90 0.06 264);
+  --accent-foreground: oklch(0.20 0.08 264);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar: oklch(0.975 0.005 290);
+  --sidebar-foreground: oklch(0.15 0.01 270);
+  --sidebar-primary: oklch(0.55 0.22 264);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-accent: oklch(0.94 0.01 280);
+  --sidebar-accent-foreground: oklch(0.20 0.08 264);
+  --sidebar-border: oklch(0.82 0.02 270);
+  --sidebar-ring: oklch(0.80 0.08 264);
 }
 
 body {
-  background-color: #f3f2ef;
-  color: #191919;
+  background-color: #fbf8ff;
+  color: #1a1b23;
 }
 
 @theme inline {

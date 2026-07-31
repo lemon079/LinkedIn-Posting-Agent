@@ -24,7 +24,7 @@ export const EditorReasoning: React.FC<EditorReasoningProps> = ({
   const previewText = latestStep?.output.substring(0, 60).replace(/\n/g, " ") + (latestStep?.output.length > 60 ? "..." : "");
 
   return (
-    <div className="bg-white border border-slate-100 border-l-[3px] border-l-brand-blue rounded-xl p-4 transition-all duration-200 shadow-sm">
+    <div className="bg-card border border-border border-l-[3px] border-l-brand-blue rounded-xl p-4 transition-all duration-200 shadow-level-1">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3 overflow-hidden">
           <button
@@ -71,7 +71,7 @@ export const EditorReasoning: React.FC<EditorReasoningProps> = ({
         }}
       >
         <div className="overflow-hidden">
-          <div className="mt-4 space-y-6 max-h-[300px] overflow-y-auto pr-4 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+          <div className="mt-4 space-y-6 max-h-75 overflow-y-auto pr-4 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
             {reasoningSteps.map((step, idx) => {
               const isThinking = step.title === "Model Thinking";
               return (

@@ -48,7 +48,7 @@ At the very end of your response, output the draft text wrapped in [DRAFT] ... [
     const output = typeof res.content === "string" 
       ? res.content 
       : Array.isArray(res.content) 
-        ? res.content.map((b: any) => b.text || "").join("\n") 
+        ? res.content.map((b: unknown) => (typeof b === "object" && b !== null && "text" in b ? String((b as { text: unknown }).text || "") : "")).join("\n") 
         : "";
 
     // Extract draft from tags
@@ -103,7 +103,7 @@ At the very end of your response, output the final post text wrapped in [POLISHE
     const output = typeof res.content === "string" 
       ? res.content 
       : Array.isArray(res.content) 
-        ? res.content.map((b: any) => b.text || "").join("\n") 
+        ? res.content.map((b: unknown) => (typeof b === "object" && b !== null && "text" in b ? String((b as { text: unknown }).text || "") : "")).join("\n") 
         : "";
 
     // Extract polished post

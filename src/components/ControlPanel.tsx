@@ -47,7 +47,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   }, [happened, takeaway, setContext]);
 
   return (
-    <Card className="bg-card border border-border shadow-sm rounded-2xl transition duration-300">
+    <Card className="bg-card border border-border shadow-level-1 rounded-2xl transition duration-300">
       <CardHeader
         onClick={() => {
           // Toggle open state on mobile/tablet viewports

@@ -39,7 +39,7 @@ const builder = new StateGraph(AgentState)
     [END]: END,
   })
   .addConditionalEdges("publishPost", (state: State) => {
-    if (state.error) return "publishPost";
+    if (state.error) return END;
     return END;
   });
 

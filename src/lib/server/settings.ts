@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { decrypt, encrypt } from "@/services/crypto";
+import { safeDecrypt, encrypt } from "@/services/crypto";
 import { DEFAULT_OLLAMA_URL } from "@/lib/constants";
 import type { UserSettings } from "@/interfaces";
 
@@ -41,10 +41,10 @@ export async function fetchUserSettingsRow(
 export function mapRowToUserSettings(data: UserSettingsRow): UserSettings & { linkedInConnected: boolean } {
   return {
     provider: data.llm_provider || undefined,
-    apiKey: data.encrypted_api_key ? decrypt(data.encrypted_api_key) : "",
+    apiKey: data.encrypted_api_key ? safeDecrypt(data.encrypted_api_key) : "",
     modelName: data.llm_model || "",
     ollamaBaseUrl: data.ollama_base_url || DEFAULT_OLLAMA_URL,
-    liToken: data.encrypted_linkedin_token ? decrypt(data.encrypted_linkedin_token) : "",
+    liToken: data.encrypted_linkedin_token ? safeDecrypt(data.encrypted_linkedin_token) : "",
     liUrn: data.linkedin_urn || "",
     linkedInConnected: !!data.encrypted_linkedin_token,
   };
@@ -129,10 +129,10 @@ function mergeDbCredentials(
 ): AgentCredentials {
   return {
     provider: row.llm_provider || creds.provider,
-    apiKey: row.encrypted_api_key ? decrypt(row.encrypted_api_key) : creds.apiKey,
+    apiKey: row.encrypted_api_key ? safeDecrypt(row.encrypted_api_key) : creds.apiKey,
     model: row.llm_model || creds.model,
     ollamaUrl: row.ollama_base_url || creds.ollamaUrl,
-    liToken: row.encrypted_linkedin_token ? decrypt(row.encrypted_linkedin_token) : creds.liToken,
+    liToken: row.encrypted_linkedin_token ? safeDecrypt(row.encrypted_linkedin_token) : creds.liToken,
     liUrn: row.linkedin_urn || creds.liUrn,
   };
 }

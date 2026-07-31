@@ -106,7 +106,7 @@ export default function Home() {
               )}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-24 border border-dashed border-border rounded-2xl text-slate-400 space-y-3 bg-card shadow-sm animate-fade-in-up hover:border-slate-300 transition duration-300">
+            <div className="flex flex-col items-center justify-center py-24 border border-dashed border-border rounded-2xl text-muted-foreground space-y-3 bg-card shadow-level-1 animate-fade-in-up hover:border-outline transition duration-300">
               <FileText className="size-10 text-slate-300 animate-bounce duration-1000" />
               <p className="text-xs sm:text-sm font-medium text-slate-500 text-center px-4">Configure parameters and generate a post draft.</p>
             </div>
@@ -131,11 +131,10 @@ export default function Home() {
           type="button"
           title={devPreview ? "Exit dev preview" : "Enter dev preview"}
           onClick={() => setDevPreview((v) => !v)}
-          className={`fixed bottom-5 right-5 z-50 flex items-center justify-center size-10 rounded-full shadow-lg transition-all duration-200 cursor-pointer border-2 ${
-            devPreview
+          className={`fixed bottom-5 right-5 z-50 flex items-center justify-center size-10 rounded-full shadow-lg transition-all duration-200 cursor-pointer border-2 ${devPreview
               ? "bg-amber-500 border-amber-600 text-white shadow-amber-200"
               : "bg-card border-border text-muted-foreground hover:border-amber-400 hover:text-amber-500"
-          }`}
+            }`}
         >
           <FlaskConical className="size-4" />
         </button>

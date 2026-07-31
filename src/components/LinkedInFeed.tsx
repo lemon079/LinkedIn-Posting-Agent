@@ -111,7 +111,7 @@ export const LinkedInFeed: React.FC<LinkedInFeedProps> = ({ draftText, selectedF
   const hasFiles = selectedFiles && selectedFiles.length > 0;
 
   return (
-    <Card className="bg-card border border-border shadow-sm rounded-2xl overflow-hidden">
+    <Card className="bg-card border border-border shadow-level-1 rounded-2xl overflow-hidden">
       {/* Scroll-capped body — header + content + images scroll together, stays in viewport */}
       <div className="overflow-y-auto max-h-[calc(100vh-14rem)] p-5 space-y-4">
         {/* Author row */}

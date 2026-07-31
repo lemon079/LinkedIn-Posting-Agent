@@ -18,7 +18,10 @@ interface MediaFile {
 }
 
 async function registerUpload(mediaFile: MediaFile, authorUrn: string, token: string) {
-  const recipe = "urn:li:digitalmediaRecipe:feedshare-image";
+  const isImage = mediaFile.type.startsWith("image/");
+  const recipe = isImage
+    ? "urn:li:digitalmediaRecipe:feedshare-image"
+    : "urn:li:digitalmediaRecipe:feedshare-document";
 
   const registerUrl = "https://api.linkedin.com/v2/assets?action=registerUpload";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -220,7 +223,8 @@ export async function publishLinkedInPost(
 
   try {
     if (mediaFiles && mediaFiles.length > 0) {
-      shareMediaCategory = "IMAGE";
+      const hasDocument = mediaFiles.some(f => !f.type.startsWith("image/"));
+      shareMediaCategory = hasDocument ? "DOCUMENT" : "IMAGE";
 
       for (const mediaFile of mediaFiles) {
         // Step 1 & 2: Register

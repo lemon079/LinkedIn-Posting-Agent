@@ -32,7 +32,7 @@ export const runGuardrails = async (state: State): Promise<Partial<State>> => {
     const evaluation = typeof res.content === "string" 
       ? res.content 
       : Array.isArray(res.content) 
-        ? res.content.map((b: any) => b.text || "").join("\n") 
+        ? res.content.map((b: unknown) => (typeof b === "object" && b !== null && "text" in b ? String((b as { text: unknown }).text || "") : "")).join("\n") 
         : "";
 
     const cleaned = evaluation.trim().toUpperCase();

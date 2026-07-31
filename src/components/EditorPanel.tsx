@@ -45,7 +45,7 @@ function SkeletonLine({ width, className }: { width: string; className?: string 
     <div
       className={cn(
         "absolute left-0 top-1/2 -translate-y-1/2 h-3.5 rounded-md bg-size-[300%_100%] animate-shimmer-sweep opacity-55",
-        "bg-[linear-gradient(90deg,var(--muted)_0%,var(--muted)_40%,color-mix(in_oklch,var(--muted),var(--primary)_25%)_50%,var(--muted)_60%,var(--muted)_100%)]",
+        "bg-[linear-gradient(90deg,var(--color-surface-container)_0%,var(--color-surface-container)_40%,color-mix(in_oklch,var(--color-surface-container),var(--primary)_25%)_50%,var(--color-surface-container)_60%,var(--color-surface-container)_100%)]",
         "transition-opacity duration-150 ease-out",
         className
       )}
@@ -123,6 +123,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   }, [streamingText]);
 
   const totalLength = targetLines[0].length + targetLines[1].length + targetLines[2].length;
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!isStreaming || totalLength === 0) return;
@@ -133,13 +134,18 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
           return prev + 1;
         } else {
           clearInterval(interval);
-          setTimeout(onStreamingComplete, 400);
+          timeoutRef.current = setTimeout(onStreamingComplete, 400);
           return prev;
         }
       });
     }, 6);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
   }, [isStreaming, totalLength, onStreamingComplete]);
 
   const line1 = targetLines[0].slice(0, Math.max(0, streamedLength));
@@ -194,20 +200,20 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   const isControlsDisabled = isPublishing || isUploading || isStreamActive;
 
   return (
-    <div className="space-y-4 bg-card border border-border p-5 rounded-2xl shadow-sm">
+    <div className="space-y-4 bg-card border border-border p-5 rounded-2xl shadow-level-1">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <Label htmlFor="draft-editor" className="text-sm font-semibold text-slate-700">Interactive Editor</Label>
 
         <div className="flex items-center gap-3">
           {/* Character counter */}
-          <div 
-            className="flex items-center gap-2 text-xs" 
-            aria-live="polite" 
+          <div
+            className="flex items-center gap-2 text-xs"
+            aria-live="polite"
             aria-atomic="true"
             aria-label={`Character count: ${charCount} out of 3000`}
           >
             <svg className="w-5 h-5 -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
-              <circle className="stroke-slate-100" cx="18" cy="18" r="16" fill="none" strokeWidth="3.5" />
+              <circle className="stroke-outline-variant" cx="18" cy="18" r="16" fill="none" strokeWidth="3.5" />
               <circle
                 className={`transition-all duration-300 ${colorClass}`}
                 cx="18" cy="18" r="16" fill="none" strokeWidth="3.5"
@@ -227,7 +233,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-9 px-3 text-xs font-semibold border-slate-100 hover:bg-slate-50 gap-1.5 cursor-pointer"
+                className="h-9 px-3 text-xs font-semibold border-outline-variant hover:bg-surface-container gap-1.5 cursor-pointer"
                 disabled={charCount === 0 || isStreamActive}
               >
                 <Eye className="size-3.5" /> Preview
@@ -264,7 +270,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
         </div>
       </div>
 
-      <EditorReasoning 
+      <EditorReasoning
         reasoningSteps={reasoningSteps}
         answerStarted={answerStarted}
         isCurrentlyOpen={isCurrentlyOpen}
@@ -274,7 +280,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
 
       {isStreamActive ? (
         /* Skeleton Overlay that matches standard Textarea styling exactly */
-        <div className="w-full bg-card border border-border h-[260px] max-h-[260px] overflow-y-auto rounded-xl px-2.5 py-2 text-base md:text-sm leading-relaxed text-slate-900 relative flex flex-col gap-2.5">
+        <div className="w-full bg-card border border-border h-65 max-h-65 overflow-y-auto rounded-xl px-2.5 py-2 text-base md:text-sm leading-relaxed text-slate-900 relative flex flex-col gap-2.5">
           {/* Row 1 */}
           <div className="relative min-h-6 flex items-center">
             <SkeletonLine
@@ -311,7 +317,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
       ) : (
         <Textarea
           id="draft-editor"
-          className="w-full bg-card border-border h-[260px] max-h-[260px] overflow-y-auto resize-none rounded-xl focus-visible:ring-2 focus-visible:ring-brand-blue/20 focus-visible:border-brand-blue text-base md:text-sm leading-relaxed text-slate-900 transition-colors duration-200"
+          className="w-full bg-card border-border h-65 max-h-65 overflow-y-auto resize-none rounded-xl focus-visible:ring-2 focus-visible:ring-brand-blue/20 focus-visible:border-brand-blue text-base md:text-sm leading-relaxed text-slate-900 transition-colors duration-200"
           value={draftText || ""}
           onChange={(e) => onChange(e.target.value)}
           disabled={isPublishing}
@@ -379,7 +385,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                     <DialogHeader>
                       <DialogTitle className="truncate pr-6">{file.name}</DialogTitle>
                     </DialogHeader>
-                    <div className="pt-2 flex flex-col items-center justify-center min-h-[200px]">
+                    <div className="pt-2 flex flex-col items-center justify-center min-h-50">
                       <img
                         src={file.readUrl || file.base64}
                         alt={file.name}

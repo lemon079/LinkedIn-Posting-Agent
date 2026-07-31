@@ -173,7 +173,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const renderPanelBody = () => (
     <>
       {/* Header */}
-      <div className="p-6 border-b border-border bg-slate-50/50 flex items-center gap-3">
+      <div className="p-6 border-b border-border bg-surface-container-low flex items-center gap-3">
         <div className="p-2 rounded-lg bg-brand-blue/10 text-brand-blue">
           <Settings2 className="size-5" />
         </div>
@@ -205,7 +205,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           </div>
 
           {user ? (
-            <div className="bg-slate-50 border border-border p-4 rounded-xl space-y-3">
+            <div className="bg-surface-container-low border border-border p-4 rounded-xl space-y-3">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <p className="text-xs font-semibold text-slate-500">Signed In As</p>
@@ -228,7 +228,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               </p>
             </div>
           ) : liToken ? (
-            <div className="bg-slate-50 border border-border p-4 rounded-xl space-y-3">
+            <div className="bg-surface-container-low border border-border p-4 rounded-xl space-y-3">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <p className="text-xs font-semibold text-slate-500">LinkedIn Account</p>
@@ -252,7 +252,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               </p>
             </div>
           ) : (
-            <div className="bg-slate-50 border border-border p-4 rounded-xl space-y-4">
+            <div className="bg-surface-container-low border border-border p-4 rounded-xl space-y-4">
               <AuthForm onSuccess={() => { }} />
               <div className="border-t border-slate-200 pt-3">
                 <p className="text-xs text-slate-500 leading-relaxed font-medium">
@@ -525,7 +525,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 type="button"
                 onClick={handleTestConnection}
                 disabled={testState.status === "testing"}
-                className="w-full bg-slate-100 hover:bg-slate-200 border border-border hover:border-slate-300 text-slate-700 rounded-xl py-2.5 text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-2"
+                className="w-full bg-surface-container hover:bg-surface-container-high border border-border hover:border-outline text-foreground rounded-xl py-2.5 text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-2"
               >
                 {testState.status === "testing" ? (
                   <>
@@ -598,7 +598,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       </div>
 
       {/* Footer */}
-      <div className="p-6 border-t border-border bg-slate-50/30 flex items-center justify-between">
+      <div className="p-6 border-t border-border bg-surface-container-low/50 flex items-center justify-between">
         <p className="text-xs text-slate-500 max-w-[50%]">
           {user
             ? "Your settings are securely saved in your cloud profile."
@@ -619,7 +619,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <SheetContent
           side="right"
-          className="w-full max-w-lg bg-card border-l border-border h-full p-0 flex flex-col justify-between shadow-2xl text-slate-900 overflow-hidden"
+          className="w-full max-w-lg bg-card border-l border-border h-full p-0 flex flex-col justify-between shadow-level-2 text-foreground overflow-hidden"
         >
           {renderPanelBody()}
         </SheetContent>
@@ -629,7 +629,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   return (
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DrawerContent
-        className="w-full max-h-[92vh] bg-card border-t border-border flex flex-col justify-between shadow-2xl text-slate-900 overflow-hidden rounded-t-2xl"
+        className="w-full max-h-[92vh] bg-card border-t border-border flex flex-col justify-between shadow-level-2 text-foreground overflow-hidden rounded-t-2xl"
       >
         {renderPanelBody()}
       </DrawerContent>

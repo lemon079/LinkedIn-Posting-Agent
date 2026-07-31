@@ -1,4 +1,5 @@
 import { supabase } from "@/services/supabase";
+import path from "path";
 
 export interface SignedUploadUrlResponse {
   localMode?: boolean;
@@ -17,8 +18,9 @@ export async function getSignedUploadUrl(
     return { localMode: true };
   }
 
-  const safeFilename = filename.replace(/[^a-zA-Z0-9.-]/g, "_");
-  const storagePath = `temp/${userId || "anonymous"}/${Date.now()}-${safeFilename}`;
+  const baseName = path.basename(filename);
+  const safeFilename = baseName.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/^\.+/, "");
+  const storagePath = `temp/${userId || "anonymous"}/${Date.now()}-${safeFilename || "attachment"}`;
 
   let signedData: { signedUrl: string } | null = null;
   let signedError: { message: string; status?: number; statusCode?: string } | null = null;
