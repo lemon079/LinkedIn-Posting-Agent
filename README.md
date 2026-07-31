@@ -4,6 +4,27 @@ A full-stack AI agent and web dashboard that drafts, validates, and publishes te
 
 ---
 
+## 📥 Downloads & Native Installers
+
+Install Praxis directly on your Windows Desktop or Android device:
+
+| Platform | Download Link | File Format | Release Badge |
+| :--- | :--- | :--- | :--- |
+| **Windows Desktop** | [**Download Setup Installer (.exe)**](https://github.com/lemon079/LinkedIn-Posting-Agent/releases/latest) | `.exe` Setup / `.msi` | [![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/lemon079/LinkedIn-Posting-Agent/releases/latest) |
+| **Android Mobile** | [**Download Android Package (.apk)**](https://github.com/lemon079/LinkedIn-Posting-Agent/releases/latest) | `.apk` Binary | [![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/lemon079/LinkedIn-Posting-Agent/releases/latest) |
+
+### 💻 Windows Setup (.exe)
+1. Download **`Praxis-Setup-x64.exe`** from [Latest GitHub Releases](https://github.com/lemon079/LinkedIn-Posting-Agent/releases/latest).
+2. Double-click the installer wizard to complete installation.
+3. Launch **Praxis**, open **Settings** (⚙️), and enter your **Backend Server URL** (e.g., `https://linkedin-agent.vercel.app`).
+
+### 📱 Android Setup (.apk)
+1. Download **`praxis-release.apk`** on your mobile device from [Latest GitHub Releases](https://github.com/lemon079/LinkedIn-Posting-Agent/releases/latest).
+2. Tap the downloaded file to install (enable *"Install from Unknown Sources"* if prompted).
+3. Launch **Praxis Mobile**, open Settings, and set your **Backend Server URL**.
+
+---
+
 ## ✨ Features
 
 - **AI-powered drafting** — LangGraph agent with Gemini, OpenAI, or Anthropic orchestrates post generation

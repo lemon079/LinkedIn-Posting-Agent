@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { publishPost, fetchUserSettings, saveUserSettings } from "../lib/api";
+import { getApiBaseUrl } from "../lib/api/config";
 import { supabase } from "../lib/supabase";
 import { DEFAULT_OLLAMA_URL } from "../lib/constants";
 import type { User } from "@supabase/supabase-js";
@@ -189,7 +190,7 @@ export function useAgent() {
       if (customKeys.liUrn) headers["x-linkedin-urn"] = customKeys.liUrn;
       if (customKeys.token) headers["Authorization"] = `Bearer ${customKeys.token}`;
 
-      const response = await fetch("/api/draft", {
+      const response = await fetch(`${getApiBaseUrl()}/api/draft`, {
         method: "POST",
         headers,
         body: JSON.stringify({ topic, context, domain: domain === "auto" ? null : domain }),
@@ -302,7 +303,7 @@ export function useAgent() {
       let signData;
       try {
         const signRes = await axios.get(
-          `/api/media/upload/sign?filename=${encodeURIComponent(file.name)}&mimeType=${encodeURIComponent(file.type)}`,
+          `${getApiBaseUrl()}/api/media/upload/sign?filename=${encodeURIComponent(file.name)}&mimeType=${encodeURIComponent(file.type)}`,
           { headers }
         );
         signData = signRes.data;

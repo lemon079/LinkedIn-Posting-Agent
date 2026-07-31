@@ -9,9 +9,15 @@ let backedUp = false;
 
 try {
   if (fs.existsSync(apiDir)) {
-    fs.renameSync(apiDir, backupDir);
-    backedUp = true;
-    console.log("✓ Temporarily moved api/ routes to backup folder.");
+    try {
+      fs.renameSync(apiDir, backupDir);
+      backedUp = true;
+    } catch {
+      fs.cpSync(apiDir, backupDir, { recursive: true });
+      fs.rmSync(apiDir, { recursive: true, force: true });
+      backedUp = true;
+    }
+    console.log("✓ Temporarily backed up api/ routes.");
   }
 
   console.log("⚙ Running static next build...");
@@ -23,7 +29,16 @@ try {
   process.exitCode = 1;
 } finally {
   if (backedUp && fs.existsSync(backupDir)) {
-    fs.renameSync(backupDir, apiDir);
+    if (!fs.existsSync(apiDir)) {
+      try {
+        fs.renameSync(backupDir, apiDir);
+      } catch {
+        fs.cpSync(backupDir, apiDir, { recursive: true });
+        fs.rmSync(backupDir, { recursive: true, force: true });
+      }
+    } else {
+      fs.rmSync(backupDir, { recursive: true, force: true });
+    }
     console.log("✓ Restored api/ routes from backup folder.");
   }
 }
