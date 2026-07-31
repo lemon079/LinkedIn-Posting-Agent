@@ -14,11 +14,6 @@ const getSafeLocalStorage = (key: string, fallback: string): string => {
   return fallback;
 };
 
-const isTauri = typeof window !== "undefined" && (
-  (window as unknown as Record<string, unknown>).__TAURI__ !== undefined ||
-  (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ !== undefined
-);
-
 export function useAgent() {
   const [customTopic, setCustomTopic] = useState("");
   const [context, setContext] = useState("");
@@ -34,10 +29,7 @@ export function useAgent() {
   const [uploadingCount, setUploadingCount] = useState(0);
   const isUploading = uploadingCount > 0;
 
-  const [provider, setProvider] = useState(() => {
-    const stored = getSafeLocalStorage("llm_provider", "gemini");
-    return (!isTauri && stored === "ollama") ? "gemini" : stored;
-  });
+  const [provider, setProvider] = useState(() => getSafeLocalStorage("llm_provider", "gemini"));
   const [apiKey, setApiKey] = useState(() => getSafeLocalStorage("llm_api_key", ""));
   const [modelName, setModelName] = useState(() => getSafeLocalStorage("llm_model", ""));
   const [ollamaBaseUrl, setOllamaBaseUrl] = useState(() => getSafeLocalStorage("ollama_base_url", DEFAULT_OLLAMA_URL));
@@ -51,22 +43,12 @@ export function useAgent() {
   const [token, setToken] = useState<string | null>(null);
   const pendingOAuth = useRef<{ token: string; urn: string } | null>(null);
 
-  // Fallback check: if on web/mobile and provider is ollama, revert to gemini
-  useEffect(() => {
-    if (!isTauri && provider === "ollama") {
-      setTimeout(() => {
-        setProvider("gemini");
-      }, 0);
-    }
-  }, [provider]);
-
   // 1. Fetch user settings from Supabase
   useEffect(() => {
     const fetchSettings = async (t: string) => {
       try {
         const settings = await fetchUserSettings(t);
-        const resolvedProvider = settings.provider || "gemini";
-        setProvider((!isTauri && resolvedProvider === "ollama") ? "gemini" : resolvedProvider);
+        setProvider(settings.provider || "gemini");
         setApiKey(settings.apiKey || "");
         setModelName(settings.modelName || "");
         setOllamaBaseUrl(settings.ollamaBaseUrl || DEFAULT_OLLAMA_URL);
@@ -359,7 +341,7 @@ export function useAgent() {
     customTopic, context, domain, draftText, streamingText, threadId, postUrl, activeTab,
     isGenerating: status.gen, isPublishing: status.pub, error: status.err,
     provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, isSettingsOpen,
-    user, token, isTauri,
+    user, token,
     selectedFiles, isUploading,
     reasoningSteps,
     setCustomTopic, setContext, setDomain, setDraftText, setStreamingText, setActiveTab,

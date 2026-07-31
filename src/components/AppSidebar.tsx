@@ -72,7 +72,6 @@ interface AppSidebarProps {
   liUrn: string;
   setLiUrn: (val: string) => void;
   user: User | null;
-  isTauri: boolean;
 }
 
 export const AppSidebar: React.FC<AppSidebarProps> = ({
@@ -89,7 +88,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   liUrn,
   setLiUrn,
   user,
-  isTauri,
 }) => {
   const { setOpen } = useSidebar();
 
@@ -321,7 +319,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                   <SelectItem value="gemini">Google</SelectItem>
                   <SelectItem value="openai">OpenAI</SelectItem>
                   <SelectItem value="anthropic">Anthropic</SelectItem>
-                  {isTauri && <SelectItem value="ollama">Ollama</SelectItem>}
+                  <SelectItem value="ollama">Ollama</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -21,7 +21,7 @@ export default function Home() {
     customTopic, context, domain,
     draftText, streamingText, postUrl, isGenerating, isPublishing, error, activeTab,
     provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, isSettingsOpen,
-    user, isTauri,
+    user,
     selectedFiles, isUploading,
     reasoningSteps,
     setCustomTopic, setContext, setDomain, setDraftText, setStreamingText,
@@ -122,7 +122,7 @@ export default function Home() {
         ollamaBaseUrl={ollamaBaseUrl} setOllamaBaseUrl={setOllamaBaseUrl}
         liToken={liToken} setLiToken={setLiToken}
         liUrn={liUrn} setLiUrn={setLiUrn}
-        user={user} isTauri={isTauri}
+        user={user}
       />
 
       {/* Dev-only floating toggle — bottom-right corner */}
