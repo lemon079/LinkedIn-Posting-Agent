@@ -111,15 +111,48 @@ export async function saveUserSettings(
   }
 }
 
-function readHeaderCredentials(request: Request): AgentCredentials {
+function getHeaderValue(request: Request, name: string): string | undefined {
+  const lowerName = name.toLowerCase();
   const headers = request.headers;
+  if (!headers) return undefined;
+
+  const direct = headers.get(name) || headers.get(lowerName);
+  if (direct) return direct;
+
+  try {
+    if (typeof headers.forEach === "function") {
+      let found: string | undefined;
+      headers.forEach((v, k) => {
+        if (k.toLowerCase() === lowerName) found = v;
+      });
+      if (found) return found;
+    }
+  } catch {
+    // ignore
+  }
+
+  // Fallback for custom/mock Request objects containing header objects
+  const rawHeaders = (request as unknown as { _headers?: Record<string, string | string[]>; headers?: Record<string, string> })._headers ||
+                     (request as unknown as { headers?: Record<string, string> }).headers;
+  if (rawHeaders && typeof rawHeaders === "object") {
+    for (const [k, v] of Object.entries(rawHeaders)) {
+      if (k.toLowerCase() === lowerName) {
+        return Array.isArray(v) ? v[0] : (typeof v === "string" ? v : undefined);
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function readHeaderCredentials(request: Request): AgentCredentials {
   return {
-    provider: headers.get("x-llm-provider") || undefined,
-    apiKey: headers.get("x-llm-api-key") || undefined,
-    model: headers.get("x-llm-model") || undefined,
-    ollamaUrl: headers.get("x-ollama-base-url") || undefined,
-    liToken: headers.get("x-linkedin-token") || undefined,
-    liUrn: headers.get("x-linkedin-urn") || undefined,
+    provider: getHeaderValue(request, "x-llm-provider"),
+    apiKey: getHeaderValue(request, "x-llm-api-key"),
+    model: getHeaderValue(request, "x-llm-model"),
+    ollamaUrl: getHeaderValue(request, "x-ollama-base-url"),
+    liToken: getHeaderValue(request, "x-linkedin-token"),
+    liUrn: getHeaderValue(request, "x-linkedin-urn"),
   };
 }
 
