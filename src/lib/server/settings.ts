@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { safeDecrypt, encrypt } from "@/services/crypto";
 import { DEFAULT_OLLAMA_URL } from "@/lib/constants";
 import type { UserSettings } from "@/interfaces";
-import type { Database, UserSettingsRow, UserSettingsInsert, UserSettingsUpdate } from "@/types/database.types";
+import type { Database, UserSettingsRow, UserSettingsInsert } from "@/types/database.types";
 
 export interface AgentCredentials {
   provider?: string;

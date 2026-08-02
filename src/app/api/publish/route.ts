@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { agent } from "@/graph/index";
 import { getRequestAuth } from "@/lib/server/auth";
-import { resolveAgentCredentials, resolveLinkedInCredentials } from "@/lib/server/settings";
+import { resolveLinkedInCredentials } from "@/lib/server/settings";
 import { redactSecrets } from "@/lib/utils";
 import type { PublishRequest } from "@/interfaces/publish";
 
