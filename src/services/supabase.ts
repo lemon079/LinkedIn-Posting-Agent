@@ -1,10 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 import { config } from "../config/env";
+import type { Database } from "@/types/database.types";
 
 // Initialize the admin/service client if environment variables are provided.
 // Returns null if they are missing to allow running in local BYOK mode.
 export const supabase = config.SUPABASE_URL && config.SUPABASE_SERVICE_ROLE_KEY
-  ? createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, {
+  ? createClient<Database>(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, {
       auth: {
         autoRefreshToken: false,
         persistSession: false
@@ -21,7 +22,7 @@ export function getSupabaseClient(token?: string) {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  return createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, {
+  return createClient<Database>(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, {
     auth: {
       autoRefreshToken: false,
       persistSession: false

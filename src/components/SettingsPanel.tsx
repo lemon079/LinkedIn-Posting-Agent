@@ -17,6 +17,7 @@ import { AuthForm } from "./AuthForm";
 import { supabase } from "../lib/supabase";
 import type { User } from "@supabase/supabase-js";
 import { cleanErrorMessage } from "../lib/utils";
+import { useIsDesktop } from "../lib/desktop";
 import {
   CheckCircle2,
   XCircle,
@@ -70,6 +71,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   setLiUrn,
   user,
 }) => {
+  const isDesktop = useIsDesktop();
   const [testState, setTestState] = useState<{
     status: "idle" | "testing" | "success" | "error";
     errorMsg?: string;
@@ -298,7 +300,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   <SelectItem value="gemini">Google</SelectItem>
                   <SelectItem value="openai">OpenAI</SelectItem>
                   <SelectItem value="anthropic">Anthropic</SelectItem>
-                  <SelectItem value="ollama">Ollama</SelectItem>
+                  <SelectItem value="ollama" disabled={!isDesktop}>
+                    Ollama {isDesktop ? "(Local)" : "(Desktop App Only)"}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>

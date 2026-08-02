@@ -22,6 +22,7 @@ import { supabase } from "../lib/supabase";
 import { healthCheck } from "../lib/api";
 import type { User } from "@supabase/supabase-js";
 import { cleanErrorMessage } from "../lib/utils";
+import { useIsDesktop } from "../lib/desktop";
 import {
   CheckCircle2,
   XCircle,
@@ -90,6 +91,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   user,
 }) => {
   const { setOpen } = useSidebar();
+  const isDesktop = useIsDesktop();
 
   const [testState, setTestState] = useState<{
     status: "idle" | "testing" | "success" | "error";
@@ -319,7 +321,9 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                   <SelectItem value="gemini">Google</SelectItem>
                   <SelectItem value="openai">OpenAI</SelectItem>
                   <SelectItem value="anthropic">Anthropic</SelectItem>
-                  <SelectItem value="ollama">Ollama</SelectItem>
+                  <SelectItem value="ollama" disabled={!isDesktop}>
+                    Ollama {isDesktop ? "(Local)" : "(Desktop App Only)"}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>

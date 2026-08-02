@@ -7,6 +7,8 @@ import { DEFAULT_OLLAMA_URL } from "../lib/constants";
 import type { User } from "@supabase/supabase-js";
 import { cleanErrorMessage } from "../lib/utils";
 
+import { isDesktopApp } from "../lib/desktop";
+
 const getSafeLocalStorage = (key: string, fallback: string): string => {
   if (typeof window !== "undefined") {
     return localStorage.getItem(key) || fallback;
@@ -29,7 +31,21 @@ export function useAgent() {
   const [uploadingCount, setUploadingCount] = useState(0);
   const isUploading = uploadingCount > 0;
 
-  const [provider, setProvider] = useState(() => getSafeLocalStorage("llm_provider", "gemini"));
+  const [provider, setProviderState] = useState(() => {
+    const saved = getSafeLocalStorage("llm_provider", "gemini");
+    if (saved === "ollama" && !isDesktopApp()) {
+      return "gemini";
+    }
+    return saved;
+  });
+
+  const setProvider = (val: string) => {
+    if (val === "ollama" && !isDesktopApp()) {
+      setProviderState("gemini");
+      return;
+    }
+    setProviderState(val);
+  };
   const [apiKey, setApiKey] = useState(() => getSafeLocalStorage("llm_api_key", ""));
   const [modelName, setModelName] = useState(() => getSafeLocalStorage("llm_model", ""));
   const [ollamaBaseUrl, setOllamaBaseUrl] = useState(() => getSafeLocalStorage("ollama_base_url", DEFAULT_OLLAMA_URL));

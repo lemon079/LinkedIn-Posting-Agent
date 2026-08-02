@@ -3,6 +3,7 @@ import { agent } from "@/graph/index";
 import { config } from "@/config/env";
 import { getRequestAuth } from "@/lib/server/auth";
 import { resolveAgentCredentials } from "@/lib/server/settings";
+import { redactSecrets } from "@/lib/utils";
 import type { DraftRequest } from "@/interfaces/draft";
 
 export async function POST(request: Request) {
@@ -98,7 +99,7 @@ export async function POST(request: Request) {
 
           const state = await agent.getState(threadConfig);
           if (state.values.error) {
-            sendEvent({ type: "error", message: state.values.error });
+            sendEvent({ type: "error", message: redactSecrets(state.values.error) });
           } else if (state.next?.[0] !== "publishPost") {
             sendEvent({ type: "error", message: `Agent stopped unexpectedly. Next: ${state.next?.[0]}` });
           } else {
@@ -111,7 +112,7 @@ export async function POST(request: Request) {
           }
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : "Unknown error";
-          sendEvent({ type: "error", message: msg });
+          sendEvent({ type: "error", message: redactSecrets(msg) });
         } finally {
           controller.close();
         }
@@ -127,7 +128,7 @@ export async function POST(request: Request) {
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    console.error(`[API-Draft][${requestId}] Execution error encountered: ${msg}`);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error(`[API-Draft][${requestId}] Execution error encountered: ${redactSecrets(msg)}`);
+    return NextResponse.json({ error: redactSecrets(msg) }, { status: 500 });
   }
 }

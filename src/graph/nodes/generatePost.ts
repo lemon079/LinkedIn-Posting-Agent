@@ -143,8 +143,20 @@ At the very end of your response, output the final post text wrapped in [POLISHE
       }]
     };
   } catch (error: unknown) {
+    let msg = error instanceof Error ? error.message : "Unknown error in generateDraft";
+    if (state.llmProvider === "ollama") {
+      const base = state.ollamaBaseUrl || "http://localhost:11434";
+      if (msg.includes("ECONNREFUSED") || msg.includes("Failed to fetch") || msg.includes("fetch failed") || msg.includes("Network Error")) {
+        msg = `Ollama service is not running on ${base}. Please start Ollama on your desktop app and try again.`;
+      } else if (msg.includes("404") || msg.includes("not found")) {
+        const m = state.llmModel || "specified model";
+        msg = `Model "${m}" not found in Ollama. Run 'ollama pull ${m}' in your desktop terminal.`;
+      } else {
+        msg = `Ollama error: ${msg}`;
+      }
+    }
     return {
-      error: error instanceof Error ? error.message : "Unknown error in reviewAndRefine"
+      error: msg
     };
   }
 };

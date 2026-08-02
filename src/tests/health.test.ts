@@ -24,7 +24,7 @@ describe("checkConnection", () => {
       ok: true,
       models: ["llama3:latest", "mistral:latest"],
     });
-    expect(axios.get).toHaveBeenCalledWith("http://localhost:11434/api/tags");
+    expect(axios.get).toHaveBeenCalledWith("http://localhost:11434/api/tags", expect.any(Object));
   });
 
   test("ollama failure when base URL unreachable", async () => {
@@ -32,7 +32,7 @@ describe("checkConnection", () => {
 
     const result = await checkConnection("ollama", undefined, "llama3", "http://localhost:11434");
     expect(result.ok).toBe(false);
-    expect(result.error).toContain("Network Error");
+    expect(result.error).toContain("Ollama service is not running");
   });
 
   test("ollama failure when requested model not found", async () => {

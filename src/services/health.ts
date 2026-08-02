@@ -10,13 +10,33 @@ export const checkConnection = async (
   try {
     if (provider === "ollama") {
       const base = ollamaBaseUrl || DEFAULT_OLLAMA_URL;
-      const res = await axios.get(`${base}/api/tags`);
-      const data = res.data as { models: { name: string }[] };
-      const names = data.models?.map((m) => m.name) || [];
-      if (model && !names.some((n) => n.startsWith(model))) {
-        return { ok: false, error: `Model "${model}" not found. Available: ${names.join(", ")}`, models: names };
+      try {
+        const res = await axios.get(`${base}/api/tags`, { timeout: 5000 });
+        const data = res.data as { models: { name: string }[] };
+        const names = data.models?.map((m) => m.name) || [];
+        if (model && !names.some((n) => n === model || n.startsWith(model + ":") || n.startsWith(model))) {
+          return {
+            ok: false,
+            error: names.length > 0
+              ? `Model "${model}" not found in Ollama. Run 'ollama pull ${model}' in your desktop terminal. Available: ${names.join(", ")}`
+              : `Ollama is running on ${base}, but no models are installed. Run 'ollama pull ${model || "llama3.1"}' in your terminal.`,
+            models: names,
+          };
+        }
+        return { ok: true, models: names };
+      } catch (err: unknown) {
+        const errObj = err as { code?: string; message?: string };
+        if (errObj.code === "ECONNREFUSED" || errObj.message?.includes("ECONNREFUSED") || errObj.message?.includes("Network Error")) {
+          return {
+            ok: false,
+            error: `Ollama service is not running on ${base}. Please start Ollama on your desktop app and try again.`,
+          };
+        }
+        return {
+          ok: false,
+          error: errObj.message || `Failed to connect to Ollama service on ${base}.`,
+        };
       }
-      return { ok: true, models: names };
     }
     const llm = createLLM({ provider, apiKey, model, ollamaBaseUrl });
     await llm.invoke([new HumanMessage("Say OK")]);

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { agent } from "@/graph/index";
 import { getRequestAuth } from "@/lib/server/auth";
-import { resolveLinkedInCredentials } from "@/lib/server/settings";
+import { resolveAgentCredentials, resolveLinkedInCredentials } from "@/lib/server/settings";
+import { redactSecrets } from "@/lib/utils";
 import type { PublishRequest } from "@/interfaces/publish";
 
 export async function POST(request: Request) {
@@ -72,15 +73,15 @@ export async function POST(request: Request) {
     const finalState = await agent.invoke(null, threadConfig);
 
     if (finalState.error) {
-      console.error(`[API-Publish][${requestId}] Publishing failed with error: ${finalState.error}`);
-      return NextResponse.json({ error: finalState.error }, { status: 500 });
+      console.error(`[API-Publish][${requestId}] Publishing failed with error: ${redactSecrets(finalState.error)}`);
+      return NextResponse.json({ error: redactSecrets(finalState.error) }, { status: 500 });
     }
 
     console.log(`[API-Publish][${requestId}] Post published successfully! URL: ${finalState.postUrl}`);
     return NextResponse.json({ postUrl: finalState.postUrl });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    console.error(`[API-Publish][${requestId}] Execution error: ${msg}`);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error(`[API-Publish][${requestId}] Execution error: ${redactSecrets(msg)}`);
+    return NextResponse.json({ error: redactSecrets(msg) }, { status: 500 });
   }
 }

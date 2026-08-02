@@ -48,3 +48,7 @@ next-env.d.ts
 /.planning
 /dist
 /android
+
+# Tauri build artifacts
+/src-tauri/target
+/src-tauri/.cargo-target

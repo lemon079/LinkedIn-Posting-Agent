@@ -2,15 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { safeDecrypt, encrypt } from "@/services/crypto";
 import { DEFAULT_OLLAMA_URL } from "@/lib/constants";
 import type { UserSettings } from "@/interfaces";
-
-interface UserSettingsRow {
-  llm_provider: string | null;
-  encrypted_api_key: string | null;
-  llm_model: string | null;
-  ollama_base_url: string | null;
-  encrypted_linkedin_token: string | null;
-  linkedin_urn: string | null;
-}
+import type { Database, UserSettingsRow, UserSettingsInsert, UserSettingsUpdate } from "@/types/database.types";
 
 export interface AgentCredentials {
   provider?: string;
@@ -22,7 +14,7 @@ export interface AgentCredentials {
 }
 
 export async function fetchUserSettingsRow(
-  client: SupabaseClient,
+  client: SupabaseClient<Database>,
   userId: string
 ): Promise<UserSettingsRow | null> {
   const { data, error } = await client
@@ -53,8 +45,8 @@ export function mapRowToUserSettings(data: UserSettingsRow): UserSettings & { li
 export function buildSettingsUpsert(
   userId: string,
   settings: UserSettings
-): Record<string, string> {
-  const updateData: Record<string, string> = {
+): UserSettingsInsert {
+  const updateData: UserSettingsInsert = {
     user_id: userId,
     llm_provider: settings.provider || "",
     llm_model: settings.modelName || "",
@@ -76,7 +68,7 @@ export function buildSettingsUpsert(
 }
 
 export async function saveLinkedInCredentials(
-  client: SupabaseClient,
+  client: SupabaseClient<Database>,
   userId: string,
   liToken: string,
   liUrn: string
@@ -97,7 +89,7 @@ export async function saveLinkedInCredentials(
 }
 
 export async function saveUserSettings(
-  client: SupabaseClient,
+  client: SupabaseClient<Database>,
   userId: string,
   settings: UserSettings
 ): Promise<void> {
@@ -172,7 +164,7 @@ function mergeDbCredentials(
 
 export async function resolveAgentCredentials(
   request: Request,
-  client: SupabaseClient | null,
+  client: SupabaseClient<Database> | null,
   userId: string | undefined
 ): Promise<AgentCredentials> {
   let creds = readHeaderCredentials(request);
@@ -192,7 +184,7 @@ export async function resolveAgentCredentials(
 
 export async function resolveLinkedInCredentials(
   request: Request,
-  client: SupabaseClient | null,
+  client: SupabaseClient<Database> | null,
   userId: string | undefined
 ): Promise<Pick<AgentCredentials, "liToken" | "liUrn">> {
   const creds = await resolveAgentCredentials(request, client, userId);

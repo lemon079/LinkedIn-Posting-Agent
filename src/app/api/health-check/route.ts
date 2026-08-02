@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { checkConnection } from "@/services/health";
+import { redactSecrets } from "@/lib/utils";
 import type { HealthRequest } from "@/interfaces/health";
 
 export async function POST(request: Request) {
@@ -13,6 +14,6 @@ export async function POST(request: Request) {
     return NextResponse.json(result, { status: result.ok ? 200 : 400 });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Health check failed";
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return NextResponse.json({ ok: false, error: redactSecrets(msg) }, { status: 500 });
   }
 }
