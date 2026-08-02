@@ -44,8 +44,9 @@ next-env.d.ts
 /client_old
 /next-temp
 
-# GSD planning artifacts (local only)
+# GSD planning artifacts & local runtime data
 /.planning
+/.data
 /dist
 /android
 
