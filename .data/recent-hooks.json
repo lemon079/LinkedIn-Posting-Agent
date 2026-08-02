@@ -1,7 +1,12 @@
 [
-  "I see WebSockets vs. PubSub not as",
-  "Simple RAG often fails",
-  "When a prospect tells",
-  "Ever feel like you're getting a \"free lunch\" with service meshes? 🤔 Think again! While tools like Istio",
-  "Harness engineering sounds simple, doesn't it?"
+  "Consumer lag is a silent killer in microservices. Enable idempotency!",
+  "Kafka rebalances will ruin throughput if max.poll.interval.ms is misconfigured. Use idempotent consumers!",
+  "Consumer lag is a silent killer in microservices. Enable idempotency!",
+  "Kafka rebalances will ruin throughput if max.poll.interval.ms is misconfigured. Use idempotent consumers!",
+  "Consumer lag is a silent killer in microservices. Enable idempotency!",
+  "Kafka rebalances will ruin throughput if max.poll.interval.ms is misconfigured. Use idempotent consumers!",
+  "Consumer lag is a silent killer in microservices. Enable idempotency!",
+  "Kafka rebalances will ruin throughput if max.poll.interval.ms is misconfigured. Use idempotent consumers!",
+  "Default Postgres autovacuum settings will silently wreck your query performance.",
+  "Consumer lag is a silent killer in microservices. Enable idempotency!"
 ]

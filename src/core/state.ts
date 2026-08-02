@@ -30,17 +30,21 @@ export const AgentState = Annotation.Root({
     reducer: (x, y) => (x || []).concat(y || []),
     default: () => [],
   }),
-  planOutput: Annotation<string>({
+  plan: Annotation<string>({
     reducer: (x, y) => y,
     default: () => "",
   }),
-  researchOutput: Annotation<string>({
+  searchContext: Annotation<string>({
     reducer: (x, y) => y,
     default: () => "",
   }),
-  draftOutput: Annotation<string>({
+  draft: Annotation<string>({
     reducer: (x, y) => y,
     default: () => "",
+  }),
+  activeDomain: Annotation<string>({
+    reducer: (x, y) => y,
+    default: () => "general",
   }),
 
 

@@ -9,4 +9,6 @@ export interface AppConfig {
   LINKEDIN_CLIENT_ID: string;
   LINKEDIN_CLIENT_SECRET: string;
   LINKEDIN_REDIRECT_URI: string;
+  defaultProvider?: string;
+  defaultModel?: string;
 }

@@ -24,6 +24,7 @@ import {
   AttachmentGroup,
 } from "@/components/ui/attachment";
 import { LinkedInFeed } from "@/components/LinkedInFeed";
+import Image from "next/image";
 
 interface EditorPanelProps {
   draftText: string | null;
@@ -356,7 +357,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                   <Attachment state="done" size="sm" className="animate-fade-in min-w-64">
                     <AttachmentMedia variant={isImage ? "image" : "icon"}>
                       {isImage ? (
-                        <img src={file.readUrl || file.base64} alt="Preview" className="pointer-events-none" />
+                        <Image src={file.readUrl || file.base64 || ""} alt="Preview" className="pointer-events-none" width={64} height={64} unoptimized />
                       ) : (
                         <FileText className="size-5 text-red-500" />
                       )}
@@ -385,11 +386,13 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                     <DialogHeader>
                       <DialogTitle className="truncate pr-6">{file.name}</DialogTitle>
                     </DialogHeader>
-                    <div className="pt-2 flex flex-col items-center justify-center min-h-50">
-                      <img
-                        src={file.readUrl || file.base64}
+                    <div className="pt-2 flex flex-col items-center justify-center min-h-50 relative">
+                      <Image
+                        src={file.readUrl || file.base64 || ""}
                         alt={file.name}
-                        className="max-w-full max-h-[60vh] object-contain rounded-lg border border-border shadow-sm"
+                        fill
+                        unoptimized
+                        className="relative! max-w-full max-h-[60vh] object-contain rounded-lg border border-border shadow-sm"
                       />
                     </div>
                   </DialogContent>

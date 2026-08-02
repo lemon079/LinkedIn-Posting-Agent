@@ -150,7 +150,7 @@ describe("Backend API Endpoints", () => {
         body: JSON.stringify({
           provider: "gemini",
           apiKey: "my-key",
-          modelName: "gemini-2.5-flash",
+          modelName: "gemini-3.5-flash",
           ollamaBaseUrl: "http://localhost",
         }),
       });

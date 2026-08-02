@@ -19,13 +19,13 @@ export async function planDraft(state: State): Promise<Partial<State>> {
   const llmOpts = getLLMOpts(state);
   const llm = createLLM(llmOpts);
   
-  const rawDomain = state.domain || "auto";
-  const activeDomainKey = rawDomain === "auto" ? inferDomain(state.topic) : rawDomain;
-  const domainConfig = DOMAINS[activeDomainKey] || DOMAINS.tech;
+  const rawDomain = state.domain;
+  const activeDomainKey = rawDomain && rawDomain !== "auto" ? rawDomain : inferDomain(state.topic || "", state.context || "");
+  const domainConfig = DOMAINS[activeDomainKey] || DOMAINS.general;
 
   const prompt = `Analyze the following LinkedIn post topic and target domain, then outline 3 distinct content angles/hooks:
 Topic: "${state.topic}"
-Domain: ${domainConfig.name} (${domainConfig.description})
+Domain: ${domainConfig.label} (${domainConfig.specificityDescription})
 ${state.context ? `Custom Context: "${state.context}"` : ""}
 
 Format output clearly as a 3-point execution plan. Keep concise.`;
@@ -41,9 +41,10 @@ Format output clearly as a 3-point execution plan. Keep concise.`;
 }
 
 export async function generateInitialDraft(state: State): Promise<Partial<State>> {
-  const domainKey = state.activeDomain || "tech";
-  const systemPrompt = getSystemPrompt(domainKey);
-  const recentHooks = getRecentHooks();
+  const domainKey = state.activeDomain || "general";
+  const domainConfig = DOMAINS[domainKey] || DOMAINS.general;
+  const recentHooks = await getRecentHooks();
+  const systemPrompt = getSystemPrompt(domainConfig, recentHooks);
   
   const prompt = `${systemPrompt}
 
@@ -52,8 +53,6 @@ Topic: "${state.topic}"
 Context: "${state.context || "None"}"
 Plan/Outline: "${state.plan || "Direct high-value post"}"
 Grounding Info: "${state.searchContext || "None"}"
-Avoid Recently Used Hooks:
-${recentHooks.length > 0 ? recentHooks.map(h => `- "${h}"`).join("\n") : "None"}
 
 Generate the complete post inside [DRAFT] ... [/DRAFT] tags.`;
 
@@ -78,7 +77,7 @@ Generate the complete post inside [DRAFT] ... [/DRAFT] tags.`;
     // Extract hook (first line) and save to history
     const hook = rawDraft.split("\n")[0]?.trim();
     if (hook && hook.length > 10) {
-      addHook(hook);
+      await addHook(hook);
     }
 
     return { draft: rawDraft };
@@ -91,13 +90,13 @@ Generate the complete post inside [DRAFT] ... [/DRAFT] tags.`;
 export async function reviewAndRefine(state: State): Promise<Partial<State>> {
   if (!state.draft) return {};
 
-  const domainKey = state.activeDomain || "tech";
-  const domainConfig = DOMAINS[domainKey] || DOMAINS.tech;
+  const domainKey = state.activeDomain || "general";
+  const domainConfig = DOMAINS[domainKey] || DOMAINS.general;
 
   const prompt = `You are an elite LinkedIn copy editor. Review and polish this post to maximize engagement, readability, and authority.
 
 Topic: "${state.topic}"
-Domain Guidelines: ${domainConfig.name} - ${domainConfig.description}
+Domain Guidelines: ${domainConfig.label} - ${domainConfig.specificityDescription}
 Current Draft:
 """
 ${state.draft}
@@ -127,9 +126,22 @@ Output ONLY the final polished post inside [DRAFT] ... [/DRAFT] tags. Do not add
     let finalDraft = match ? match[1].trim() : output;
     finalDraft = finalDraft.replace(/\[\/?DRAFT\]/gi, "").replace(/\[\/?DRAFT\s*\n*\]/gi, "").trim();
 
-    return { draft: finalDraft || state.draft };
+    const resDraft = finalDraft || state.draft;
+    return { draft: resDraft, postContent: resDraft };
   } catch {
     // If refinement fails, fallback gracefully to initial draft
-    return { draft: state.draft };
+    return { draft: state.draft, postContent: state.draft };
   }
+}
+
+export async function generateDraft(state: State): Promise<Partial<State>> {
+  const planResult = await planDraft(state);
+  const updatedState = { ...state, ...planResult };
+  const draftResult = await generateInitialDraft(updatedState);
+  const finalDraft = draftResult.draft || "";
+  return {
+    ...planResult,
+    ...draftResult,
+    postContent: finalDraft,
+  };
 }

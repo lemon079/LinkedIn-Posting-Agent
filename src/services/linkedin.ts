@@ -5,6 +5,7 @@ import type {
   LinkedInUGCPostPayload,
 } from "@/interfaces";
 import axios from "axios";
+import { config } from "@/config/env";
 
 function getAxiosError(err: unknown): string {
   if (axios.isAxiosError(err)) {

@@ -65,7 +65,7 @@ describe("Frontend Dashboard UI", () => {
     activeTab: "preview",
     provider: "gemini",
     apiKey: "",
-    modelName: "gemini-2.5-flash",
+    modelName: "gemini-3.5-flash",
     ollamaBaseUrl: "http://localhost:11434",
     liToken: "",
     liUrn: "",

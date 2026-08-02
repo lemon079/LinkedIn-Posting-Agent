@@ -9,6 +9,9 @@ const config = {
         "<rootDir>/src/tests/backend.test.ts",
         "<rootDir>/src/tests/health.test.ts",
         "<rootDir>/src/tests/llm.test.ts",
+        "<rootDir>/src/tests/agent.unit.test.ts",
+        "<rootDir>/src/tests/agent.integration.test.ts",
+        "<rootDir>/src/tests/agent.evals.test.ts",
       ],
       moduleNameMapper: {
         "^@/(.*)$": "<rootDir>/src/$1",

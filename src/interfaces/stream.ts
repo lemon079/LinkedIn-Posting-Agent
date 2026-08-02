@@ -18,12 +18,14 @@ export interface TokenStreamEvent {
 export interface NodeEndStreamEvent {
   type: "node_end";
   node: string;
+  title?: string;
 }
 
 export interface FinalStreamEvent {
   type: "final";
   draft: string;
-  reasoningSteps: Array<{ title: string; output: string }>;
+  threadId?: string;
+  reasoningSteps?: Array<{ title: string; output: string }>;
 }
 
 export interface ErrorStreamEvent {

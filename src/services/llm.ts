@@ -62,7 +62,7 @@ export const createLLM = (opts: LLMOptions = {}) => {
     case "gemini":
     default:
       return new ChatGoogle({
-        model: opts.model || "gemini-2.5-flash",
+        model: opts.model || "gemini-3.5-flash",
         temperature: 0.9,
         maxRetries: 2,
         apiKey: llmKey,

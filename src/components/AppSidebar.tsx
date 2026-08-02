@@ -41,8 +41,8 @@ const CLOUD_MODELS: Record<string, string[]> = {
   gemini: [
     // Latest Gemini API model IDs (Google)
     "gemini-3.5-flash",          // newest general-purpose flash
-    "gemini-3.1-pro-preview",    // recommended replacement for gemini-2.5-pro
-    "gemini-3.1-flash-lite",     // replacement for gemini-2.5-flash-lite
+    "gemini-3.1-pro-preview",    // recommended replacement for gemini-3.5-pro
+    "gemini-3.1-flash-lite",     // replacement for gemini-3.5-flash-lite
     "gemini-3.1-flash-image"     // image-capable flash variant
   ],
 

@@ -1,6 +1,7 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { FileText } from "lucide-react";
+import Image from "next/image";
 
 interface FileItem {
   name: string;
@@ -37,27 +38,27 @@ const ImageMosaic: React.FC<{ files: FileItem[] }> = ({ files }) => {
       {count > 0 && (
         <div className={`grid ${gridClass} gap-1.5`}>
           {count === 1 && (
-            <div className={`${cellClass} aspect-video`}>
-              <img src={imgSrc(images[0])} alt={images[0].name} className="w-full h-full object-cover" />
+            <div className={`${cellClass} aspect-video relative`}>
+              <Image src={imgSrc(images[0])} alt={images[0].name} fill unoptimized className="w-full h-full object-cover" />
             </div>
           )}
 
           {count === 2 && images.map((f, i) => (
-            <div key={i} className={`${cellClass} aspect-square`}>
-              <img src={imgSrc(f)} alt={f.name} className="w-full h-full object-cover" />
+            <div key={i} className={`${cellClass} aspect-square relative`}>
+              <Image src={imgSrc(f)} alt={f.name} fill unoptimized className="w-full h-full object-cover" />
             </div>
           ))}
 
           {count === 3 && (
             <>
-              <div className={`${cellClass} row-span-2 aspect-square`}>
-                <img src={imgSrc(images[0])} alt={images[0].name} className="w-full h-full object-cover" />
+              <div className={`${cellClass} row-span-2 aspect-square relative`}>
+                <Image src={imgSrc(images[0])} alt={images[0].name} fill unoptimized className="w-full h-full object-cover" />
               </div>
-              <div className={`${cellClass} aspect-square`}>
-                <img src={imgSrc(images[1])} alt={images[1].name} className="w-full h-full object-cover" />
+              <div className={`${cellClass} aspect-square relative`}>
+                <Image src={imgSrc(images[1])} alt={images[1].name} fill unoptimized className="w-full h-full object-cover" />
               </div>
-              <div className={`${cellClass} aspect-square`}>
-                <img src={imgSrc(images[2])} alt={images[2].name} className="w-full h-full object-cover" />
+              <div className={`${cellClass} aspect-square relative`}>
+                <Image src={imgSrc(images[2])} alt={images[2].name} fill unoptimized className="w-full h-full object-cover" />
               </div>
             </>
           )}
@@ -65,12 +66,12 @@ const ImageMosaic: React.FC<{ files: FileItem[] }> = ({ files }) => {
           {count >= 4 && (
             <>
               {images.slice(0, 3).map((f, i) => (
-                <div key={i} className={`${cellClass} aspect-square`}>
-                  <img src={imgSrc(f)} alt={f.name} className="w-full h-full object-cover" />
+                <div key={i} className={`${cellClass} aspect-square relative`}>
+                  <Image src={imgSrc(f)} alt={f.name} fill unoptimized className="w-full h-full object-cover" />
                 </div>
               ))}
               <div className={`${cellClass} aspect-square relative`}>
-                <img src={imgSrc(images[3])} alt={images[3].name} className="w-full h-full object-cover" />
+                <Image src={imgSrc(images[3])} alt={images[3].name} fill unoptimized className="w-full h-full object-cover" />
                 {count > 4 && (
                   <div className="absolute inset-0 bg-black/55 flex items-center justify-center rounded-lg">
                     <span className="text-white font-bold text-xl">+{count - 4}</span>

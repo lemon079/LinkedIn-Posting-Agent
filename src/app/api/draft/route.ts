@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     const body: DraftRequest = await request.json();
     const { customTopic, context: userContext, domain, keys } = body;
 
-    const topic = customTopic && customTopic.trim() ? customTopic.trim() : config.defaultTopic;
+    const topic = (customTopic && customTopic.trim()) || (body.topic && body.topic.trim()) || "";
     console.log(`[API-Draft][${requestId}] Resolved topic: "${topic}"`);
     if (userContext) {
       console.log(`[API-Draft][${requestId}] Custom context provided (${userContext.length} chars).`);
@@ -32,18 +32,18 @@ export async function POST(request: Request) {
     const provider = keys?.provider || creds.provider || config.defaultProvider;
     const model = keys?.modelName || creds.model || config.defaultModel;
     const apiKey = keys?.apiKey || creds.apiKey;
-    const ollamaBaseUrl = keys?.ollamaBaseUrl || creds.ollamaBaseUrl;
+    const ollamaBaseUrl = keys?.ollamaBaseUrl || creds.ollamaUrl;
 
     console.log(`[API-Draft][${requestId}] Resolved credentials - Provider: ${provider}, Model: ${model}, ApiKey: ${apiKey ? "PRESENT" : "MISSING"}`);
 
     const initialState = {
       topic,
-      customContext: userContext || "",
-      domain: domain || "auto",
-      customProvider: provider,
-      customApiKey: apiKey,
-      customModelName: model,
-      customOllamaBaseUrl: ollamaBaseUrl,
+      context: userContext || "",
+      domain: domain || null,
+      llmProvider: provider,
+      llmApiKey: apiKey,
+      llmModel: model,
+      ollamaBaseUrl,
     };
 
     const threadId = Date.now().toString();

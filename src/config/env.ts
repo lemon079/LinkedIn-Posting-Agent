@@ -23,6 +23,8 @@ export function loadConfig(): AppConfig {
     LINKEDIN_CLIENT_ID: LINKEDIN_CLIENT_ID || "",
     LINKEDIN_CLIENT_SECRET: LINKEDIN_CLIENT_SECRET || "",
     LINKEDIN_REDIRECT_URI: LINKEDIN_REDIRECT_URI || "http://localhost:3000/api/auth/linkedin/callback",
+    defaultProvider: "google",
+    defaultModel: "gemini-3.5-flash",
   };
 }
 
