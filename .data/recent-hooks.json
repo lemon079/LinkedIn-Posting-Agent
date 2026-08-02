@@ -7,6 +7,6 @@
   "Kafka rebalances will ruin throughput if max.poll.interval.ms is misconfigured. Use idempotent consumers!",
   "Consumer lag is a silent killer in microservices. Enable idempotency!",
   "Kafka rebalances will ruin throughput if max.poll.interval.ms is misconfigured. Use idempotent consumers!",
-  "Default Postgres autovacuum settings will silently wreck your query performance.",
-  "Consumer lag is a silent killer in microservices. Enable idempotency!"
+  "Consumer lag is a silent killer in microservices. Enable idempotency!",
+  "Kafka rebalances will ruin throughput if max.poll.interval.ms is misconfigured. Use idempotent consumers!"
 ]
