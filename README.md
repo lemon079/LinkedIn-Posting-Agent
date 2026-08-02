@@ -98,26 +98,3 @@ LangGraph Agent Engine
  ├── reviewAndRefine Node
  └── publishPost Node (LinkedIn UGC Share API)
 ```
-
----
-
-## ❓ Frequently Asked Questions (FAQ)
-
-### 1. How do I connect my LinkedIn account to publish directly?
-Go to **Settings** (gear icon) in the dashboard or sidebar, scroll to **LinkedIn Account**, and click **Connect LinkedIn**. Complete the OAuth prompt to grant post publishing permissions.
-
-### 2. Can I use local AI models like Ollama?
-Yes! Local Ollama models are fully supported when running the **Praxis Desktop App** (`npm run tauri:dev`). Ensure Ollama is active on `http://localhost:11434`, select **Ollama** in AI Provider settings, and input your pulled model name (e.g., `llama3.1`, `qwen2.5`). *(Ollama option is disabled in web browser mode due to localhost cross-origin policies).*
-
-### 3. Are my API keys and LinkedIn credentials secure?
-Yes. All user keys and tokens are encrypted at rest using **AES-256-GCM** (Authenticated Encryption with Associated Data) with a 32-byte master key, 12-byte random IVs, and GCM authentication tags. Credentials are never logged or stored in plaintext.
-
-### 4. What happens if my browser tab closes while drafting?
-Praxis includes state auto-hydration. Your topic, custom instructions, uploaded attachments, reasoning steps, and draft text are saved locally and restored automatically when you reopen the app.
-
-### 5. What media file types and sizes are supported for attachments?
-You can attach up to 20 files per post (`.png`, `.jpg`, `.webp` images or `.pdf` documents up to 10MB each). Files are registered via the LinkedIn UGC Media API and published alongside your post.
-
-### 6. How does Chain-of-Thought (CoT) reasoning work?
-The LangGraph agent executes multi-stage reasoning nodes (`planDraft` → `researchGrounding` → `generateInitialDraft` → `reviewAndRefine`). You can inspect each node's intermediate output in the collapsible CoT accordion before final generation.
-
