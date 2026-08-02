@@ -1,5 +1,9 @@
-import { config } from "@/config/env";
-import type { PublishPostResponse } from "@/interfaces";
+import type {
+  PublishPostResponse,
+  LinkedInRegisterUploadRequest,
+  LinkedInShareContent,
+  LinkedInUGCPostPayload,
+} from "@/interfaces";
 import axios from "axios";
 
 function getAxiosError(err: unknown): string {
@@ -24,8 +28,7 @@ async function registerUpload(mediaFile: MediaFile, authorUrn: string, token: st
     : "urn:li:digitalmediaRecipe:feedshare-document";
 
   const registerUrl = "https://api.linkedin.com/v2/assets?action=registerUpload";
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const registerPayload: any = {
+  const registerPayload: LinkedInRegisterUploadRequest = {
     registerUploadRequest: {
       recipes: [recipe],
       owner: authorUrn,
@@ -148,8 +151,7 @@ async function createUgcPost(
   mediaUrns: string[], 
   mediaFiles: MediaFile[]
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const shareContent: any = {
+  const shareContent: LinkedInShareContent = {
     shareCommentary: { text: postContent },
     shareMediaCategory,
   };
@@ -165,7 +167,7 @@ async function createUgcPost(
     });
   }
 
-  const payload = {
+  const payload: LinkedInUGCPostPayload = {
     author: authorUrn,
     lifecycleState: "PUBLISHED",
     specificContent: {

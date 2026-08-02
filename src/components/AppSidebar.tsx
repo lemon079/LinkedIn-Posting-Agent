@@ -39,23 +39,27 @@ import { useSidebar } from "@/components/ui/sidebar";
 
 const CLOUD_MODELS: Record<string, string[]> = {
   gemini: [
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
-    "gemini-2.5-pro",
-    "gemini-2.0-flash"
+    // Latest Gemini API model IDs (Google)
+    "gemini-3.5-flash",          // newest general-purpose flash
+    "gemini-3.1-pro-preview",    // recommended replacement for gemini-2.5-pro
+    "gemini-3.1-flash-lite",     // replacement for gemini-2.5-flash-lite
+    "gemini-3.1-flash-image"     // image-capable flash variant
   ],
 
   openai: [
-    "gpt-4o-mini",
-    "gpt-4.1-mini",
-    "gpt-4.1",
-    "gpt-4o"
+    // GPT‑5.6 family (OpenAI API, July 2026)
+    "gpt-5.6-sol",   // flagship / deepest reasoning
+    "gpt-5.6-terra", // balanced cost/performance
+    "gpt-5.6-luna",  // fast & cheapest
+    "gpt-5.6"        // alias that routes to Sol
   ],
 
   anthropic: [
-    "claude-3-5-haiku-latest",
-    "claude-3-5-sonnet-latest",
-    "claude-3-7-sonnet-latest"
+    // Latest Claude models (Anthropic API, mid‑2026)
+    "claude-fable-5",        // newest Mythos‑class flagship
+    "claude-opus-4.8",       // latest Opus
+    "claude-sonnet-4.6",     // latest Sonnet
+    "claude-haiku-4.5"       // latest Haiku
   ]
 };
 

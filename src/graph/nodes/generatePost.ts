@@ -5,6 +5,7 @@ import type { State } from "../../core/state";
 import { DOMAINS, inferDomain } from "../../core/domains";
 import { getRecentHooks, addHook } from "../../services/history";
 import { invokeWithTimeout } from "../../utils/llmTimeout";
+import type { LangChainMessageBlock } from "@/interfaces/stream";
 
 const getLLMOpts = (state: State) => ({
   provider: state.llmProvider || undefined,
@@ -14,41 +15,57 @@ const getLLMOpts = (state: State) => ({
   maxReasoningTokens: 2048,
 });
 
-export const generateDraft = async (state: State): Promise<Partial<State>> => {
-  try {
-    const domainId = state.domain || inferDomain(state.topic, state.context);
-    const domainConfig = DOMAINS[domainId as keyof typeof DOMAINS] || DOMAINS.general;
-    const recentHooks = await getRecentHooks();
+export async function planDraft(state: State): Promise<Partial<State>> {
+  const llmOpts = getLLMOpts(state);
+  const llm = createLLM(llmOpts);
+  
+  const rawDomain = state.domain || "auto";
+  const activeDomainKey = rawDomain === "auto" ? inferDomain(state.topic) : rawDomain;
+  const domainConfig = DOMAINS[activeDomainKey] || DOMAINS.tech;
 
-    const llm = createLLM(getLLMOpts(state));
-    const prompt = `You are an expert LinkedIn ghostwriter for the ${domainConfig.label} domain.
-
+  const prompt = `Analyze the following LinkedIn post topic and target domain, then outline 3 distinct content angles/hooks:
 Topic: "${state.topic}"
-Additional context: "${state.context}"
+Domain: ${domainConfig.name} (${domainConfig.description})
+${state.context ? `Custom Context: "${state.context}"` : ""}
 
-Your task has two parts. Do both in a SINGLE response:
+Format output clearly as a 3-point execution plan. Keep concise.`;
 
-PART 1 — OUTLINE (think through this briefly):
-- The key specific detail to focus on: ${domainConfig.specificityDescription}
-- The core tradeoff, hard-won lesson, or non-obvious behavior.
-- A target outline/flow for the post.
+  try {
+    const res = await invokeWithTimeout(llm.invoke([new HumanMessage(prompt)]));
+    const plan = typeof res.content === "string" ? res.content : String(res.content);
+    return { plan, activeDomain: activeDomainKey };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Plan generation failed";
+    return { plan: `Default Strategy: 1. Core Problem 2. Technical Insight 3. Call to Action (${msg})`, activeDomain: activeDomainKey };
+  }
+}
 
-PART 2 — DRAFT:
-Using the outline above, write the full LinkedIn post draft.
+export async function generateInitialDraft(state: State): Promise<Partial<State>> {
+  const domainKey = state.activeDomain || "tech";
+  const systemPrompt = getSystemPrompt(domainKey);
+  const recentHooks = getRecentHooks();
+  
+  const prompt = `${systemPrompt}
 
-System / Style Guidelines:
-${getSystemPrompt(domainConfig, recentHooks)}
+Goal: Write an impactful LinkedIn post.
+Topic: "${state.topic}"
+Context: "${state.context || "None"}"
+Plan/Outline: "${state.plan || "Direct high-value post"}"
+Grounding Info: "${state.searchContext || "None"}"
+Avoid Recently Used Hooks:
+${recentHooks.length > 0 ? recentHooks.map(h => `- "${h}"`).join("\n") : "None"}
 
-Draft the post to be accurate, conversational, and aligned with the constraints.
-At the very end of your response, output the draft text wrapped in [DRAFT] ... [/DRAFT] tags.`;
+Generate the complete post inside [DRAFT] ... [/DRAFT] tags.`;
 
+  try {
+    const llm = createLLM(getLLMOpts(state));
     const res = await invokeWithTimeout(llm.invoke([
       new HumanMessage(prompt),
     ]));
     const output = typeof res.content === "string" 
       ? res.content 
       : Array.isArray(res.content) 
-        ? res.content.map((b: unknown) => (typeof b === "object" && b !== null && "text" in b ? String((b as { text: unknown }).text || "") : "")).join("\n") 
+        ? res.content.map((b: LangChainMessageBlock | string) => (typeof b === "object" && b !== null && "text" in b ? String(b.text || "") : String(b))).join("\n") 
         : "";
 
     // Extract draft from tags
@@ -58,105 +75,61 @@ At the very end of your response, output the draft text wrapped in [DRAFT] ... [
     // Explicitly strip any stray tags just in case
     rawDraft = rawDraft.replace(/\[\/?DRAFT\]/gi, "").replace(/\[\/?DRAFT\s*\n*\]/gi, "").trim();
 
-    return {
-      domain: domainId,
-      draftOutput: rawDraft,
-      reasoningSteps: [{
-        title: "Planning & Drafting",
-        output: `Analyzed topic **${state.topic}** for the ${domainConfig.label} domain, formulated an outline, and drafted the initial copy in a single pass.`
-      }]
-    };
-  } catch (error: unknown) {
-    return {
-      error: error instanceof Error ? error.message : "Unknown error in generateDraft"
-    };
-  }
-};
+    // Extract hook (first line) and save to history
+    const hook = rawDraft.split("\n")[0]?.trim();
+    if (hook && hook.length > 10) {
+      addHook(hook);
+    }
 
-export const reviewAndRefine = async (state: State): Promise<Partial<State>> => {
+    return { draft: rawDraft };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Unknown LLM error";
+    return { error: msg };
+  }
+}
+
+export async function reviewAndRefine(state: State): Promise<Partial<State>> {
+  if (!state.draft) return {};
+
+  const domainKey = state.activeDomain || "tech";
+  const domainConfig = DOMAINS[domainKey] || DOMAINS.tech;
+
+  const prompt = `You are an elite LinkedIn copy editor. Review and polish this post to maximize engagement, readability, and authority.
+
+Topic: "${state.topic}"
+Domain Guidelines: ${domainConfig.name} - ${domainConfig.description}
+Current Draft:
+"""
+${state.draft}
+"""
+
+Checklist for polishing:
+1. Ensure the first line is an irresistible hook (under 100 chars).
+2. Ensure paragraph breaks are short (1-2 sentences per paragraph).
+3. Ensure actionable value is crystal clear.
+4. Ensure no buzzwords ("game-changer", "delve", "leverage", "paradigm shift").
+5. Include 3-5 hyper-relevant hashtags at the end.
+
+Output ONLY the final polished post inside [DRAFT] ... [/DRAFT] tags. Do not add introductory or conversational text.`;
+
   try {
     const llm = createLLM(getLLMOpts(state));
-    const initialDraft = state.draftOutput || "";
-    const domainId = state.domain || "general";
-    const domainConfig = DOMAINS[domainId as keyof typeof DOMAINS] || DOMAINS.general;
-
-    const reviewPrompt = `You are a senior editor for the ${domainConfig.label} domain. Review and refine this initial draft for a LinkedIn post:
-
-"${initialDraft}"
-
-Review and edit the draft against these strict rules:
-1. Length: 100-150 words.
-2. Emojis: 0 to 2 emojis inline. Never rocket, fire, lightbulb, or clapping hands.
-3. Formatting: Blank line between paragraphs, no Markdown bold/italic (** or __), no hashtags except max 3 at the very end.
-4. Tone: Conversational first-person tone, no corporate buzzwords.
-5. Accuracy: Grounded in specific details (${domainConfig.specificityDescription}).
-
-Output two sections:
-1. Critique: Explain what was changed or polished (e.g. emoji count, markdown removal, word limit adjustment).
-2. Polished Post: The final ready-to-publish post.
-
-At the very end of your response, output the final post text wrapped in [POLISHED_POST] ... [/POLISHED_POST] tags.`;
-
     const res = await invokeWithTimeout(llm.invoke([
-      new HumanMessage(reviewPrompt),
+      new HumanMessage(prompt),
     ]));
     const output = typeof res.content === "string" 
       ? res.content 
       : Array.isArray(res.content) 
-        ? res.content.map((b: unknown) => (typeof b === "object" && b !== null && "text" in b ? String((b as { text: unknown }).text || "") : "")).join("\n") 
+        ? res.content.map((b: LangChainMessageBlock | string) => (typeof b === "object" && b !== null && "text" in b ? String(b.text || "") : String(b))).join("\n") 
         : "";
 
-    // Extract polished post
-    // The LLM sometimes breaks the tag with a newline like [/POLISHED_\nPOST]
-    const match = output.match(/\[POLISHED_POST\]([\s\S]*?)\[\/\s*POLISHED_POST\s*\]/i) || output.match(/\[POLISHED_POST\]([\s\S]*)/i);
-    let polishedPost = match ? match[1].trim() : "";
-    
-    if (!polishedPost) {
-      const lines = output.split("\n");
-      const polishedStartIndex = lines.findIndex(l => l.toLowerCase().includes("polished post:"));
-      if (polishedStartIndex !== -1) {
-        polishedPost = lines.slice(polishedStartIndex + 1).join("\n").trim();
-      } else {
-        polishedPost = output;
-      }
-    }
+    const match = output.match(/\[DRAFT\]([\s\S]*?)\[\/\s*DRAFT\s*\]/i) || output.match(/\[DRAFT\]([\s\S]*)/i);
+    let finalDraft = match ? match[1].trim() : output;
+    finalDraft = finalDraft.replace(/\[\/?DRAFT\]/gi, "").replace(/\[\/?DRAFT\s*\n*\]/gi, "").trim();
 
-    // Explicitly strip any stray tags just in case
-    polishedPost = polishedPost.replace(/\[\/?POLISHED_POST\]/gi, "").replace(/\[\/?POLISHED_\s*\n*POST\]/gi, "").trim();
-
-    polishedPost = polishedPost
-      .replace(/\*\*|__/g, "")
-      .replace(/`([^`]+)`/g, "$1")
-      .trim();
-
-    // Store the hook to prevent future repetition
-    const hookLine = polishedPost.split('\n')[0]?.trim();
-    if (hookLine) {
-      await addHook(hookLine);
-    }
-
-    return {
-      postContent: polishedPost,
-      reasoningSteps: [{
-        title: "Review & Polish",
-        output: `Polished the draft against formatting guidelines, adjusted emoji count, and verified final word count constraints.`
-      }]
-    };
-  } catch (error: unknown) {
-    let msg = error instanceof Error ? error.message : "Unknown error in generateDraft";
-    if (state.llmProvider === "ollama") {
-      const base = state.ollamaBaseUrl || "http://localhost:11434";
-      if (msg.includes("ECONNREFUSED") || msg.includes("Failed to fetch") || msg.includes("fetch failed") || msg.includes("Network Error")) {
-        msg = `Ollama service is not running on ${base}. Please start Ollama on your desktop app and try again.`;
-      } else if (msg.includes("404") || msg.includes("not found")) {
-        const m = state.llmModel || "specified model";
-        msg = `Model "${m}" not found in Ollama. Run 'ollama pull ${m}' in your desktop terminal.`;
-      } else {
-        msg = `Ollama error: ${msg}`;
-      }
-    }
-    return {
-      error: msg
-    };
+    return { draft: finalDraft || state.draft };
+  } catch {
+    // If refinement fails, fallback gracefully to initial draft
+    return { draft: state.draft };
   }
-};
+}

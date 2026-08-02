@@ -6,6 +6,7 @@ import { supabase } from "../lib/supabase";
 import { DEFAULT_OLLAMA_URL } from "../lib/constants";
 import type { User } from "@supabase/supabase-js";
 import { cleanErrorMessage } from "../lib/utils";
+import type { ErrorWithResponsePayload } from "../interfaces";
 
 import { isDesktopApp } from "../lib/desktop";
 
@@ -404,7 +405,7 @@ export function useAgent() {
           }
         });
       } catch (err: unknown) {
-        const axiosError = err as { response?: { data?: unknown }; message?: string };
+        const axiosError = err as ErrorWithResponsePayload;
         const errText = axiosError.response?.data ? String(axiosError.response.data) : axiosError.message;
         throw new Error(`Failed to upload file to storage: ${errText}`);
       }

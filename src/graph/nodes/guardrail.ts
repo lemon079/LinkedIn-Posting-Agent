@@ -2,6 +2,7 @@ import { HumanMessage } from "@langchain/core/messages";
 import { createLLM } from "../../services/llm";
 import type { State } from "../../core/state";
 import { invokeWithTimeout } from "../../utils/llmTimeout";
+import type { LangChainMessageBlock } from "@/interfaces/stream";
 
 const getLLMOpts = (state: State) => ({
   provider: state.llmProvider || undefined,
@@ -13,15 +14,13 @@ const getLLMOpts = (state: State) => ({
 
 export const runGuardrails = async (state: State): Promise<Partial<State>> => {
   try {
-    const llm = createLLM(getLLMOpts(state));
-    const contentToReview = state.postContent || state.draftOutput || "";
-
+    const contentToReview = state.draft || state.topic;
     if (!contentToReview) {
       return {};
     }
 
-    const safetyPrompt = `Evaluate if this LinkedIn post draft is safe and appropriate for publishing. 
-    It should not contain harmful content, explicit material, or dangerous advice.
+    const llm = createLLM(getLLMOpts(state));
+    const safetyPrompt = `Evaluate the following text for safety. Check if it contains harmful, abusive, illegal, toxic, or hate-speech content. 
     Respond with only 'SAFE' or 'UNSAFE'.
     
     Response: ${contentToReview}`;
@@ -32,7 +31,7 @@ export const runGuardrails = async (state: State): Promise<Partial<State>> => {
     const evaluation = typeof res.content === "string" 
       ? res.content 
       : Array.isArray(res.content) 
-        ? res.content.map((b: unknown) => (typeof b === "object" && b !== null && "text" in b ? String((b as { text: unknown }).text || "") : "")).join("\n") 
+        ? res.content.map((b: LangChainMessageBlock | string) => (typeof b === "object" && b !== null && "text" in b ? String(b.text || "") : String(b))).join("\n") 
         : "";
 
     const cleaned = evaluation.trim().toUpperCase();

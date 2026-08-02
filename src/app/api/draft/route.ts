@@ -5,50 +5,56 @@ import { getRequestAuth } from "@/lib/server/auth";
 import { resolveAgentCredentials } from "@/lib/server/settings";
 import { redactSecrets } from "@/lib/utils";
 import type { DraftRequest } from "@/interfaces/draft";
+import type { StreamEvent } from "@/interfaces/stream";
 
 export async function POST(request: Request) {
   const requestId = Date.now().toString();
   console.log(`[API-Draft][${requestId}] Incoming POST request received.`);
-  try {
-    const body = await request.json() as DraftRequest;
-    const { topic, context, domain } = body;
-    const selectedTopic = topic || "software engineering";
-    const threadId = Date.now().toString();
-    const threadConfig = { configurable: { thread_id: threadId } };
 
-    console.log(`[API-Draft][${requestId}] Resolved topic: "${selectedTopic}"`);
-    if (context) {
-      console.log(`[API-Draft][${requestId}] Custom context provided (${context.length} chars).`);
+  try {
+    const body: DraftRequest = await request.json();
+    const { customTopic, context: userContext, domain, keys } = body;
+
+    const topic = customTopic && customTopic.trim() ? customTopic.trim() : config.defaultTopic;
+    console.log(`[API-Draft][${requestId}] Resolved topic: "${topic}"`);
+    if (userContext) {
+      console.log(`[API-Draft][${requestId}] Custom context provided (${userContext.length} chars).`);
     }
 
-    const { user, client } = await getRequestAuth(request);
+    const { client, user } = await getRequestAuth(request);
     if (user) {
-      console.log(`[API-Draft][${requestId}] User identified: ${user.id} (${user.email})`);
+      console.log(`[API-Draft][${requestId}] User authenticated: ${user.id}`);
     } else {
       console.log(`[API-Draft][${requestId}] Anonymous user (Local Mode).`);
     }
 
     const creds = await resolveAgentCredentials(request, client, user?.id);
-    console.log(`[API-Draft][${requestId}] Resolved credentials - Provider: ${creds.provider || "gemini"}, Model: ${creds.model || "default"}, ApiKey: ${creds.apiKey ? "PRESENT" : "MISSING"}`);
+    const provider = keys?.provider || creds.provider || config.defaultProvider;
+    const model = keys?.modelName || creds.model || config.defaultModel;
+    const apiKey = keys?.apiKey || creds.apiKey;
+    const ollamaBaseUrl = keys?.ollamaBaseUrl || creds.ollamaBaseUrl;
+
+    console.log(`[API-Draft][${requestId}] Resolved credentials - Provider: ${provider}, Model: ${model}, ApiKey: ${apiKey ? "PRESENT" : "MISSING"}`);
 
     const initialState = {
-      topic: selectedTopic,
-      domain: domain || null,
-      context: context !== undefined ? context : config.CONTEXT,
-      llmProvider: creds.provider || null,
-      llmApiKey: creds.apiKey || null,
-      llmModel: creds.model || null,
-      ollamaBaseUrl: creds.ollamaUrl || null,
-      linkedinToken: creds.liToken || null,
-      linkedinUrn: creds.liUrn || null,
+      topic,
+      customContext: userContext || "",
+      domain: domain || "auto",
+      customProvider: provider,
+      customApiKey: apiKey,
+      customModelName: model,
+      customOllamaBaseUrl: ollamaBaseUrl,
     };
+
+    const threadId = Date.now().toString();
+    const threadConfig = { configurable: { thread_id: threadId } };
 
     console.log(`[API-Draft][${requestId}] Invoking streaming agent graph for thread ID: ${threadId}...`);
 
     const responseStream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
-        const sendEvent = (eventData: unknown) => {
+        const sendEvent = (eventData: StreamEvent) => {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(eventData)}\n\n`));
         };
 
