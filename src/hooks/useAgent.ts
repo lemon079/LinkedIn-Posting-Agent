@@ -17,17 +17,35 @@ const getSafeLocalStorage = (key: string, fallback: string): string => {
 };
 
 export function useAgent() {
-  const [customTopic, setCustomTopic] = useState("");
-  const [context, setContext] = useState("");
-  const [domain, setDomain] = useState("auto");
-  const [draftText, setDraftText] = useState<string | null>(null);
+  const [customTopic, setCustomTopic] = useState(() => getSafeLocalStorage("praxis_custom_topic", ""));
+  const [context, setContext] = useState(() => getSafeLocalStorage("praxis_context", ""));
+  const [domain, setDomain] = useState(() => getSafeLocalStorage("praxis_domain", "auto"));
+  const [draftText, setDraftText] = useState<string | null>(() => {
+    const saved = getSafeLocalStorage("praxis_draft_text", "");
+    return saved || null;
+  });
   const [streamingText, setStreamingText] = useState<string | null>(null);
-  const [threadId, setThreadId] = useState<string | null>(null);
+  const [threadId, setThreadId] = useState<string | null>(() => {
+    const saved = getSafeLocalStorage("praxis_thread_id", "");
+    return saved || null;
+  });
   const [postUrl, setPostUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"preview" | "edit">("preview");
-  const [reasoningSteps, setReasoningSteps] = useState<Array<{ title: string; output: string }>>([]);
+  const [reasoningSteps, setReasoningSteps] = useState<Array<{ title: string; output: string }>>(() => {
+    const json = getSafeLocalStorage("praxis_reasoning_steps", "");
+    if (json) {
+      try { return JSON.parse(json); } catch { return []; }
+    }
+    return [];
+  });
   const [status, setStatus] = useState({ gen: false, pub: false, err: null as string | null });
-  const [selectedFiles, setSelectedFiles] = useState<Array<{ name: string; type: string; storagePath?: string; readUrl?: string; base64?: string; }>>([]);
+  const [selectedFiles, setSelectedFiles] = useState<Array<{ name: string; type: string; storagePath?: string; readUrl?: string; base64?: string; }>>(() => {
+    const json = getSafeLocalStorage("praxis_selected_files", "");
+    if (json) {
+      try { return JSON.parse(json); } catch { return []; }
+    }
+    return [];
+  });
   const [uploadingCount, setUploadingCount] = useState(0);
   const isUploading = uploadingCount > 0;
 
@@ -168,6 +186,58 @@ export function useAgent() {
     url.searchParams.delete("otp");
     window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
   }, [token, provider, apiKey, modelName, ollamaBaseUrl]);
+
+  // 6. Automatically persist draft and workspace state across page reloads
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("praxis_custom_topic", customTopic);
+  }, [customTopic]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("praxis_context", context);
+  }, [context]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("praxis_domain", domain);
+  }, [domain]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (draftText !== null && draftText !== "") {
+      localStorage.setItem("praxis_draft_text", draftText);
+    } else {
+      localStorage.removeItem("praxis_draft_text");
+    }
+  }, [draftText]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (threadId !== null && threadId !== "") {
+      localStorage.setItem("praxis_thread_id", threadId);
+    } else {
+      localStorage.removeItem("praxis_thread_id");
+    }
+  }, [threadId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (reasoningSteps && reasoningSteps.length > 0) {
+      localStorage.setItem("praxis_reasoning_steps", JSON.stringify(reasoningSteps));
+    } else {
+      localStorage.removeItem("praxis_reasoning_steps");
+    }
+  }, [reasoningSteps]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (selectedFiles && selectedFiles.length > 0) {
+      localStorage.setItem("praxis_selected_files", JSON.stringify(selectedFiles));
+    } else {
+      localStorage.removeItem("praxis_selected_files");
+    }
+  }, [selectedFiles]);
 
   const customKeys = { provider, apiKey, liToken, liUrn, modelName, ollamaBaseUrl, token: token || undefined };
 
@@ -353,6 +423,20 @@ export function useAgent() {
     }
   };
 
+  const handleClearDraft = () => {
+    setDraftText(null);
+    setStreamingText(null);
+    setThreadId(null);
+    setReasoningSteps([]);
+    setSelectedFiles([]);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("praxis_draft_text");
+      localStorage.removeItem("praxis_thread_id");
+      localStorage.removeItem("praxis_reasoning_steps");
+      localStorage.removeItem("praxis_selected_files");
+    }
+  };
+
   return {
     customTopic, context, domain, draftText, streamingText, threadId, postUrl, activeTab,
     isGenerating: status.gen, isPublishing: status.pub, error: status.err,
@@ -365,6 +449,6 @@ export function useAgent() {
     setLiToken, setLiUrn, setIsSettingsOpen,
     setSelectedFiles,
     setReasoningSteps,
-    handleGenerate, handlePublish, handleUploadFile,
+    handleGenerate, handlePublish, handleUploadFile, handleClearDraft,
   };
 }
