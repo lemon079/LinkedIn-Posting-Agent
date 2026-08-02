@@ -27,7 +27,8 @@ import {
   Layers,
   Link2,
   User as UserIcon,
-  LogOut
+  LogOut,
+  ShieldCheck,
 } from "lucide-react";
 
 interface SettingsPanelProps {
@@ -349,6 +350,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     setTestState({ status: "idle" });
                   }}
                 />
+                <p className="text-[11px] text-slate-500 flex items-start gap-1.5 mt-1.5 leading-relaxed bg-emerald-50/60 border border-emerald-200/60 p-2 rounded-lg text-emerald-950">
+                  <ShieldCheck className="size-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Safe & Encrypted:</strong> Your key is encrypted using <strong>AES-256-GCM</strong> before storage. It is never logged in server logs or exposed in response payloads.
+                  </span>
+                </p>
               </div>
             )}
 
