@@ -10,6 +10,23 @@ import "@testing-library/jest-dom";
 // Mock the hook that manages the agent state
 jest.mock("../hooks/useAgent");
 
+// Mock Assistant UI runtime and primitives for Jest CommonJS environment
+jest.mock("@assistant-ui/react", () => ({
+  AssistantRuntimeProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useLocalRuntime: jest.fn().mockReturnValue({}),
+}));
+
+jest.mock("@assistant-ui/react-markdown", () => ({
+  MarkdownTextPrimitive: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+}));
+
+jest.mock("@assistant-ui/react-markdown/styles/dot.css", () => ({}));
+jest.mock("remark-gfm", () => () => {});
+
+jest.mock("../hooks/useAgentRuntime", () => ({
+  useAgentRuntime: jest.fn().mockReturnValue({}),
+}));
+
 // Mock Supabase to prevent real client initialization
 jest.mock("../lib/supabase", () => ({
   supabase: {
@@ -92,6 +109,7 @@ describe("Frontend Dashboard UI", () => {
     setReasoningSteps: jest.fn(),
     setSelectedFiles: jest.fn(),
     handleUploadFile: jest.fn(),
+    handleClearDraft: jest.fn(),
   };
 
   beforeEach(() => {
@@ -119,8 +137,8 @@ describe("Frontend Dashboard UI", () => {
 
     render(<Home />);
 
-    const textarea = screen.getByDisplayValue("My awesome tech post draft!");
-    expect(textarea).toBeInTheDocument();
+    const draftElement = screen.getByText("My awesome tech post draft!");
+    expect(draftElement).toBeInTheDocument();
 
     expect(
       screen.getByRole("button", { name: /Publish/i })

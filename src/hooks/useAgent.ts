@@ -51,18 +51,10 @@ export function useAgent() {
   const isUploading = uploadingCount > 0;
 
   const [provider, setProviderState] = useState(() => {
-    const saved = getSafeLocalStorage("llm_provider", "gemini");
-    if (saved === "ollama" && !isDesktopApp()) {
-      return "gemini";
-    }
-    return saved;
+    return getSafeLocalStorage("llm_provider", "gemini");
   });
 
   const setProvider = (val: string) => {
-    if (val === "ollama" && !isDesktopApp()) {
-      setProviderState("gemini");
-      return;
-    }
     setProviderState(val);
   };
   const [apiKey, setApiKey] = useState(() => getSafeLocalStorage("llm_api_key", ""));

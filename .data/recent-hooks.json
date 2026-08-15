@@ -1,8 +1,8 @@
 [
   "Consumer lag is a silent killer in microservices. Enable idempotency!",
   "Kafka rebalances will ruin throughput if max.poll.interval.ms is misconfigured. Use idempotent consumers!",
-  "Consumer lag is a silent killer in microservices. Enable idempotency!",
-  "Kafka rebalances will ruin throughput if max.poll.interval.ms is misconfigured. Use idempotent consumers!",
+  "Ordering in Pub/Sub can silently halt your pipeline.",
+  "Setting min.insync.replicas to 2 on a 2‑node cluster killed our prod during a sale. In 2023, a flash‑sale spike in an e‑commerce platform hammered our Kafka cluster. We had topic `orders` configured with `min.insync.replicas=2` and only two brokers. When one broker hiccupped, all producers received `NotEnoughReplicasException` and requests failed. Downgrading to 1 restored throughput but left us exposed to silent data loss. The lesson? A higher ISR gives durability, but if your replica count is tight, it becomes a hard cap on availability ⏱️. Balance the two based on the criticality of each stream and the slack in your infra.",
   "Consumer lag is a silent killer in microservices. Enable idempotency!",
   "Kafka rebalances will ruin throughput if max.poll.interval.ms is misconfigured. Use idempotent consumers!",
   "Consumer lag is a silent killer in microservices. Enable idempotency!",

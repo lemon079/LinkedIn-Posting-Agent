@@ -1,7 +1,8 @@
 import React from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { FileText } from "lucide-react";
 import Image from "next/image";
+import { MarkdownText } from "@/components/assistant-ui/markdown-text";
+import { cn } from "@/lib/utils";
 
 interface FileItem {
   name: string;
@@ -14,6 +15,7 @@ interface FileItem {
 interface LinkedInFeedProps {
   draftText: string | null;
   selectedFiles?: FileItem[] | null;
+  className?: string;
 }
 
 /** Responsive image mosaic — mirrors LinkedIn's own grid layout */
@@ -106,34 +108,31 @@ const ImageMosaic: React.FC<{ files: FileItem[] }> = ({ files }) => {
   );
 };
 
-export const LinkedInFeed: React.FC<LinkedInFeedProps> = ({ draftText, selectedFiles }) => {
+export const LinkedInFeed: React.FC<LinkedInFeedProps> = ({ draftText, selectedFiles, className }) => {
   if (!draftText) return null;
 
   const hasFiles = selectedFiles && selectedFiles.length > 0;
 
   return (
-    <Card className="bg-card border border-border shadow-level-1 rounded-2xl overflow-hidden">
-      {/* Scroll-capped body — header + content + images scroll together, stays in viewport */}
-      <div className="overflow-y-auto max-h-[calc(100vh-14rem)] p-5 space-y-4">
-        {/* Author row */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-brand-blue text-white flex items-center justify-center font-bold text-sm shadow-md shadow-brand-blue/20 shrink-0">
-            PR
-          </div>
-          <div className="text-xs">
-            <h4 className="font-bold text-foreground">Praxis</h4>
-            <p className="text-muted-foreground font-normal">Autonomous AI Technical Content Ghostwriter</p>
-          </div>
+    <div className={cn("space-y-3.5", className)}>
+      {/* Author row */}
+      <div className="flex items-center gap-2.5 border-b border-border/40 pb-3">
+        <div className="size-9 rounded-full bg-brand-blue text-white flex items-center justify-center font-bold text-xs shadow-xs shadow-brand-blue/20 shrink-0">
+          PR
         </div>
-
-        {/* Post text */}
-        <CardContent className="p-0 text-sm leading-relaxed text-foreground whitespace-pre-wrap select-text font-sans selection:bg-brand-blue/10">
-          {draftText}
-        </CardContent>
-
-        {/* Attachments mosaic */}
-        {hasFiles && <ImageMosaic files={selectedFiles!} />}
+        <div className="text-xs leading-tight">
+          <h4 className="font-semibold text-foreground">Praxis</h4>
+          <p className="text-[11px] text-muted-foreground">Autonomous AI Technical Ghostwriter • Just now</p>
+        </div>
       </div>
-    </Card>
+
+      {/* Post text rendered in Markdown */}
+      <div className="text-sm leading-relaxed text-foreground select-text font-sans selection:bg-brand-blue/10">
+        <MarkdownText>{draftText}</MarkdownText>
+      </div>
+
+      {/* Attachments mosaic */}
+      {hasFiles && <ImageMosaic files={selectedFiles!} />}
+    </div>
   );
 };

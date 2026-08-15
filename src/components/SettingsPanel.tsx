@@ -301,8 +301,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   <SelectItem value="gemini">Google</SelectItem>
                   <SelectItem value="openai">OpenAI</SelectItem>
                   <SelectItem value="anthropic">Anthropic</SelectItem>
-                  <SelectItem value="ollama" disabled={!isDesktop}>
-                    Ollama {isDesktop ? "(Local)" : "(Desktop App Only)"}
+                  <SelectItem value="ollama">
+                    Ollama (Local)
                   </SelectItem>
                 </SelectContent>
               </Select>
