@@ -1,7 +1,7 @@
 import { FakeListChatModel } from "@langchain/core/utils/testing";
-import { runGuardrails } from "@/graph/nodes/guardrail";
-import type { State } from "@/core/state";
-import * as llmService from "@/services/llm";
+import { runGuardrails } from "@/modules/agent/nodes/guardrail";
+import type { State } from "@/modules/agent/core/state";
+import * as llmService from "@/modules/agent/llm/factory";
 
 export interface TrajectoryEvalResult {
   passed: boolean;

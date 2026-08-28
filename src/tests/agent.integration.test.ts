@@ -1,11 +1,10 @@
-import { agent } from "@/graph/index";
-import { createLLM } from "@/services/llm";
+import { agent, createLLM } from "@/modules/agent";
 import { config } from "@/config/env";
 import { HumanMessage } from "@langchain/core/messages";
 
 describe("LangChain Agent Integration Tests (End-to-End & Flakiness Mitigation)", () => {
-  // Set 30 second timeout for real network / LLM calls
-  jest.setTimeout(30000);
+  // Set 90 second timeout for real network / LLM multi-step graph calls
+  jest.setTimeout(90000);
 
   const hasApiKey = Boolean(config.GOOGLE_API_KEY || process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY);
 
@@ -71,7 +70,7 @@ describe("LangChain Agent Integration Tests (End-to-End & Flakiness Mitigation)"
 
       for await (const event of eventStream) {
         if (event.event === "on_chain_start") {
-          if (["generateDraft", "reviewAndRefine", "runGuardrails", "validatePost"].includes(event.name)) {
+          if (["analyzeIntake", "generateDraft", "critiqueDraft", "refineDraft", "promoteBestDraft", "runGuardrails", "validatePost"].includes(event.name)) {
             executedNodes.push(event.name);
           }
         }

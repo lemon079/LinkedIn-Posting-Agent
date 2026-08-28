@@ -54,14 +54,10 @@ export const ReasoningRoot: React.FC<ReasoningRootProps> = ({
 
 export interface ReasoningTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   active?: boolean;
-  totalChars?: number;
-  previewText?: string;
 }
 
 export const ReasoningTrigger: React.FC<ReasoningTriggerProps> = ({
   active,
-  totalChars,
-  previewText,
   className,
   children,
   ...props
@@ -93,25 +89,13 @@ export const ReasoningTrigger: React.FC<ReasoningTriggerProps> = ({
           {isStreaming ? (
             <>
               <Sparkles className="size-3 text-brand-blue animate-pulse" />
-              <span className="text-brand-blue font-semibold">Thinking...</span>
+              <span className="text-brand-blue font-semibold">Executing Agent Steps...</span>
             </>
           ) : (
-            <span>{children || (isOpen ? "Hide thought timeline" : "Agent thought timeline")}</span>
+            <span>{children || (isOpen ? "Hide execution steps" : "View execution steps")}</span>
           )}
         </span>
-
-        {!isOpen && previewText && (
-          <span className="text-[11px] text-slate-400 dark:text-slate-500 truncate max-w-72 opacity-80 italic font-normal ml-1 hidden sm:inline">
-            — {previewText}
-          </span>
-        )}
       </button>
-
-      {totalChars !== undefined && totalChars > 0 && (
-        <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 px-2 py-0.5 bg-slate-100/70 dark:bg-slate-800/70 rounded-full shrink-0">
-          {totalChars.toLocaleString()} chars
-        </span>
-      )}
     </div>
   );
 };
@@ -176,7 +160,7 @@ export const ReasoningText: React.FC<ReasoningTextProps> = ({
 };
 
 /**
- * Minimalist Assistant UI reasoning component featuring ElementsTimeline
+ * Minimalist Assistant UI reasoning component featuring ElementsTimeline (Headings only)
  */
 export interface AssistantReasoningProps {
   reasoningSteps?: Array<{ title: string; output: string }>;
@@ -193,17 +177,9 @@ export const AssistantReasoning: React.FC<AssistantReasoningProps> = ({
 }) => {
   if (!reasoningSteps || reasoningSteps.length === 0) return null;
 
-  const totalChars = reasoningSteps.reduce((acc, step) => acc + step.output.length, 0);
-  const latestStep = reasoningSteps[reasoningSteps.length - 1];
-  const previewText = latestStep?.output
-    ? latestStep.output.substring(0, 50).replace(/\n/g, " ") +
-      (latestStep.output.length > 50 ? "..." : "")
-    : undefined;
-
   const timelineSteps: TimelineStep[] = reasoningSteps.map((step, idx) => ({
     id: `step-${idx}`,
     title: step.title,
-    output: step.output,
     status: isStreaming && idx === reasoningSteps.length - 1 ? "running" : "completed",
   }));
 
@@ -213,11 +189,7 @@ export const AssistantReasoning: React.FC<AssistantReasoningProps> = ({
       defaultOpen={defaultOpen}
       className={cn("w-full mb-3", className)}
     >
-      <ReasoningTrigger
-        active={isStreaming}
-        totalChars={totalChars}
-        previewText={previewText}
-      />
+      <ReasoningTrigger active={isStreaming} />
       <ReasoningContent>
         <ElementsTimeline steps={timelineSteps} isStreaming={isStreaming} />
       </ReasoningContent>

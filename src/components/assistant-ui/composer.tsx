@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Sparkles, Sliders, ChevronDown, ChevronRight, CornerDownLeft, Loader2, Paperclip } from "lucide-react";
+import { Sparkles, Sliders, ChevronDown, ChevronRight, CornerDownLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -30,14 +30,12 @@ export interface AssistantComposerProps {
 
 export const AssistantComposer: React.FC<AssistantComposerProps> = ({
   customTopic,
-  context,
   domain = "auto",
   isGenerating,
   setCustomTopic,
   setContext,
   setDomain,
   onGenerate,
-  onCancel,
   className,
 }) => {
   const [happened, setHappened] = useState("");

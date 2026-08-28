@@ -1,4 +1,4 @@
-import type { DraftResponse, PublishResponse, CustomKeys } from "@/interfaces";
+import type { DraftResponse, PublishResponse, CustomKeys } from "@/types";
 import { buildApiHeaders } from "./headers";
 import { apiFetch } from "./client";
 

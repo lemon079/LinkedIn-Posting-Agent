@@ -1,12 +1,18 @@
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { MemorySaver } from "@langchain/langgraph";
-import { planDraft, generateInitialDraft, reviewAndRefine, generateDraft } from "@/graph/nodes/generatePost";
-import { runGuardrails } from "@/graph/nodes/guardrail";
-import { validatePost } from "@/graph/nodes/validatePost";
-import { publishPost } from "@/graph/nodes/publishPost";
-import type { State } from "@/core/state";
-import * as llmService from "@/services/llm";
-import * as linkedinService from "@/services/linkedin";
+import {
+  analyzeIntake,
+  generateDraft,
+  critiqueDraft,
+  refineDraft,
+  promoteBestDraft,
+  runGuardrails,
+  validatePost,
+  publishPost,
+} from "@/modules/agent/nodes";
+import type { State } from "@/modules/agent/core/state";
+import * as llmService from "@/modules/agent/llm/factory";
+import * as linkedinService from "@/modules/linkedin/api";
 
 describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
   const baseState: State = {
@@ -14,9 +20,15 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
     context: "Focus on idempotent consumer groups",
     domain: "engineering",
     activeDomain: "engineering",
+    intake: null,
     plan: "",
     searchContext: "",
     draft: "",
+    critique: null,
+    critiqueCount: 0,
+    critiqueScores: [],
+    bestDraft: "",
+    bestScore: 0,
     postContent: null,
     postUrl: null,
     retries: 0,
@@ -35,67 +47,230 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
     jest.restoreAllMocks();
   });
 
-  describe("1. Node Functions & Mocked LLM Executions", () => {
-    it("should generate a 3-point strategy in planDraft", async () => {
-      const mockLlm = new FakeListChatModel({
-        responses: ["1. Address partition rebalancing\n2. Idempotent key design\n3. Circuit breaker pattern"],
-      });
-      jest.spyOn(llmService, "createLLM").mockReturnValue(mockLlm as unknown as ReturnType<typeof llmService.createLLM>);
+  describe("1. analyzeIntake Node", () => {
+    it("should parse user input into structured IntakeAnalysis on success", async () => {
+      const mockIntake = {
+        topic: "Kafka Idempotency",
+        context: "Microservices architecture",
+        domain: "engineering",
+        angle: "War story on message duplication",
+        tone: "authoritative",
+      };
 
-      const result = await planDraft(baseState);
+      const mockLlm = {
+        withStructuredOutput: jest.fn().mockReturnValue({
+          invoke: jest.fn().mockResolvedValue(mockIntake),
+        }),
+      };
+      jest.spyOn(llmService, "createCriticLLM").mockReturnValue(mockLlm as unknown as ReturnType<typeof llmService.createCriticLLM>);
 
-      expect(result.plan).toContain("1. Address partition rebalancing");
+      const result = await analyzeIntake(baseState);
+
+      expect(result.intake).toEqual(mockIntake);
       expect(result.activeDomain).toBe("engineering");
     });
 
-    it("should generate an initial draft inside [DRAFT] tags in generateInitialDraft", async () => {
+    it("should gracefully fall back to regex-inferred domain and safe defaults on LLM error", async () => {
+      const mockLlm = {
+        withStructuredOutput: jest.fn().mockReturnValue({
+          invoke: jest.fn().mockRejectedValue(new Error("Structured output failed")),
+        }),
+      };
+      jest.spyOn(llmService, "createCriticLLM").mockReturnValue(mockLlm as unknown as ReturnType<typeof llmService.createCriticLLM>);
+
+      const result = await analyzeIntake({
+        ...baseState,
+        topic: "Candidate interview process and hiring rubrics",
+        context: "Onboarding engineers",
+      });
+
+      expect(result.intake).toBeDefined();
+      expect(result.intake?.domain).toBe("hr");
+      expect(result.intake?.tone).toBe("conversational");
+      expect(result.intake?.angle).toBe("");
+      expect(result.activeDomain).toBe("hr");
+    });
+  });
+
+  describe("2. generateDraft Node", () => {
+    it("should generate a draft using structured intake context", async () => {
       const mockDraftText = "[DRAFT]Kafka rebalances will ruin throughput if max.poll.interval.ms is misconfigured. Use idempotent consumers!\n\n#kafka #backend[/DRAFT]";
       const mockLlm = new FakeListChatModel({ responses: [mockDraftText] });
       jest.spyOn(llmService, "createLLM").mockReturnValue(mockLlm as unknown as ReturnType<typeof llmService.createLLM>);
 
-      const stateWithPlan: State = {
+      const stateWithIntake: State = {
         ...baseState,
-        plan: "1. Rebalance issue 2. Idempotency 3. CTA",
+        intake: {
+          topic: "Kafka rebalancing",
+          context: "max.poll.interval.ms tuning",
+          domain: "engineering",
+          angle: "Consumer group stop-the-world loop",
+          tone: "conversational",
+        },
       };
 
-      const result = await generateInitialDraft(stateWithPlan);
+      const result = await generateDraft(stateWithIntake);
 
       expect(result.draft).toContain("Kafka rebalances will ruin throughput");
       expect(result.draft).not.toContain("[DRAFT]");
-    });
-
-    it("should refine and polish the post in reviewAndRefine", async () => {
-      const polishedOutput = "[DRAFT]Kafka rebalances will tank your throughput if you do not watch max.poll.interval.ms.\n\nIdempotent keys save production!\n\n#kafka #backend #systemdesign[/DRAFT]";
-      const mockLlm = new FakeListChatModel({ responses: [polishedOutput] });
-      jest.spyOn(llmService, "createLLM").mockReturnValue(mockLlm as unknown as ReturnType<typeof llmService.createLLM>);
-
-      const stateWithDraft: State = {
-        ...baseState,
-        draft: "Initial rough draft text",
-      };
-
-      const result = await reviewAndRefine(stateWithDraft);
-
-      expect(result.draft).toContain("Idempotent keys save production!");
-      expect(result.postContent).toBe(result.draft);
-    });
-
-    it("should orchestrate planDraft and generateInitialDraft in generateDraft node", async () => {
-      const mockPlan = "1. Highlight consumer lag\n2. Introduce idempotent producer";
-      const mockDraft = "[DRAFT]Consumer lag is a silent killer in microservices. Enable idempotency!\n\n#kafka #architecture[/DRAFT]";
-
-      const mockLlm = new FakeListChatModel({ responses: [mockPlan, mockDraft] });
-      jest.spyOn(llmService, "createLLM").mockReturnValue(mockLlm as unknown as ReturnType<typeof llmService.createLLM>);
-
-      const result = await generateDraft(baseState);
-
-      expect(result.plan).toBe(mockPlan);
-      expect(result.draft).toContain("Consumer lag is a silent killer");
       expect(result.postContent).toBe(result.draft);
     });
   });
 
-  describe("2. Safety & Guardrail Evaluator", () => {
+  describe("3. critiqueDraft Node", () => {
+    it("should evaluate draft, update bestScore and bestDraft when score is higher", async () => {
+      const mockCritique = {
+        score: 8,
+        strengths: ["Strong opening hook", "Specific technical anchor"],
+        weaknesses: ["Call to action could be punchier"],
+        instructions: "Sharpen the final question to invite peer debate.",
+      };
+
+      const mockLlm = {
+        withStructuredOutput: jest.fn().mockReturnValue({
+          invoke: jest.fn().mockResolvedValue(mockCritique),
+        }),
+      };
+      jest.spyOn(llmService, "createCriticLLM").mockReturnValue(mockLlm as unknown as ReturnType<typeof llmService.createCriticLLM>);
+
+      const stateWithDraft: State = {
+        ...baseState,
+        draft: "Draft v1 text",
+        bestScore: 0,
+        bestDraft: "",
+        critiqueCount: 0,
+      };
+
+      const result = await critiqueDraft(stateWithDraft);
+
+      expect(result.critique).toEqual(mockCritique);
+      expect(result.critiqueCount).toBe(1);
+      expect(result.critiqueScores).toEqual([8]);
+      expect(result.bestScore).toBe(8);
+      expect(result.bestDraft).toBe("Draft v1 text");
+    });
+
+    it("should retain existing bestDraft if new critique score is lower", async () => {
+      const mockCritique = {
+        score: 5,
+        strengths: ["Good domain terminology"],
+        weaknesses: ["Too long", "Buzzwords present"],
+        instructions: "Shorten paragraphs and remove leverage.",
+      };
+
+      const mockLlm = {
+        withStructuredOutput: jest.fn().mockReturnValue({
+          invoke: jest.fn().mockResolvedValue(mockCritique),
+        }),
+      };
+      jest.spyOn(llmService, "createCriticLLM").mockReturnValue(mockLlm as unknown as ReturnType<typeof llmService.createCriticLLM>);
+
+      const stateWithDraft: State = {
+        ...baseState,
+        draft: "Draft v2 text (worse)",
+        bestScore: 8,
+        bestDraft: "Draft v1 text (better)",
+        critiqueCount: 1,
+      };
+
+      const result = await critiqueDraft(stateWithDraft);
+
+      expect(result.critiqueCount).toBe(2);
+      expect(result.bestScore).toBe(8);
+      expect(result.bestDraft).toBe("Draft v1 text (better)");
+    });
+
+    it("should fail-open with score 7 on structured output error", async () => {
+      const mockLlm = {
+        withStructuredOutput: jest.fn().mockReturnValue({
+          invoke: jest.fn().mockRejectedValue(new Error("Timeout")),
+        }),
+      };
+      jest.spyOn(llmService, "createCriticLLM").mockReturnValue(mockLlm as unknown as ReturnType<typeof llmService.createCriticLLM>);
+
+      const stateWithDraft: State = {
+        ...baseState,
+        draft: "Draft text",
+        critiqueCount: 0,
+      };
+
+      const result = await critiqueDraft(stateWithDraft);
+
+      expect(result.critique?.score).toBe(7);
+      expect(result.bestScore).toBe(7);
+      expect(result.critiqueCount).toBe(1);
+    });
+  });
+
+  describe("4. refineDraft Node", () => {
+    it("should refine draft based on critique instructions", async () => {
+      const polishedOutput = "[DRAFT]Kafka rebalances will tank your throughput if you do not watch max.poll.interval.ms.\n\nIdempotent keys save production!\n\n#kafka #backend #systemdesign[/DRAFT]";
+      const mockLlm = new FakeListChatModel({ responses: [polishedOutput] });
+      jest.spyOn(llmService, "createLLM").mockReturnValue(mockLlm as unknown as ReturnType<typeof llmService.createLLM>);
+
+      const stateToRefine: State = {
+        ...baseState,
+        draft: "Initial draft text",
+        critique: {
+          score: 5,
+          strengths: ["Good topic"],
+          weaknesses: ["Weak hook"],
+          instructions: "Lead with the max.poll.interval.ms configuration gotcha.",
+        },
+      };
+
+      const result = await refineDraft(stateToRefine);
+
+      expect(result.draft).toContain("Kafka rebalances will tank your throughput");
+      expect(result.draft).not.toContain("[DRAFT]");
+      expect(result.postContent).toBe(result.draft);
+    });
+
+    it("should keep state unchanged on refinement error", async () => {
+      jest.spyOn(llmService, "createLLM").mockImplementation(() => {
+        throw new Error("API connection error");
+      });
+
+      const stateToRefine: State = {
+        ...baseState,
+        draft: "Preserved draft text",
+        critique: {
+          score: 5,
+          strengths: [],
+          weaknesses: [],
+          instructions: "Fix everything",
+        },
+      };
+
+      const result = await refineDraft(stateToRefine);
+      expect(result).toEqual({});
+    });
+  });
+
+  describe("5. promoteBestDraft Node & Telemetry", () => {
+    it("should promote bestDraft to postContent and emit telemetry", async () => {
+      const consoleSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+
+      const state: State = {
+        ...baseState,
+        draft: "Draft v2",
+        bestDraft: "Draft v1 (higher score)",
+        bestScore: 9,
+        critiqueScores: [6, 9],
+        critiqueCount: 2,
+      };
+
+      const result = await promoteBestDraft(state);
+
+      expect(result.postContent).toBe("Draft v1 (higher score)");
+      expect(result.draft).toBe("Draft v1 (higher score)");
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('"event":"critique_loop_completed"')
+      );
+    });
+  });
+
+  describe("6. Safety & Guardrail Evaluator", () => {
     it("should return an empty object for SAFE content", async () => {
       const mockLlm = new FakeListChatModel({ responses: ["SAFE"] });
       jest.spyOn(llmService, "createLLM").mockReturnValue(mockLlm as unknown as ReturnType<typeof llmService.createLLM>);
@@ -123,7 +298,7 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
     });
   });
 
-  describe("3. Validation & Retry Logic", () => {
+  describe("7. Validation & Retry Logic", () => {
     it("should pass validation when postContent length is between 1 and 3000 chars", async () => {
       const validState: State = {
         ...baseState,
@@ -159,7 +334,7 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
     });
   });
 
-  describe("4. Publishing Node Logic", () => {
+  describe("8. Publishing Node Logic", () => {
     it("should skip publishing if state has an error", async () => {
       const errorState: State = {
         ...baseState,
@@ -188,7 +363,7 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
     });
   });
 
-  describe("5. In-Memory State Checkpointing", () => {
+  describe("9. In-Memory State Checkpointing", () => {
     it("should save and retrieve checkpoint state using MemorySaver", async () => {
       const memorySaver = new MemorySaver();
       const threadConfig = { configurable: { thread_id: "test-thread-101" } };

@@ -1,15 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Copy, Check, Eye, Send, Edit3, Bot, Trash2 } from "lucide-react";
+import { Copy, Check, Eye, Send, Edit3, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { LinkedInFeed } from "@/components/LinkedInFeed";
 import { AssistantReasoning } from "./reasoning";
 import { AssistantAttachments, type AssistantAttachmentItem } from "./attachment";
-import { ThinkingIndicator } from "./thinking-indicator";
-import { AssistantLoadingState } from "./loading-state";
 import { AssistantErrorState } from "./error-state";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -48,7 +46,6 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
   onUploadFile,
   onChange,
   onPublish,
-  onDiscard,
   onRetry,
   onOpenSettings,
   error,
@@ -166,15 +163,6 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
               <span>Edit</span>
             </button>
           </div>
-
-          {/* Live Thinking Indicator */}
-          {isGenerating && (
-            <ThinkingIndicator
-              isThinking={true}
-              statusText={isPublishing ? "Publishing to LinkedIn" : "Drafting post"}
-              variant="pill"
-            />
-          )}
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
@@ -231,27 +219,6 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
             <span className="hidden sm:inline">{copied ? "Copied" : "Copy"}</span>
           </Button>
 
-          {/* Discard / Clear Button */}
-          {onDiscard && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-9 px-3 text-xs font-semibold border-outline-variant hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 hover:border-red-200 gap-1.5 cursor-pointer text-slate-500 transition"
-              onClick={() => {
-                if (window.confirm("Are you sure you want to discard this draft?")) {
-                  onDiscard();
-                  toast.success("Draft discarded");
-                }
-              }}
-              disabled={isControlsDisabled || (charCount === 0 && (!selectedFiles || selectedFiles.length === 0))}
-              title="Discard draft and clear workspace"
-            >
-              <Trash2 className="size-3.5" />
-              <span className="hidden sm:inline">Discard</span>
-            </Button>
-          )}
-
           {/* LinkedIn Publish Button */}
           <Button
             size="sm"
@@ -291,10 +258,8 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
         />
       )}
 
-      {/* Workspace Content: Loading State, Preview, or Edit */}
-      {isGenerating && !currentText ? (
-        <AssistantLoadingState />
-      ) : viewMode === "preview" ? (
+      {/* Workspace Content: Clean Preview or Edit (no skeleton loading card) */}
+      {viewMode === "preview" ? (
         <div
           className="w-full bg-card border border-border min-h-65 max-h-96 overflow-y-auto rounded-xl p-4 transition-colors duration-200 focus-within:ring-2 focus-within:ring-brand-blue/20"
           tabIndex={0}

@@ -15,8 +15,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { AssistantErrorState } from "@/components/assistant-ui";
-import { FileText, Sparkles } from "lucide-react";
+import { FileText, Sparkles, CheckCircle2, ExternalLink, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { SAMPLE_POST } from "@/lib/devSamplePost";
 
@@ -27,16 +28,15 @@ export default function Home() {
   const {
     customTopic, context, domain,
     draftText, streamingText, postUrl, isGenerating, isPublishing, error,
-    provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, isSettingsOpen,
-    user, token,
+    provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, liTokenExpiresAt, isSettingsOpen,
+    user,
     selectedFiles, isUploading,
     reasoningSteps,
     setCustomTopic, setContext, setDomain, setDraftText, setStreamingText,
-    handleGenerate, handlePublish, handleClearDraft,
+    handleGenerate, handlePublish, handleClearDraft, handleNewPost,
     setProvider, setApiKey, setModelName, setOllamaBaseUrl,
     setLiToken, setLiUrn, setIsSettingsOpen,
     setSelectedFiles, handleUploadFile,
-    setReasoningSteps,
   } = agentState;
 
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -52,21 +52,17 @@ export default function Home() {
     ollamaBaseUrl,
     liToken,
     liUrn,
-    token: token || undefined,
-    onDraftReceived: (draft, steps) => {
+    onDraftReceived: (draft, _steps, tId) => {
       setDraftText(draft);
-      setStreamingText(null);
-      if (steps && steps.length > 0) {
-        setReasoningSteps(steps);
-      }
+      if (tId) localStorage.setItem("praxis_thread_id", tId);
     },
     onError: (err) => {
       toast.error(err);
     },
   });
 
-  const effectiveDraft = IS_DEV && devPreview ? SAMPLE_POST : draftText;
-  const effectiveStreaming = IS_DEV && devPreview ? null : streamingText;
+  const effectiveDraft = devPreview ? SAMPLE_POST : draftText;
+  const effectiveStreaming = devPreview ? null : streamingText;
 
   useEffect(() => {
     if (error) {
@@ -75,7 +71,7 @@ export default function Home() {
   }, [error]);
 
   const onPublishClick = () => {
-    if (provider === "gemini") {
+    if (!user && !liToken) {
       setShowLoginModal(true);
     } else {
       handlePublish();
@@ -108,16 +104,42 @@ export default function Home() {
 
           <section className="lg:col-span-3 space-y-6">
             {postUrl && (
-              <div className="bg-green-50 border border-green-200 text-green-700 p-4 rounded-xl text-sm space-y-1.5 shadow-sm animate-fade-in-up">
-                <p className="font-bold">🎉 Post published successfully!</p>
-                <a
-                  href={postUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-brand-blue hover:underline inline-flex items-center gap-1 font-semibold"
-                >
-                  View live post on LinkedIn →
-                </a>
+              <div className="bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 p-4 rounded-2xl shadow-level-1 animate-fade-in-up flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="size-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="size-5" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm text-emerald-900 dark:text-emerald-100">
+                      Post successfully published to LinkedIn!
+                    </p>
+                    <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                      Your post is now live and public on your feed.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-end sm:self-center">
+                  <a
+                    href={postUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition"
+                  >
+                    <span>View Post</span>
+                    <ExternalLink className="size-3.5" />
+                  </a>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleNewPost}
+                    className="h-8 px-3 text-xs font-semibold gap-1.5 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100/50 dark:hover:bg-emerald-900/40 cursor-pointer"
+                  >
+                    <Plus className="size-3.5" />
+                    <span>New Post</span>
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -181,6 +203,7 @@ export default function Home() {
           setLiToken={setLiToken}
           liUrn={liUrn}
           setLiUrn={setLiUrn}
+          liTokenExpiresAt={liTokenExpiresAt}
           user={user}
         />
 

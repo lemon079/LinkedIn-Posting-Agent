@@ -1,4 +1,4 @@
-import { checkConnection } from "../services/health";
+import { checkConnection } from "@/modules/agent";
 import { ChatGoogle } from "@langchain/google";
 import axios from "axios";
 

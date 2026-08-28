@@ -24,7 +24,6 @@ export const ThinkingIndicator: React.FC<ThinkingIndicatorProps> = ({
 
   useEffect(() => {
     if (!isThinking) {
-      setSeconds(0);
       return;
     }
 
@@ -33,7 +32,10 @@ export const ThinkingIndicator: React.FC<ThinkingIndicatorProps> = ({
       setSeconds(Math.floor((Date.now() - start) / 1000));
     }, 500);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      setSeconds(0);
+    };
   }, [isThinking, startTime]);
 
   if (!isThinking) return null;

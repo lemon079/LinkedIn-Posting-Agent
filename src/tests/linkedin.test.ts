@@ -1,4 +1,4 @@
-import { publishLinkedInPost } from "../services/linkedin";
+import { publishLinkedInPost } from "@/modules/linkedin";
 import axios from "axios";
 
 jest.mock("axios");

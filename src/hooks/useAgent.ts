@@ -1,279 +1,162 @@
-import { useState, useEffect, useRef } from "react";
-import axios from "axios";
-import { publishPost, fetchUserSettings, saveUserSettings } from "../lib/api";
-import { getApiBaseUrl } from "../lib/api/config";
-import { supabase } from "../lib/supabase";
-import { DEFAULT_OLLAMA_URL } from "../lib/constants";
-import type { User } from "@supabase/supabase-js";
-import { cleanErrorMessage } from "../lib/utils";
-import type { ErrorWithResponsePayload } from "../interfaces";
-
-import { isDesktopApp } from "../lib/desktop";
-
-const getSafeLocalStorage = (key: string, fallback: string): string => {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem(key) || fallback;
-  }
-  return fallback;
-};
+import { useState, useEffect } from "react";
+import { publishPost } from "@/lib/api";
+import { getApiBaseUrl } from "@/lib/api/config";
+import { cleanErrorMessage } from "@/lib/utils";
+import type { CustomKeys } from "@/types";
+import { useAgentSettings } from "./useAgentSettings";
+import { useAgentMedia } from "./useAgentMedia";
 
 export function useAgent() {
-  const [customTopic, setCustomTopic] = useState(() => getSafeLocalStorage("praxis_custom_topic", ""));
-  const [context, setContext] = useState(() => getSafeLocalStorage("praxis_context", ""));
-  const [domain, setDomain] = useState(() => getSafeLocalStorage("praxis_domain", "auto"));
-  const [draftText, setDraftText] = useState<string | null>(() => {
-    const saved = getSafeLocalStorage("praxis_draft_text", "");
-    return saved || null;
-  });
+  const [customTopic, setCustomTopic] = useState("");
+  const [context, setContext] = useState("");
+  const [domain, setDomain] = useState("auto");
+  const [draftText, setDraftText] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState<string | null>(null);
-  const [threadId, setThreadId] = useState<string | null>(() => {
-    const saved = getSafeLocalStorage("praxis_thread_id", "");
-    return saved || null;
-  });
+  const [threadId, setThreadId] = useState<string | null>(null);
   const [postUrl, setPostUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"preview" | "edit">("preview");
-  const [reasoningSteps, setReasoningSteps] = useState<Array<{ title: string; output: string }>>(() => {
-    const json = getSafeLocalStorage("praxis_reasoning_steps", "");
-    if (json) {
-      try { return JSON.parse(json); } catch { return []; }
-    }
-    return [];
-  });
+  const [reasoningSteps, setReasoningSteps] = useState<Array<{ title: string; output: string }>>([]);
   const [status, setStatus] = useState({ gen: false, pub: false, err: null as string | null });
-  const [selectedFiles, setSelectedFiles] = useState<Array<{ name: string; type: string; storagePath?: string; readUrl?: string; base64?: string; }>>(() => {
-    const json = getSafeLocalStorage("praxis_selected_files", "");
-    if (json) {
-      try { return JSON.parse(json); } catch { return []; }
-    }
-    return [];
-  });
-  const [uploadingCount, setUploadingCount] = useState(0);
-  const isUploading = uploadingCount > 0;
 
-  const [provider, setProviderState] = useState(() => {
-    return getSafeLocalStorage("llm_provider", "gemini");
-  });
+  // Sub-hooks
+  const settings = useAgentSettings();
+  const media = useAgentMedia(settings.token);
 
-  const setProvider = (val: string) => {
-    setProviderState(val);
-  };
-  const [apiKey, setApiKey] = useState(() => getSafeLocalStorage("llm_api_key", ""));
-  const [modelName, setModelName] = useState(() => getSafeLocalStorage("llm_model", ""));
-  const [ollamaBaseUrl, setOllamaBaseUrl] = useState(() => getSafeLocalStorage("ollama_base_url", DEFAULT_OLLAMA_URL));
-
-  const [liToken, setLiToken] = useState(() => getSafeLocalStorage("li_token", ""));
-  const [liUrn, setLiUrn] = useState(() => getSafeLocalStorage("li_urn", ""));
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-
-  // Authentication State
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const pendingOAuth = useRef<{ token: string; urn: string } | null>(null);
-
-  // 1. Fetch user settings from Supabase
+  // Hydrate workspace state from localStorage on client mount
   useEffect(() => {
-    const fetchSettings = async (t: string) => {
-      try {
-        const settings = await fetchUserSettings(t);
-        setProvider(settings.provider || "gemini");
-        setApiKey(settings.apiKey || "");
-        setModelName(settings.modelName || "");
-        setOllamaBaseUrl(settings.ollamaBaseUrl || DEFAULT_OLLAMA_URL);
-        setLiToken((prev) => settings.liToken || prev);
-        setLiUrn((prev) => settings.liUrn || prev);
-      } catch (err) {
-        console.error("Error loading user settings from PostgreSQL:", err);
+    if (typeof window === "undefined") return;
+
+    queueMicrotask(() => {
+      const savedTopic = localStorage.getItem("praxis_custom_topic");
+      if (savedTopic) setCustomTopic(savedTopic);
+
+      const savedContext = localStorage.getItem("praxis_context");
+      if (savedContext) setContext(savedContext);
+
+      const savedDomain = localStorage.getItem("praxis_domain");
+      if (savedDomain) setDomain(savedDomain);
+
+      const savedDraft = localStorage.getItem("praxis_draft_text");
+      if (savedDraft) setDraftText(savedDraft);
+
+      const savedThread = localStorage.getItem("praxis_thread_id");
+      if (savedThread) setThreadId(savedThread);
+
+      const savedSteps = localStorage.getItem("praxis_reasoning_steps");
+      if (savedSteps) {
+        try {
+          setReasoningSteps(JSON.parse(savedSteps));
+        } catch {}
       }
-    };
-
-    if (token) {
-      fetchSettings(token);
-    }
-  }, [token]);
-
-  // 2. Load auth session
-  useEffect(() => {
-    if (!supabase) return;
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setToken(session?.access_token ?? null);
     });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setToken(session?.access_token ?? null);
-    });
-
-    return () => subscription.unsubscribe();
   }, []);
 
-  // 3. Flush pending LinkedIn OAuth credentials once Supabase session is ready
+  // Automatically persist draft and workspace state across page reloads
   useEffect(() => {
-    if (!token || !pendingOAuth.current) return;
-
-    const { token: oauthToken, urn: oauthUrn } = pendingOAuth.current;
-    pendingOAuth.current = null;
-
-    saveUserSettings({
-      provider, apiKey, modelName, ollamaBaseUrl,
-      liToken: oauthToken,
-      liUrn: oauthUrn,
-    }, token).catch((e) => console.error("Error saving OAuth settings to PostgreSQL:", e));
-  }, [token, provider, apiKey, modelName, ollamaBaseUrl]);
-
-  // 4. Save settings locally or to Postgres when settings panel is closed
-  const prevSettingsOpen = useRef(isSettingsOpen);
-  useEffect(() => {
-    if (prevSettingsOpen.current && !isSettingsOpen) {
-      if (token) {
-        saveUserSettings({ provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn }, token)
-          .catch((e) => console.error("Error saving user settings to PostgreSQL on close:", e));
-      } else {
-        localStorage.setItem("llm_provider", provider);
-        localStorage.setItem("llm_api_key", apiKey);
-        localStorage.setItem("llm_model", modelName);
-        localStorage.setItem("ollama_base_url", ollamaBaseUrl);
-        localStorage.setItem("li_token", liToken);
-        localStorage.setItem("li_urn", liUrn);
-      }
-    }
-    prevSettingsOpen.current = isSettingsOpen;
-  }, [isSettingsOpen, provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, token]);
-
-  // 5. Intercept LinkedIn OAuth callback tokens from URL query parameters
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const oauthToken = params.get("li_token");
-    const oauthUrn = params.get("li_urn");
-    const email = params.get("email");
-    const otp = params.get("otp");
-
-    if (!oauthToken || !oauthUrn) return;
-
-    if (email && otp && supabase) {
-      supabase.auth.verifyOtp({ email, token: otp, type: "magiclink" })
-        .catch((e) => console.error("Error verifying OTP from redirect:", e));
-    }
-
-    setTimeout(() => {
-      setLiToken(oauthToken);
-      setLiUrn(oauthUrn);
-    }, 0);
-    localStorage.setItem("li_token", oauthToken);
-    localStorage.setItem("li_urn", oauthUrn);
-
-    if (token) {
-      saveUserSettings({
-        provider, apiKey, modelName, ollamaBaseUrl,
-        liToken: oauthToken,
-        liUrn: oauthUrn,
-      }, token).catch((e) => console.error("Error saving OAuth settings to PostgreSQL:", e));
-    } else {
-      pendingOAuth.current = { token: oauthToken, urn: oauthUrn };
-    }
-
-    const url = new URL(window.location.href);
-    url.searchParams.delete("li_token");
-    url.searchParams.delete("li_urn");
-    url.searchParams.delete("email");
-    url.searchParams.delete("otp");
-    window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
-  }, [token, provider, apiKey, modelName, ollamaBaseUrl]);
-
-  // 6. Automatically persist draft and workspace state across page reloads
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !settings.isHydrated.current) return;
     localStorage.setItem("praxis_custom_topic", customTopic);
-  }, [customTopic]);
+  }, [customTopic, settings.isHydrated]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !settings.isHydrated.current) return;
     localStorage.setItem("praxis_context", context);
-  }, [context]);
+  }, [context, settings.isHydrated]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !settings.isHydrated.current) return;
     localStorage.setItem("praxis_domain", domain);
-  }, [domain]);
+  }, [domain, settings.isHydrated]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (draftText !== null && draftText !== "") {
+    if (typeof window === "undefined" || !settings.isHydrated.current) return;
+    if (draftText) {
       localStorage.setItem("praxis_draft_text", draftText);
     } else {
       localStorage.removeItem("praxis_draft_text");
     }
-  }, [draftText]);
+  }, [draftText, settings.isHydrated]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (threadId !== null && threadId !== "") {
+    if (typeof window === "undefined" || !settings.isHydrated.current) return;
+    if (threadId) {
       localStorage.setItem("praxis_thread_id", threadId);
     } else {
       localStorage.removeItem("praxis_thread_id");
     }
-  }, [threadId]);
+  }, [threadId, settings.isHydrated]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (reasoningSteps && reasoningSteps.length > 0) {
+    if (typeof window === "undefined" || !settings.isHydrated.current) return;
+    if (reasoningSteps.length > 0) {
       localStorage.setItem("praxis_reasoning_steps", JSON.stringify(reasoningSteps));
     } else {
       localStorage.removeItem("praxis_reasoning_steps");
     }
-  }, [reasoningSteps]);
+  }, [reasoningSteps, settings.isHydrated]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (selectedFiles && selectedFiles.length > 0) {
-      localStorage.setItem("praxis_selected_files", JSON.stringify(selectedFiles));
-    } else {
-      localStorage.removeItem("praxis_selected_files");
-    }
-  }, [selectedFiles]);
-
-  const customKeys = { provider, apiKey, liToken, liUrn, modelName, ollamaBaseUrl, token: token || undefined };
-
-  const handleGenerate = async () => {
+  const handleGenerate = async (customInstruction?: string) => {
     setStatus({ gen: true, pub: false, err: null });
-    setDraftText(null); setPostUrl(null); setSelectedFiles([]); setStreamingText(null);
+    setDraftText(null);
+    setStreamingText("");
+    setPostUrl(null);
     setReasoningSteps([]);
+
     try {
-      const topic = customTopic;
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
-      if (customKeys.provider) headers["x-llm-provider"] = customKeys.provider;
-      if (customKeys.apiKey) headers["x-llm-api-key"] = customKeys.apiKey;
-      if (customKeys.modelName) headers["x-llm-model"] = customKeys.modelName;
-      if (customKeys.ollamaBaseUrl) headers["x-ollama-url"] = customKeys.ollamaBaseUrl;
-      if (customKeys.liToken) headers["x-linkedin-token"] = customKeys.liToken;
-      if (customKeys.liUrn) headers["x-linkedin-urn"] = customKeys.liUrn;
-      if (customKeys.token) headers["Authorization"] = `Bearer ${customKeys.token}`;
+
+      if (settings.token) {
+        headers["Authorization"] = `Bearer ${settings.token}`;
+      } else {
+        if (settings.provider) headers["x-llm-provider"] = settings.provider;
+        if (settings.apiKey) headers["x-llm-api-key"] = settings.apiKey;
+        if (settings.modelName) headers["x-llm-model"] = settings.modelName;
+        if (settings.ollamaBaseUrl) headers["x-ollama-base-url"] = settings.ollamaBaseUrl;
+      }
 
       const response = await fetch(`${getApiBaseUrl()}/api/draft`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ topic, context, domain: domain === "auto" ? null : domain }),
+        body: JSON.stringify({
+          topic: customTopic || undefined,
+          context: context
+            ? `${context}${customInstruction ? `\n\nInstructions: ${customInstruction}` : ""}`
+            : customInstruction || undefined,
+          domain: domain === "auto" ? undefined : domain,
+          keys: {
+            provider: settings.provider,
+            apiKey: settings.apiKey || undefined,
+            modelName: settings.modelName || undefined,
+            ollamaBaseUrl: settings.ollamaBaseUrl || undefined,
+          },
+        }),
       });
 
       if (!response.ok) {
-        throw new Error(await response.text());
+        if (response.status === 401) {
+          settings.setToken(null);
+          settings.setUser(null);
+          throw new Error("Your session has expired. Please sign in again.");
+        }
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("ReadableStream not supported in this browser.");
+      if (!response.body) {
+        throw new Error("No response body received from stream");
+      }
 
+      const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      setActiveTab("edit");
 
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
+        const lines = buffer.split("\n\n");
         buffer = lines.pop() || "";
 
         for (const line of lines) {
@@ -284,13 +167,13 @@ export function useAgent() {
             if (event.type === "thread") {
               setThreadId(event.threadId);
             } else if (event.type === "node_start") {
-              setReasoningSteps(prev => {
-                if (prev.some(s => s.title === event.title)) return prev;
+              setReasoningSteps((prev) => {
+                if (prev.some((s) => s.title === event.title)) return prev;
                 return [...prev, { title: event.title, output: "" }];
               });
             } else if (event.type === "token" || event.type === "thinking") {
-              setReasoningSteps(prev => {
-                const stepIdx = prev.findIndex(s => s.title === event.node);
+              setReasoningSteps((prev) => {
+                const stepIdx = prev.findIndex((s) => s.title === event.node);
                 if (stepIdx === -1) {
                   return [...prev, { title: event.node, output: event.text }];
                 }
@@ -301,8 +184,6 @@ export function useAgent() {
                 };
                 return next;
               });
-            } else if (event.type === "node_end") {
-              // Node complete
             } else if (event.type === "final") {
               setStreamingText(event.draft);
               setReasoningSteps(event.reasoningSteps || []);
@@ -316,104 +197,66 @@ export function useAgent() {
       }
     } catch (err: unknown) {
       const rawMsg = err instanceof Error ? err.message : "Unknown error";
-      setStatus(p => ({ ...p, err: cleanErrorMessage(rawMsg) }));
+      setStatus((p) => ({ ...p, err: cleanErrorMessage(rawMsg) }));
     } finally {
-      setStatus(p => ({ ...p, gen: false }));
+      setStatus((p) => ({ ...p, gen: false }));
     }
   };
 
-  const handlePublish = async () => {
-    if (!threadId || !draftText) return;
+  const handlePublish = async (contentToPublish?: string) => {
+    const finalContent =
+      contentToPublish !== undefined ? contentToPublish : draftText || streamingText;
+    if (!finalContent) {
+      setStatus((p) => ({ ...p, err: "No draft content to publish." }));
+      return;
+    }
+    if (!threadId) {
+      setStatus((p) => ({ ...p, err: "No active thread ID. Please generate a draft first." }));
+      return;
+    }
+
     setStatus({ gen: false, pub: true, err: null });
+
     try {
-      const data = await publishPost(threadId, draftText, customKeys, selectedFiles.length > 0 ? selectedFiles : undefined);
-      setPostUrl(data.postUrl || null); setDraftText(null); setThreadId(null); setSelectedFiles([]);
+      const keysPayload: CustomKeys = settings.token
+        ? {
+            token: settings.token,
+            liToken: settings.liToken || undefined,
+            liUrn: settings.liUrn || undefined,
+          }
+        : {
+            liToken: settings.liToken || undefined,
+            liUrn: settings.liUrn || undefined,
+          };
+
+      const res = await publishPost(threadId, finalContent, keysPayload, media.selectedFiles);
+
+      if (res.error) {
+        setStatus((p) => ({ ...p, err: res.error || "Publishing failed." }));
+      } else if (res.postUrl) {
+        setPostUrl(res.postUrl);
+        media.clearFiles();
+      }
     } catch (err: unknown) {
-      const rawMsg = err instanceof Error ? err.message : "Unknown error";
-      setStatus(p => ({ ...p, err: cleanErrorMessage(rawMsg) }));
+      const axiosErr = err as { response?: { status?: number } };
+      if (axiosErr.response?.status === 401) {
+        settings.setToken(null);
+        settings.setUser(null);
+        setStatus((p) => ({ ...p, err: "Your session has expired. Please sign in again." }));
+        return;
+      }
+      const rawMsg = err instanceof Error ? err.message : "Failed to publish post.";
+      setStatus((p) => ({ ...p, err: cleanErrorMessage(rawMsg) }));
     } finally {
-      setStatus(p => ({ ...p, pub: false }));
+      setStatus((p) => ({ ...p, pub: false }));
     }
   };
 
-  const handleUploadFile = async (file: File) => {
-    setUploadingCount(prev => prev + 1);
-    setStatus(p => ({ ...p, err: null }));
-    try {
-      if (!supabase) {
-        // Fallback: local mode (base64)
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (typeof reader.result === "string") {
-            setSelectedFiles(prev => [...prev, {
-              name: file.name,
-              type: file.type,
-              base64: reader.result as string,
-            }]);
-          }
-        };
-        reader.readAsDataURL(file);
-        return;
-      }
-
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-
-      let signData;
-      try {
-        const signRes = await axios.get(
-          `${getApiBaseUrl()}/api/media/upload/sign?filename=${encodeURIComponent(file.name)}&mimeType=${encodeURIComponent(file.type)}`,
-          { headers }
-        );
-        signData = signRes.data;
-      } catch (err: unknown) {
-        const axiosError = err as { response?: { data?: { error?: string } }; message?: string };
-        const errText = axiosError.response?.data?.error || axiosError.message;
-        throw new Error(`Failed to get signed URL: ${errText}`);
-      }
-
-      if (signData.localMode) {
-        // Fallback: local mode (base64)
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (typeof reader.result === "string") {
-            setSelectedFiles(prev => [...prev, {
-              name: file.name,
-              type: file.type,
-              base64: reader.result as string,
-            }]);
-          }
-        };
-        reader.readAsDataURL(file);
-        return;
-      }
-
-      try {
-        await axios.put(signData.uploadUrl, file, {
-          headers: {
-            "Content-Type": file.type
-          }
-        });
-      } catch (err: unknown) {
-        const axiosError = err as ErrorWithResponsePayload;
-        const errText = axiosError.response?.data ? String(axiosError.response.data) : axiosError.message;
-        throw new Error(`Failed to upload file to storage: ${errText}`);
-      }
-
-      setSelectedFiles(prev => [...prev, {
-        name: file.name,
-        type: file.type,
-        storagePath: signData.storagePath,
-        readUrl: signData.readUrl
-      }]);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Unknown upload error";
-      setStatus(p => ({ ...p, err: cleanErrorMessage(msg) }));
-    } finally {
-      setUploadingCount(prev => Math.max(0, prev - 1));
-    }
+  const handleUploadFile = (file: File) => {
+    setStatus((p) => ({ ...p, err: null }));
+    media.handleUploadFile(file, (msg) => {
+      setStatus((p) => ({ ...p, err: msg }));
+    });
   };
 
   const handleClearDraft = () => {
@@ -421,27 +264,76 @@ export function useAgent() {
     setStreamingText(null);
     setThreadId(null);
     setReasoningSteps([]);
-    setSelectedFiles([]);
+    media.clearFiles();
     if (typeof window !== "undefined") {
       localStorage.removeItem("praxis_draft_text");
       localStorage.removeItem("praxis_thread_id");
       localStorage.removeItem("praxis_reasoning_steps");
-      localStorage.removeItem("praxis_selected_files");
+    }
+  };
+
+  const handleNewPost = () => {
+    setPostUrl(null);
+    setDraftText(null);
+    setStreamingText(null);
+    setThreadId(null);
+    setReasoningSteps([]);
+    media.clearFiles();
+    setCustomTopic("");
+    setContext("");
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("praxis_draft_text");
+      localStorage.removeItem("praxis_thread_id");
+      localStorage.removeItem("praxis_reasoning_steps");
+      localStorage.removeItem("praxis_custom_topic");
+      localStorage.removeItem("praxis_context");
     }
   };
 
   return {
-    customTopic, context, domain, draftText, streamingText, threadId, postUrl, activeTab,
-    isGenerating: status.gen, isPublishing: status.pub, error: status.err,
-    provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, isSettingsOpen,
-    user, token,
-    selectedFiles, isUploading,
+    customTopic,
+    context,
+    domain,
+    draftText,
+    streamingText,
+    threadId,
+    postUrl,
+    activeTab,
+    isGenerating: status.gen,
+    isPublishing: status.pub,
+    error: status.err,
+    provider: settings.provider,
+    apiKey: settings.apiKey,
+    modelName: settings.modelName,
+    ollamaBaseUrl: settings.ollamaBaseUrl,
+    liToken: settings.liToken,
+    liUrn: settings.liUrn,
+    liTokenExpiresAt: settings.liTokenExpiresAt,
+    isSettingsOpen: settings.isSettingsOpen,
+    user: settings.user,
+    token: settings.token,
+    selectedFiles: media.selectedFiles,
+    isUploading: media.isUploading,
     reasoningSteps,
-    setCustomTopic, setContext, setDomain, setDraftText, setStreamingText, setActiveTab,
-    setProvider, setApiKey, setModelName, setOllamaBaseUrl,
-    setLiToken, setLiUrn, setIsSettingsOpen,
-    setSelectedFiles,
+    setCustomTopic,
+    setContext,
+    setDomain,
+    setDraftText,
+    setStreamingText,
+    setActiveTab,
+    setProvider: settings.setProvider,
+    setApiKey: settings.setApiKey,
+    setModelName: settings.setModelName,
+    setOllamaBaseUrl: settings.setOllamaBaseUrl,
+    setLiToken: settings.setLiToken,
+    setLiUrn: settings.setLiUrn,
+    setIsSettingsOpen: settings.setIsSettingsOpen,
+    setSelectedFiles: media.setSelectedFiles,
     setReasoningSteps,
-    handleGenerate, handlePublish, handleUploadFile, handleClearDraft,
+    handleGenerate,
+    handlePublish,
+    handleUploadFile,
+    handleClearDraft,
+    handleNewPost,
   };
 }

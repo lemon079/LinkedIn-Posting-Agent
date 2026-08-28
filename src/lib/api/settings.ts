@@ -1,4 +1,4 @@
-import type { UserSettings } from "@/interfaces";
+import type { UserSettings } from "@/types";
 import { apiFetch } from "./client";
 
 export async function fetchUserSettings(token: string): Promise<UserSettings> {

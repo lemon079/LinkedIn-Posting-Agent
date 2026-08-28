@@ -1,45 +1,85 @@
 import { NextResponse } from "next/server";
-import { handleLinkedInCallback } from "@/services/auth";
+import { handleLinkedInCallback } from "@/modules/auth";
+import { logger } from "@/lib/logger";
+
+const log = logger.child({ module: "OAuthCallback" });
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
+  const state = searchParams.get("state");
   const error = searchParams.get("error");
   const error_description = searchParams.get("error_description");
 
   const baseUrl = new URL(request.url).origin;
 
   if (error) {
-    return NextResponse.redirect(`${baseUrl}/?error=${encodeURIComponent(String(error_description || error))}`);
+    const errorMsg = String(error_description || error);
+    log.error(`OAuth provider error received`, { error: errorMsg });
+    return NextResponse.redirect(`${baseUrl}/?error=${encodeURIComponent(errorMsg)}`);
   }
 
   if (!code) {
+    log.error(`OAuth callback missing authorization code`);
     return NextResponse.redirect(`${baseUrl}/?error=missing_code`);
   }
 
+  // 1. CSRF State Validation
+  const cookiesHeader = request.headers.get("cookie") || "";
+  const cookieMatch = cookiesHeader.match(/(?:^|;\s*)li_oauth_state=([^;]+)/);
+  const storedState = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
+
+  if (!state || !storedState || state !== storedState) {
+    log.error(`CSRF State mismatch in OAuth callback`, {
+      receivedState: state ? "PRESENT" : "MISSING",
+      storedState: storedState ? "PRESENT" : "MISSING",
+    });
+    return NextResponse.redirect(`${baseUrl}/?error=invalid_oauth_state`);
+  }
+
   try {
+    log.info(`Exchanging authorization code for credentials`);
     const result = await handleLinkedInCallback(code, baseUrl);
 
-    if (result.localMode) {
-      return NextResponse.redirect(
-        `${baseUrl}/?li_token=${encodeURIComponent(result.accessToken)}&li_urn=${encodeURIComponent(result.personUrn)}`
-      );
-    }
+    // Always redirect directly back to the originating instance (e.g. localhost:3000)
+    // Never redirect through Supabase's actionLink directly as it will bounce to the production Site URL.
+    const response = NextResponse.redirect(`${baseUrl}/`);
 
-    if (baseUrl.includes("localhost") && result.emailOtp && result.email) {
-      return NextResponse.redirect(
-        `${baseUrl}/?li_token=${encodeURIComponent(result.accessToken)}&li_urn=${encodeURIComponent(result.personUrn)}&email=${encodeURIComponent(result.email)}&otp=${encodeURIComponent(result.emailOtp)}`
-      );
-    }
+    // Clear the CSRF state cookie
+    response.cookies.set("li_oauth_state", "", {
+      path: "/",
+      maxAge: 0,
+      httpOnly: true,
+      sameSite: "lax",
+    });
 
-    if (result.actionLink) {
-      return NextResponse.redirect(result.actionLink);
-    }
+    // Base64 encode the payload to ensure 100% cookie safety across all browsers and runtime decoders
+    const payload = JSON.stringify({
+      token: result.accessToken,
+      urn: result.personUrn,
+      expiresAt: result.expiresAt,
+      email: result.email,
+      otp: result.emailOtp,
+    });
+    const base64Payload = Buffer.from(payload, "utf-8").toString("base64");
 
-    throw new Error("Invalid callback state");
+    response.cookies.set("praxis_oauth_handoff", base64Payload, {
+      path: "/",
+      maxAge: 300, // 5 minute one-time handoff window
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: false, // Readable by client app during initialization
+    });
+
+    log.info(`OAuth flow completed successfully, redirecting to origin`, {
+      baseUrl,
+      localMode: Boolean(result.localMode),
+    });
+
+    return response;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown authorization error";
-    console.error(`[API] OAuth Callback failed: ${msg}`);
+    log.error(`OAuth Callback failed`, { error: msg });
     return NextResponse.redirect(`${baseUrl}/?error=${encodeURIComponent(msg)}`);
   }
 }

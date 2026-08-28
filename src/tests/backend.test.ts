@@ -8,38 +8,42 @@ import { POST as draftPost } from "@/app/api/draft/route";
 import { POST as publishPost } from "@/app/api/publish/route";
 import { GET as settingsGet, POST as settingsPost } from "@/app/api/user/settings/route";
 import { GET as mediaUploadSign } from "@/app/api/media/upload/sign/route";
-import { checkConnection } from "@/services/health";
-import { agent } from "@/graph";
-import { verifyAuth, getSupabaseClient } from "@/services/supabase";
-import { getSignedUploadUrl } from "@/services/storage";
-import { encrypt } from "@/services/crypto";
+import { agent, checkConnection } from "@/modules/agent";
+import { verifyAuth, getSupabaseClient } from "@/lib/supabase/server";
+import { getSignedUploadUrl } from "@/modules/media";
+import { encrypt } from "@/modules/auth";
 
-jest.mock("@/services/health");
-jest.mock("@/graph", () => ({
+jest.mock("@/modules/agent", () => ({
   agent: {
     invoke: jest.fn(),
     getState: jest.fn(),
     updateState: jest.fn(),
     streamEvents: jest.fn(),
   },
+  publishPost: jest.fn(),
+  checkConnection: jest.fn(),
 }));
 
-jest.mock("@/services/supabase", () => ({
+jest.mock("@/lib/supabase/server", () => ({
   verifyAuth: jest.fn(),
   getSupabaseClient: jest.fn(),
 }));
 
-jest.mock("@/services/storage", () => ({
+jest.mock("@/modules/media", () => ({
   getSignedUploadUrl: jest.fn(),
   deleteStorageFile: jest.fn(),
 }));
 
-jest.mock("@/services/crypto", () => ({
-  encrypt: (val: string) => `encrypted-${val}`,
-  decrypt: (val: string) => (val ? val.replace("encrypted-", "") : ""),
-  safeEncrypt: (val: string) => `encrypted-${val}`,
-  safeDecrypt: (val: string) => (val ? val.replace("encrypted-", "") : ""),
-}));
+jest.mock("@/modules/auth", () => {
+  const actual = jest.requireActual("@/modules/auth");
+  return {
+    ...actual,
+    encrypt: (val: string) => `encrypted-${val}`,
+    decrypt: (val: string) => (val ? val.replace("encrypted-", "") : ""),
+    safeEncrypt: (val: string) => `encrypted-${val}`,
+    safeDecrypt: (val: string) => (val ? val.replace("encrypted-", "") : ""),
+  };
+});
 
 describe("Backend API Endpoints", () => {
   beforeEach(() => {
@@ -150,7 +154,7 @@ describe("Backend API Endpoints", () => {
         body: JSON.stringify({
           provider: "gemini",
           apiKey: "my-key",
-          modelName: "gemini-3.5-flash",
+          modelName: "gemini-3.7-flash",
           ollamaBaseUrl: "http://localhost",
         }),
       });
@@ -173,8 +177,8 @@ describe("Backend API Endpoints", () => {
         }
       });
       (agent.getState as jest.Mock).mockResolvedValue({
-        values: { 
-          postContent: "Mock Draft content", 
+        values: {
+          postContent: "Mock Draft content",
           error: null,
           reasoningSteps: [{ title: "Outline & Planning", output: "Planning output" }]
         },
@@ -314,6 +318,7 @@ describe("Backend API Endpoints", () => {
       (verifyAuth as jest.Mock).mockResolvedValue({ id: "user-123" });
       const request = new Request("http://localhost/api/media/upload/sign?filename=test.png&mimeType=image/png", {
         method: "GET",
+        headers: { Authorization: "Bearer test-token" },
       });
       (getSignedUploadUrl as jest.Mock).mockResolvedValue({ localMode: true });
 
@@ -345,6 +350,7 @@ describe("Backend API Endpoints", () => {
 
       const request = new Request("http://localhost/api/media/upload/sign?filename=test.png&mimeType=image/png", {
         method: "GET",
+        headers: { Authorization: "Bearer test-token" },
       });
       const response = await mediaUploadSign(request);
       expect(response.status).toBe(200);

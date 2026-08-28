@@ -1,4 +1,4 @@
-import type { HealthResponse } from "@/interfaces";
+import type { HealthResponse } from "@/types";
 import { getApiBaseUrl } from "./config";
 
 export async function healthCheck(

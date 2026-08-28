@@ -12,6 +12,7 @@ const config = {
         "<rootDir>/src/tests/agent.unit.test.ts",
         "<rootDir>/src/tests/agent.integration.test.ts",
         "<rootDir>/src/tests/agent.evals.test.ts",
+        "<rootDir>/src/tests/logger.test.ts",
       ],
       moduleNameMapper: {
         "^@/(.*)$": "<rootDir>/src/$1",

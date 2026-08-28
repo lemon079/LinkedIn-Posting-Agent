@@ -1,4 +1,4 @@
-import type { CustomKeys } from "@/interfaces";
+import type { CustomKeys } from "@/types";
 
 export function buildApiHeaders(keys?: CustomKeys): Record<string, string> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };

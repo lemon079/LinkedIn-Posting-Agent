@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
-import { Check, Loader2, Circle, ChevronDown, Sparkles } from "lucide-react";
+import React from "react";
+import { Check, Loader2, Circle, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { MarkdownText } from "./markdown-text";
 
 export interface TimelineStep {
   id?: string;
@@ -25,13 +24,7 @@ export const ElementsTimeline: React.FC<ElementsTimelineProps> = ({
   className,
   ...props
 }) => {
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
-
   if (!steps || steps.length === 0) return null;
-
-  const toggleStep = (index: number) => {
-    setExpandedIndex((prev) => (prev === index ? null : index));
-  };
 
   return (
     <div
@@ -45,19 +38,16 @@ export const ElementsTimeline: React.FC<ElementsTimelineProps> = ({
         const isLast = idx === steps.length - 1;
         const isCurrentRunning = isStreaming && isLast;
         const status = step.status || (isCurrentRunning ? "running" : "completed");
-        const isExpanded = expandedIndex === idx || (isCurrentRunning && step.output);
-        const hasContent = Boolean(step.output && step.output.trim().length > 0);
-        const charCount = step.output ? step.output.length : 0;
 
         return (
-          <div key={idx} className="relative flex gap-3 group">
+          <div key={idx} className="relative flex items-center gap-3 py-1.5">
             {/* Timeline Vertical Track Connector */}
             {!isLast && (
               <div
                 className={cn(
-                  "absolute left-3 top-6 bottom-0 w-px -ml-px transition-colors duration-300",
+                  "absolute left-3 top-5 -bottom-1.5 w-px -ml-px transition-colors duration-300",
                   status === "completed"
-                    ? "bg-slate-200 dark:bg-slate-800"
+                    ? "bg-emerald-200 dark:bg-emerald-950/60"
                     : "bg-slate-200 dark:bg-slate-800"
                 )}
               />
@@ -66,7 +56,7 @@ export const ElementsTimeline: React.FC<ElementsTimelineProps> = ({
             {/* Step Status Icon Node */}
             <div className="relative z-10 flex size-6 shrink-0 items-center justify-center rounded-full bg-card">
               {status === "running" ? (
-                <div className="size-5 rounded-full bg-brand-blue/10 flex items-center justify-center text-brand-blue">
+                <div className="size-5 rounded-full bg-brand-blue/10 flex items-center justify-center text-brand-blue ring-2 ring-brand-blue/20">
                   <Loader2 className="size-3 animate-spin" />
                 </div>
               ) : status === "completed" ? (
@@ -80,58 +70,32 @@ export const ElementsTimeline: React.FC<ElementsTimelineProps> = ({
               )}
             </div>
 
-            {/* Step Body */}
-            <div className="flex-1 pb-4 min-w-0">
-              <div
-                onClick={() => hasContent && toggleStep(idx)}
+            {/* Step Heading Only — No Internal Reasoning Text */}
+            <div className="flex-1 flex items-center justify-between gap-2 min-w-0">
+              <span
                 className={cn(
-                  "flex items-center justify-between gap-2 py-0.5 rounded-md transition",
-                  hasContent ? "cursor-pointer hover:bg-muted/40 px-1 -mx-1" : ""
+                  "font-medium text-xs truncate transition-colors",
+                  status === "running"
+                    ? "text-brand-blue font-semibold"
+                    : status === "completed"
+                      ? "text-slate-800 dark:text-slate-200"
+                      : "text-slate-500 dark:text-slate-400"
                 )}
               >
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span
-                    className={cn(
-                      "font-semibold text-xs truncate",
-                      status === "running"
-                        ? "text-brand-blue"
-                        : "text-slate-800 dark:text-slate-200"
-                    )}
-                  >
-                    {step.title}
-                  </span>
+                {step.title}
+              </span>
 
-                  {status === "running" && (
-                    <span className="flex items-center gap-1 text-[10px] text-brand-blue font-medium">
-                      <Sparkles className="size-2.5 animate-pulse" />
-                      <span className="hidden sm:inline">Executing</span>
-                    </span>
-                  )}
-                </div>
+              {status === "running" && (
+                <span className="flex items-center gap-1 text-[10px] text-brand-blue font-medium shrink-0 bg-brand-blue/10 px-2 py-0.5 rounded-full animate-pulse">
+                  <Sparkles className="size-2.5" />
+                  <span>Processing</span>
+                </span>
+              )}
 
-                <div className="flex items-center gap-2 shrink-0">
-                  {charCount > 0 && (
-                    <span className="font-mono text-[10px] text-muted-foreground">
-                      {charCount.toLocaleString()} chars
-                    </span>
-                  )}
-
-                  {hasContent && (
-                    <ChevronDown
-                      className={cn(
-                        "size-3 text-slate-400 transition-transform duration-200",
-                        isExpanded && "rotate-180"
-                      )}
-                    />
-                  )}
-                </div>
-              </div>
-
-              {/* Expandable Step Output */}
-              {hasContent && isExpanded && (
-                <div className="mt-2 pl-2 border-l border-slate-200 dark:border-slate-800 animate-fade-in max-h-48 overflow-y-auto pr-1 text-xs text-slate-600 dark:text-slate-400 leading-relaxed custom-scrollbar">
-                  <MarkdownText className="text-xs">{step.output!}</MarkdownText>
-                </div>
+              {status === "completed" && (
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium shrink-0">
+                  Done
+                </span>
               )}
             </div>
           </div>

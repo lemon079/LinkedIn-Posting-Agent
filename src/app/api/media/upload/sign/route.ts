@@ -1,51 +1,65 @@
 import { NextResponse } from "next/server";
-import { getRequestAuth } from "@/lib/server/auth";
-import { getSignedUploadUrl } from "@/services/storage";
+import { getRequestAuth } from "@/modules/auth";
+import { getSignedUploadUrl } from "@/modules/media";
+import { logger } from "@/lib/logger";
 
 export async function GET(request: Request) {
+  const startTime = Date.now();
   const requestId = Date.now().toString();
-  console.log(`[API-Sign][${requestId}] Incoming GET request received.`);
+  const log = logger.child({ module: "API-MediaSign", requestId });
+
+  log.info(`Incoming signed upload URL request received`);
   try {
     const { searchParams } = new URL(request.url);
     const filename = searchParams.get("filename");
     const mimeType = searchParams.get("mimeType");
 
     if (!filename || !mimeType) {
-      console.error(`[API-Sign][${requestId}] Validation error: Missing filename or mimeType.`);
+      log.error(`Validation error: Missing filename or mimeType`);
       return NextResponse.json({ error: "Missing filename or mimeType" }, { status: 400 });
     }
 
-    const { user } = await getRequestAuth(request);
+    const { user, authError } = await getRequestAuth(request);
+    if (authError) {
+      log.warn(`Rejecting media sign request with expired or invalid auth token`, { error: authError });
+      return NextResponse.json({ error: "Session expired. Please sign in again." }, { status: 401 });
+    }
     if (!user) {
-      console.error(`[API-Sign][${requestId}] Auth error: User is not authenticated.`);
+      log.error(`Authentication error: User is not authenticated`);
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    console.log(`[API-Sign][${requestId}] Requesting signed URL for user: ${user.id}, file: "${filename}"`);
+    log.info(`Requesting signed URL`, { userId: user.id, filename, mimeType });
     const result = await getSignedUploadUrl(filename, mimeType, user.id);
+    const durationMs = Date.now() - startTime;
 
     if (result.localMode) {
-      console.log(`[API-Sign][${requestId}] Local mode detected (Supabase client not initialized).`);
+      log.info(`Local mode detected (Supabase client not initialized)`, { durationMs });
       return NextResponse.json({ localMode: true });
     }
 
     if (result.error || !result.uploadUrl) {
-      console.error(`[API-Sign][${requestId}] Service call failed:`, result.error);
+      log.error(`Service call failed to generate signed URL`, { error: result.error, durationMs });
       return NextResponse.json(
         { error: result.error || "Failed to generate signed URL" },
         { status: 500 }
       );
     }
 
-    console.log(`[API-Sign][${requestId}] Signed URL successfully retrieved. Path: "${result.storagePath}"`);
+    log.info(`Signed upload URL successfully generated`, {
+      storagePath: result.storagePath,
+      userId: user.id,
+      durationMs,
+    });
     return NextResponse.json({
       uploadUrl: result.uploadUrl,
       storagePath: result.storagePath,
-      readUrl: result.readUrl
+      readUrl: result.readUrl,
     });
   } catch (err: unknown) {
+    const durationMs = Date.now() - startTime;
     const msg = err instanceof Error ? err.message : "Unknown error";
-    console.error(`[API-Sign][${requestId}] Execution error: ${msg}`);
+    log.error(`Media sign handler failed`, { error: msg, durationMs });
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

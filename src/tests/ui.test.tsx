@@ -21,23 +21,14 @@ jest.mock("@assistant-ui/react-markdown", () => ({
 }));
 
 jest.mock("@assistant-ui/react-markdown/styles/dot.css", () => ({}));
-jest.mock("remark-gfm", () => () => {});
+jest.mock("remark-gfm", () => () => { });
 
 jest.mock("../hooks/useAgentRuntime", () => ({
   useAgentRuntime: jest.fn().mockReturnValue({}),
 }));
 
 // Mock Supabase to prevent real client initialization
-jest.mock("../lib/supabase", () => ({
-  supabase: {
-    auth: {
-      getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
-      onAuthStateChange: jest.fn().mockReturnValue({ data: { subscription: { unsubscribe: jest.fn() } } }),
-    },
-  },
-}));
-
-jest.mock("@/lib/supabase", () => ({
+jest.mock("@/lib/supabase/client", () => ({
   supabase: {
     auth: {
       getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
@@ -82,7 +73,7 @@ describe("Frontend Dashboard UI", () => {
     activeTab: "preview",
     provider: "gemini",
     apiKey: "",
-    modelName: "gemini-3.5-flash",
+    modelName: "gemini-3.7-flash",
     ollamaBaseUrl: "http://localhost:11434",
     liToken: "",
     liUrn: "",

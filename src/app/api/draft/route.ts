@@ -1,32 +1,53 @@
 import { NextResponse } from "next/server";
-import { agent } from "@/graph/index";
+import { agent } from "@/modules/agent";
 import { config } from "@/config/env";
-import { getRequestAuth } from "@/lib/server/auth";
-import { resolveAgentCredentials } from "@/lib/server/settings";
+import { getRequestAuth } from "@/modules/auth";
+import { resolveAgentCredentials } from "@/modules/user";
 import { redactSecrets } from "@/lib/utils";
-import type { DraftRequest } from "@/interfaces/draft";
-import type { StreamEvent } from "@/interfaces/stream";
+import { logger } from "@/lib/logger";
+import type { DraftRequest } from "@/modules/agent/types";
+import type { StreamEvent } from "@/types";
+
+// ── Node name → user-facing step title mapping ──────────────────────────
+const NODE_TITLES: Record<string, string> = {
+  analyzeIntake: "Analyzing Your Input",
+  generateDraft: "Writing First Draft",
+  critiqueDraft: "Self-Critiquing Draft",
+  refineDraft: "Refining Based on Feedback",
+};
+
+// Nodes whose streaming events we forward to the client
+const STREAMABLE_NODES = new Set(Object.keys(NODE_TITLES));
 
 export async function POST(request: Request) {
+  const startTime = Date.now();
   const requestId = Date.now().toString();
-  console.log(`[API-Draft][${requestId}] Incoming POST request received.`);
+  const log = logger.child({ module: "API-Draft", requestId });
+
+  log.info(`Incoming draft generation request received`);
 
   try {
     const body: DraftRequest = await request.json();
     const { customTopic, context: userContext, domain, keys } = body;
 
     const topic = (customTopic && customTopic.trim()) || (body.topic && body.topic.trim()) || "";
-    console.log(`[API-Draft][${requestId}] Resolved topic: "${topic}"`);
-    if (userContext) {
-      console.log(`[API-Draft][${requestId}] Custom context provided (${userContext.length} chars).`);
+    log.info(`Request parameters resolved`, {
+      topic,
+      hasContext: Boolean(userContext),
+      contextLengthChars: userContext?.length || 0,
+      domain: domain || "auto",
+    });
+
+    const { client, user, authError } = await getRequestAuth(request);
+    if (authError) {
+      log.warn(`Rejecting request with expired or invalid auth token`, { error: authError });
+      return NextResponse.json({ error: "Session expired. Please sign in again." }, { status: 401 });
     }
 
-    const { client, user } = await getRequestAuth(request);
-    if (user) {
-      console.log(`[API-Draft][${requestId}] User authenticated: ${user.id}`);
-    } else {
-      console.log(`[API-Draft][${requestId}] Anonymous user (Local Mode).`);
-    }
+    log.info(`Auth context resolved`, {
+      userId: user?.id || "anonymous",
+      authenticated: Boolean(user),
+    });
 
     const creds = await resolveAgentCredentials(request, client, user?.id);
     const provider = keys?.provider || creds.provider || config.defaultProvider;
@@ -34,12 +55,17 @@ export async function POST(request: Request) {
     const apiKey = keys?.apiKey || creds.apiKey;
     const ollamaBaseUrl = keys?.ollamaBaseUrl || creds.ollamaUrl;
 
-    console.log(`[API-Draft][${requestId}] Resolved credentials - Provider: ${provider}, Model: ${model}, ApiKey: ${apiKey ? "PRESENT" : "MISSING"}`);
+    log.info(`LLM credentials resolved`, {
+      provider,
+      model,
+      hasApiKey: Boolean(apiKey),
+    });
 
     const initialState = {
       topic,
       context: userContext || "",
       domain: domain || null,
+      userId: user?.id || null,
       llmProvider: provider,
       llmApiKey: apiKey,
       llmModel: model,
@@ -49,7 +75,7 @@ export async function POST(request: Request) {
     const threadId = Date.now().toString();
     const threadConfig = { configurable: { thread_id: threadId } };
 
-    console.log(`[API-Draft][${requestId}] Invoking streaming agent graph for thread ID: ${threadId}...`);
+    log.info(`Starting agent streaming execution`, { threadId });
 
     const responseStream = new ReadableStream({
       async start(controller) {
@@ -65,6 +91,15 @@ export async function POST(request: Request) {
           const eventStream = agent.streamEvents(initialState, {
             version: "v2",
             configurable: threadConfig.configurable,
+            runName: "praxis-draft-pipeline",
+            tags: ["praxis", "linkedin-agent", domain || "general", provider || "google"],
+            metadata: {
+              userId: user?.id || "anonymous",
+              threadId,
+              topic: topic || "untitled",
+              provider,
+              model,
+            },
           });
 
           let currentStepTitle = "";
@@ -72,11 +107,8 @@ export async function POST(request: Request) {
           for await (const event of eventStream) {
             if (event.event === "on_chain_start") {
               const nodeName = event.name;
-              if (["generateDraft", "reviewAndRefine"].includes(nodeName)) {
-                let title = "";
-                if (nodeName === "generateDraft") title = "Planning & Drafting";
-                else if (nodeName === "reviewAndRefine") title = "Review & Polish";
-
+              if (STREAMABLE_NODES.has(nodeName)) {
+                const title = NODE_TITLES[nodeName];
                 currentStepTitle = title;
                 sendEvent({ type: "node_start", node: nodeName, title });
               }
@@ -97,27 +129,42 @@ export async function POST(request: Request) {
               }
             } else if (event.event === "on_chain_end") {
               const nodeName = event.name;
-              if (["generateDraft", "reviewAndRefine"].includes(nodeName)) {
+              if (STREAMABLE_NODES.has(nodeName)) {
                 sendEvent({ type: "node_end", node: nodeName, title: currentStepTitle });
               }
             }
           }
 
           const state = await agent.getState(threadConfig);
+          const durationMs = Date.now() - startTime;
+
           if (state.values.error) {
+            log.error(`Agent completed with error`, { error: state.values.error, durationMs });
             sendEvent({ type: "error", message: redactSecrets(state.values.error) });
           } else if (state.next?.[0] !== "publishPost") {
-            sendEvent({ type: "error", message: `Agent stopped unexpectedly. Next: ${state.next?.[0]}` });
+            const nextNode = state.next?.[0];
+            log.error(`Agent stopped unexpectedly`, { nextNode, durationMs });
+            sendEvent({ type: "error", message: `Agent stopped unexpectedly. Next: ${nextNode}` });
           } else {
+            log.info(`Agent completed successfully`, {
+              durationMs,
+              draftLengthChars: state.values.postContent?.length || 0,
+              finalScore: state.values.critique?.score,
+              critiqueCount: state.values.critiqueCount,
+            });
             sendEvent({
               type: "final",
               threadId,
               draft: state.values.postContent,
               reasoningSteps: state.values.reasoningSteps,
+              critique: state.values.critique,
+              critiqueScores: state.values.critiqueScores,
             });
           }
         } catch (err: unknown) {
+          const durationMs = Date.now() - startTime;
           const msg = err instanceof Error ? err.message : "Unknown error";
+          log.error(`Stream execution error`, { error: msg, durationMs });
           sendEvent({ type: "error", message: redactSecrets(msg) });
         } finally {
           controller.close();
@@ -130,11 +177,12 @@ export async function POST(request: Request) {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",
-      }
+      },
     });
   } catch (err: unknown) {
+    const durationMs = Date.now() - startTime;
     const msg = err instanceof Error ? err.message : "Unknown error";
-    console.error(`[API-Draft][${requestId}] Execution error encountered: ${redactSecrets(msg)}`);
+    log.error(`Draft API handler failed`, { error: msg, durationMs });
     return NextResponse.json({ error: redactSecrets(msg) }, { status: 500 });
   }
 }
