@@ -33,51 +33,81 @@ export function useAgentSettings() {
     let expiresAt: number | undefined = undefined;
     let email: string | null = null;
     let otp: string | null = null;
+    let hashedToken: string | null = null;
 
-    // Check one-time handoff cookie (supports base64, URL-encoded, or raw JSON)
-    const match = document.cookie.match(/(?:^|;\s*)praxis_oauth_handoff=([^;]+)/);
-    if (match) {
+    const parseHandoffRaw = (raw: string) => {
       try {
-        let raw = match[1];
+        let decoded = raw;
         try {
-          raw = atob(raw);
+          decoded = atob(decoded);
         } catch {
           try {
-            raw = decodeURIComponent(decodeURIComponent(raw));
+            decoded = decodeURIComponent(decodeURIComponent(decoded));
           } catch {
-            raw = decodeURIComponent(raw);
+            decoded = decodeURIComponent(decoded);
           }
         }
-        const parsed = JSON.parse(raw);
+        return JSON.parse(decoded);
+      } catch (e) {
+        console.error("Failed to decode OAuth handoff string:", e);
+        return null;
+      }
+    };
+
+    // Primary: Check URL search params for auth_handoff (robust against 302 cookie drops on live URLs)
+    const searchParams = new URLSearchParams(window.location.search);
+    const urlHandoff = searchParams.get("auth_handoff");
+    if (urlHandoff) {
+      const parsed = parseHandoffRaw(urlHandoff);
+      if (parsed) {
         oauthToken = parsed.token || null;
         oauthUrn = parsed.urn || null;
         expiresAt = parsed.expiresAt;
         email = parsed.email || null;
         otp = parsed.otp || null;
+        hashedToken = parsed.hashedToken || null;
+      }
+
+      // Immediately sanitize the URL
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete("auth_handoff");
+      window.history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+    }
+
+    // Secondary: Check one-time handoff cookie
+    if (!oauthToken) {
+      const match = document.cookie.match(/(?:^|;\s*)praxis_oauth_handoff=([^;]+)/);
+      if (match) {
+        const parsed = parseHandoffRaw(match[1]);
+        if (parsed) {
+          oauthToken = parsed.token || null;
+          oauthUrn = parsed.urn || null;
+          expiresAt = parsed.expiresAt;
+          email = parsed.email || null;
+          otp = parsed.otp || null;
+          hashedToken = parsed.hashedToken || null;
+        }
 
         // Clear handoff cookie immediately
         document.cookie =
           "praxis_oauth_handoff=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      } catch (e) {
-        console.error("Failed to parse OAuth handoff cookie:", e);
       }
     }
 
-    // Fallback check for URL query params if any legacy redirect occurs
+    // Tertiary: Fallback check for legacy individual URL query parameters
     if (!oauthToken) {
-      const params = new URLSearchParams(window.location.search);
-      oauthToken = params.get("li_token");
-      oauthUrn = params.get("li_urn");
-      email = params.get("email");
-      otp = params.get("otp");
+      oauthToken = searchParams.get("li_token");
+      oauthUrn = searchParams.get("li_urn");
+      email = searchParams.get("email");
+      otp = searchParams.get("otp");
 
       if (oauthToken) {
-        const url = new URL(window.location.href);
-        url.searchParams.delete("li_token");
-        url.searchParams.delete("li_urn");
-        url.searchParams.delete("email");
-        url.searchParams.delete("otp");
-        window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete("li_token");
+        cleanUrl.searchParams.delete("li_urn");
+        cleanUrl.searchParams.delete("email");
+        cleanUrl.searchParams.delete("otp");
+        window.history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
       }
     }
 
@@ -92,16 +122,41 @@ export function useAgentSettings() {
         localStorage.setItem("li_token", oauthToken);
         localStorage.setItem("li_urn", oauthUrn);
 
-        if (email && otp && supabase) {
-          supabase.auth
-            .verifyOtp({ email, token: otp, type: "magiclink" })
-            .then(({ data }) => {
-              if (data?.session) {
-                setUser(data.session.user);
-                setToken(data.session.access_token);
-              }
-            })
-            .catch((e) => console.error("Error verifying OTP:", e));
+        if (supabase) {
+          if (hashedToken) {
+            supabase.auth
+              .verifyOtp({ token_hash: hashedToken, type: "magiclink" })
+              .then(({ data, error }) => {
+                if (error) {
+                  console.warn("verifyOtp with hashedToken encountered an error:", error.message);
+                  if (email && otp) {
+                    supabase.auth
+                      .verifyOtp({ email, token: otp, type: "email" })
+                      .then(({ data: fallbackData }) => {
+                        if (fallbackData?.session) {
+                          setUser(fallbackData.session.user);
+                          setToken(fallbackData.session.access_token);
+                        }
+                      })
+                      .catch(() => {});
+                  }
+                } else if (data?.session) {
+                  setUser(data.session.user);
+                  setToken(data.session.access_token);
+                }
+              })
+              .catch((e) => console.error("Error verifying OTP with token hash:", e));
+          } else if (email && otp) {
+            supabase.auth
+              .verifyOtp({ email, token: otp, type: "email" })
+              .then(({ data }) => {
+                if (data?.session) {
+                  setUser(data.session.user);
+                  setToken(data.session.access_token);
+                }
+              })
+              .catch((e) => console.error("Error verifying email OTP:", e));
+          }
         }
       } else {
         const savedLiToken = localStorage.getItem("li_token");

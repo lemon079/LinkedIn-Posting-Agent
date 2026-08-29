@@ -5,10 +5,13 @@ import crypto from "crypto";
 export async function GET(request: Request) {
   const clientId = config.LINKEDIN_CLIENT_ID;
   const requestUrl = new URL(request.url);
-  const computedRedirectUri = `${requestUrl.origin}/api/auth/linkedin/callback`;
+  const computedRedirectUri =
+    config.LINKEDIN_REDIRECT_URI && !config.LINKEDIN_REDIRECT_URI.includes("localhost")
+      ? config.LINKEDIN_REDIRECT_URI
+      : `${requestUrl.origin}/api/auth/linkedin/callback`;
   const redirectUri = encodeURIComponent(computedRedirectUri);
 
-  if (!clientId || !config.LINKEDIN_REDIRECT_URI) {
+  if (!clientId) {
     return NextResponse.json(
       { error: "LinkedIn OAuth credentials are not configured on the server." },
       { status: 400 }

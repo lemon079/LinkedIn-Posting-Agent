@@ -127,6 +127,7 @@ export async function handleLinkedInCallback(
     expiresAt,
     actionLink: linkData.properties.action_link,
     emailOtp: linkData.properties.email_otp,
+    hashedToken: linkData.properties.hashed_token,
     email,
   };
 }

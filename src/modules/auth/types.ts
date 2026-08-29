@@ -5,6 +5,7 @@ export interface LinkedInCallbackResult {
   localMode?: boolean;
   actionLink?: string;
   emailOtp?: string;
+  hashedToken?: string;
   email?: string;
 }
 
@@ -14,6 +15,7 @@ export interface LinkedInCallbackResponse {
   localMode?: boolean;
   actionLink?: string;
   emailOtp?: string;
+  hashedToken?: string;
   email?: string;
   error?: string;
 }

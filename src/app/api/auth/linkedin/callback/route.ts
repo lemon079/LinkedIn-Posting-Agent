@@ -41,9 +41,22 @@ export async function GET(request: Request) {
     log.info(`Exchanging authorization code for credentials`);
     const result = await handleLinkedInCallback(code, baseUrl);
 
-    // Always redirect directly back to the originating instance (e.g. localhost:3000)
-    // Never redirect through Supabase's actionLink directly as it will bounce to the production Site URL.
-    const response = NextResponse.redirect(`${baseUrl}/`);
+    // Base64 encode the payload to ensure 100% safety across all browsers and runtime decoders
+    const payload = JSON.stringify({
+      token: result.accessToken,
+      urn: result.personUrn,
+      expiresAt: result.expiresAt,
+      email: result.email,
+      otp: result.emailOtp,
+      hashedToken: result.hashedToken,
+    });
+    const base64Payload = Buffer.from(payload, "utf-8").toString("base64");
+
+    // Dual-channel handoff: URL parameter + Cookie for guaranteed delivery on both localhost and live production
+    const redirectUrl = new URL(`${baseUrl}/`);
+    redirectUrl.searchParams.set("auth_handoff", base64Payload);
+
+    const response = NextResponse.redirect(redirectUrl.toString());
 
     // Clear the CSRF state cookie
     response.cookies.set("li_oauth_state", "", {
@@ -52,16 +65,6 @@ export async function GET(request: Request) {
       httpOnly: true,
       sameSite: "lax",
     });
-
-    // Base64 encode the payload to ensure 100% cookie safety across all browsers and runtime decoders
-    const payload = JSON.stringify({
-      token: result.accessToken,
-      urn: result.personUrn,
-      expiresAt: result.expiresAt,
-      email: result.email,
-      otp: result.emailOtp,
-    });
-    const base64Payload = Buffer.from(payload, "utf-8").toString("base64");
 
     response.cookies.set("praxis_oauth_handoff", base64Payload, {
       path: "/",
