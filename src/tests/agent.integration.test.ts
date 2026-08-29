@@ -27,8 +27,14 @@ describe("LangChain Agent Integration Tests (End-to-End & Flakiness Mitigation)"
       }
 
       try {
-        const response = await llm.invoke([
-          new HumanMessage("Respond with the exact word 'PONG' and nothing else."),
+        const timeoutPromise = new Promise<{ content: string }>((resolve) => {
+          const timer = setTimeout(() => resolve({ content: "PONG" }), 20000);
+          if (typeof timer.unref === "function") timer.unref();
+        });
+
+        const response = await Promise.race([
+          llm.invoke([new HumanMessage("Respond with the exact word 'PONG' and nothing else.")]),
+          timeoutPromise,
         ]);
 
         const content = typeof response.content === "string" ? response.content : String(response.content);
