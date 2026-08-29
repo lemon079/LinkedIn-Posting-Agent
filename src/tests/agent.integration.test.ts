@@ -70,7 +70,7 @@ describe("LangChain Agent Integration Tests (End-to-End & Flakiness Mitigation)"
 
       for await (const event of eventStream) {
         if (event.event === "on_chain_start") {
-          if (["analyzeIntake", "generateDraft", "critiqueDraft", "refineDraft", "promoteBestDraft", "runGuardrails", "validatePost"].includes(event.name)) {
+          if (["analyzeIntake", "generateDraft", "critiqueDraft", "refineDraft", "promoteBestDraft", "guardrail", "validatePost"].includes(event.name)) {
             executedNodes.push(event.name);
           }
         }

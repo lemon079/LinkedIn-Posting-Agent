@@ -17,11 +17,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { AssistantErrorState } from "@/components/assistant-ui";
-import { FileText, Sparkles, CheckCircle2, ExternalLink, Plus } from "lucide-react";
+import { FileText, CheckCircle2, ExternalLink, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { SAMPLE_POST } from "@/lib/devSamplePost";
-
-const IS_DEV = process.env.NODE_ENV === "development";
 
 export default function Home() {
   const agentState = useAgent();
@@ -40,7 +37,6 @@ export default function Home() {
   } = agentState;
 
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [devPreview, setDevPreview] = useState(false);
 
   const runtime = useAgentRuntime({
     customTopic,
@@ -60,9 +56,6 @@ export default function Home() {
       toast.error(err);
     },
   });
-
-  const effectiveDraft = devPreview ? SAMPLE_POST : draftText;
-  const effectiveStreaming = devPreview ? null : streamingText;
 
   useEffect(() => {
     if (error) {
@@ -143,7 +136,7 @@ export default function Home() {
               </div>
             )}
 
-            {error && !isGenerating && effectiveDraft === null && (
+            {error && !isGenerating && draftText === null && (
               <div className="mb-4">
                 <AssistantErrorState
                   error={error}
@@ -153,11 +146,11 @@ export default function Home() {
               </div>
             )}
 
-            {isGenerating || effectiveStreaming !== null || effectiveDraft !== null ? (
+            {isGenerating || streamingText !== null || draftText !== null ? (
               <div className="space-y-4 animate-fade-in-up">
                 <EditorPanel
-                  draftText={effectiveDraft}
-                  streamingText={effectiveStreaming}
+                  draftText={draftText}
+                  streamingText={streamingText}
                   isGenerating={isGenerating}
                   onStreamingComplete={() => {
                     setDraftText(streamingText);
@@ -220,19 +213,6 @@ export default function Home() {
             />
           </DialogContent>
         </Dialog>
-
-        {/* Development preview toggle */}
-        {IS_DEV && (
-          <div className="fixed bottom-4 right-4 z-50">
-            <button
-              onClick={() => setDevPreview((v) => !v)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-900 text-slate-200 border border-slate-700 shadow-lg hover:bg-slate-800 transition cursor-pointer"
-            >
-              <Sparkles className="size-3 text-brand-blue" />
-              Dev Preview: {devPreview ? "ON" : "OFF"}
-            </button>
-          </div>
-        )}
       </div>
     </AssistantRuntimeProvider>
   );

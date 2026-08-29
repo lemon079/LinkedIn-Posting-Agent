@@ -117,7 +117,7 @@ describe("LangChain Agent Evals (Trajectory & Output Evaluation)", () => {
       topic: "Postgres Autovacuum Tuning",
       context: "Discuss dead tuples and scale factor",
       domain: "engineering",
-      expectedTrajectory: ["generateDraft", "reviewAndRefine", "runGuardrails", "validatePost"],
+      expectedTrajectory: ["analyzeIntake", "generateDraft", "critiqueDraft", "refineDraft", "promoteBestDraft", "guardrail", "validatePost"],
       prohibitedKeywords: ["game-changer", "synergy"],
     },
     {
@@ -125,7 +125,7 @@ describe("LangChain Agent Evals (Trajectory & Output Evaluation)", () => {
       topic: "React Suspense Network Waterfalls",
       context: "Nested vs parent route fetches",
       domain: "engineering",
-      expectedTrajectory: ["generateDraft", "reviewAndRefine", "runGuardrails", "validatePost"],
+      expectedTrajectory: ["analyzeIntake", "generateDraft", "critiqueDraft", "refineDraft", "promoteBestDraft", "guardrail", "validatePost"],
       prohibitedKeywords: ["delve", "leverage"],
     },
   ];
@@ -136,19 +136,19 @@ describe("LangChain Agent Evals (Trajectory & Output Evaluation)", () => {
 
   describe("1. Trajectory Evaluator Tests", () => {
     it("should pass trajectory evaluation for standard post creation workflow", () => {
-      const recordedSteps = ["generateDraft", "reviewAndRefine", "runGuardrails", "validatePost"];
-      const result = evaluateTrajectory(recordedSteps, ["generateDraft", "reviewAndRefine", "runGuardrails", "validatePost"]);
+      const recordedSteps = ["analyzeIntake", "generateDraft", "critiqueDraft", "refineDraft", "promoteBestDraft", "guardrail", "validatePost"];
+      const result = evaluateTrajectory(recordedSteps, ["analyzeIntake", "generateDraft", "critiqueDraft", "refineDraft", "promoteBestDraft", "guardrail", "validatePost"]);
 
       expect(result.passed).toBe(true);
       expect(result.reason).toContain("matched expected node sequence");
     });
 
     it("should fail trajectory evaluation if guardrails step is skipped", () => {
-      const recordedSteps = ["generateDraft", "reviewAndRefine", "validatePost"];
-      const result = evaluateTrajectory(recordedSteps, ["generateDraft", "reviewAndRefine", "runGuardrails", "validatePost"]);
+      const recordedSteps = ["analyzeIntake", "generateDraft", "critiqueDraft", "refineDraft", "promoteBestDraft", "validatePost"];
+      const result = evaluateTrajectory(recordedSteps, ["analyzeIntake", "generateDraft", "critiqueDraft", "refineDraft", "promoteBestDraft", "guardrail", "validatePost"]);
 
       expect(result.passed).toBe(false);
-      expect(result.reason).toContain("missing expected node step 'runGuardrails'");
+      expect(result.reason).toContain("missing expected node step 'guardrail'");
     });
 
     it("should evaluate trajectory for guardrail rejection on unsafe state", async () => {
@@ -209,7 +209,7 @@ Avoid blind configuration defaults in production environments.
 #engineering #${tc.domain}`;
 
         const trajResult = evaluateTrajectory(
-          ["generateDraft", "reviewAndRefine", "runGuardrails", "validatePost"],
+          ["analyzeIntake", "generateDraft", "critiqueDraft", "refineDraft", "promoteBestDraft", "guardrail", "validatePost"],
           tc.expectedTrajectory
         );
         const qualityResult = judgePostQuality(sampleGeneratedDraft);

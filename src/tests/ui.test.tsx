@@ -90,6 +90,7 @@ describe("Frontend Dashboard UI", () => {
     setActiveTab: jest.fn(),
     handleGenerate: jest.fn(),
     handlePublish: jest.fn(),
+    handleNewPost: jest.fn(),
     setProvider: jest.fn(),
     setApiKey: jest.fn(),
     setModelName: jest.fn(),

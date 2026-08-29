@@ -41,6 +41,7 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
     llmModel: "mock-model",
     ollamaBaseUrl: null,
     mediaFiles: null,
+    userId: ""
   };
 
   afterEach(() => {
@@ -249,7 +250,7 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
 
   describe("5. promoteBestDraft Node & Telemetry", () => {
     it("should promote bestDraft to postContent and emit telemetry", async () => {
-      const consoleSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+      const consoleSpy = jest.spyOn(console, "log").mockImplementation(() => { });
 
       const state: State = {
         ...baseState,

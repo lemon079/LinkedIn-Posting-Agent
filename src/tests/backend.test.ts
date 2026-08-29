@@ -143,7 +143,11 @@ describe("Backend API Endpoints", () => {
       const mockUser = { id: "test-user-id" };
       const mockSupabase = {
         from: jest.fn().mockReturnThis(),
-        upsert: jest.fn().mockResolvedValue({ error: null }),
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+        insert: jest.fn().mockResolvedValue({ error: null }),
+        update: jest.fn().mockResolvedValue({ error: null }),
       };
 
       (verifyAuth as jest.Mock).mockResolvedValue(mockUser);
