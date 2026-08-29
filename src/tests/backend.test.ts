@@ -34,6 +34,13 @@ jest.mock("@/modules/media", () => ({
   deleteStorageFile: jest.fn(),
 }));
 
+jest.mock("@/modules/auth/crypto", () => ({
+  encrypt: (val: string) => `encrypted-${val}`,
+  decrypt: (val: string) => (val ? val.replace("encrypted-", "") : ""),
+  safeEncrypt: (val: string) => `encrypted-${val}`,
+  safeDecrypt: (val: string) => (val ? val.replace("encrypted-", "") : ""),
+}));
+
 jest.mock("@/modules/auth", () => {
   const actual = jest.requireActual("@/modules/auth");
   return {

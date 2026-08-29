@@ -8,6 +8,9 @@ export async function invokeWithTimeout<T>(
     timeoutHandle = setTimeout(() => {
       reject(new Error(`LLM invocation timed out after ${timeoutMs}ms`));
     }, timeoutMs);
+    if (typeof timeoutHandle.unref === "function") {
+      timeoutHandle.unref();
+    }
   });
 
   try {
