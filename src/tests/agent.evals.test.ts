@@ -169,8 +169,8 @@ describe("LangChain Agent Evals (Trajectory & Output Evaluation)", () => {
     it("should give high quality score (1.0) to well-formatted LinkedIn post", () => {
       const highQualityPost = `Kafka consumer group rebalances tank throughput if max.poll.interval.ms is misconfigured.
 
-We faced this during high load when database writes slowed down.
-Tuning max.poll.records to 50 fixed the issue.
+A common challenge occurs when downstream database transactions slow down during peak load.
+Tuning max.poll.records to 50 resolves the issue.
 
 #kafka #backend #systemdesign`;
 
