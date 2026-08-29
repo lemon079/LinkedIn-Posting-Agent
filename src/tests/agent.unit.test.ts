@@ -82,7 +82,7 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
       const result = await analyzeIntake({
         ...baseState,
         domain: null,
-        activeDomain: null,
+        activeDomain: "general",
         topic: "Candidate interview process and hiring rubrics",
         context: "Onboarding engineers",
       });

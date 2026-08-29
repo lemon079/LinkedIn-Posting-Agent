@@ -99,7 +99,7 @@ describe("Observability & Structured Logger Tests", () => {
 
     it("should output valid JSON in production environment", () => {
       const origEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = "production";
+      (process.env as Record<string, string | undefined>).NODE_ENV = "production";
 
       try {
         const logger = new Logger({ module: "ProdService" }, "info");
@@ -116,7 +116,7 @@ describe("Observability & Structured Logger Tests", () => {
         expect(parsed.apiKey).toBe("[REDACTED]");
         expect(parsed.timestamp).toBeDefined();
       } finally {
-        process.env.NODE_ENV = origEnv;
+        (process.env as Record<string, string | undefined>).NODE_ENV = origEnv;
       }
     });
 

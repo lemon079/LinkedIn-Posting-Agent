@@ -87,7 +87,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: redactSecrets(finalState.error) }, { status: 500 });
           }
 
-          postUrl = finalState?.postUrl;
+          postUrl = finalState?.postUrl || undefined;
         }
       } catch (graphErr: unknown) {
         log.warn(`Graph state resumption encountered an issue`, {
@@ -114,7 +114,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: redactSecrets(directResult.error) }, { status: 500 });
       }
 
-      postUrl = directResult.postUrl;
+      postUrl = directResult.postUrl || undefined;
     }
 
     if (!postUrl) {
