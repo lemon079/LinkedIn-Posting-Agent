@@ -41,7 +41,7 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
     llmModel: "mock-model",
     ollamaBaseUrl: null,
     mediaFiles: null,
-    userId: ""
+    userId: "",
   };
 
   afterEach(() => {
@@ -81,6 +81,8 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
 
       const result = await analyzeIntake({
         ...baseState,
+        domain: null,
+        activeDomain: null,
         topic: "Candidate interview process and hiring rubrics",
         context: "Onboarding engineers",
       });
