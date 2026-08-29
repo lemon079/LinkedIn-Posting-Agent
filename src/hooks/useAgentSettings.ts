@@ -122,15 +122,16 @@ export function useAgentSettings() {
         localStorage.setItem("li_token", oauthToken);
         localStorage.setItem("li_urn", oauthUrn);
 
-        if (supabase) {
+        const client = supabase;
+        if (client) {
           if (hashedToken) {
-            supabase.auth
+            client.auth
               .verifyOtp({ token_hash: hashedToken, type: "magiclink" })
               .then(({ data, error }) => {
                 if (error) {
                   console.warn("verifyOtp with hashedToken encountered an error:", error.message);
                   if (email && otp) {
-                    supabase.auth
+                    client.auth
                       .verifyOtp({ email, token: otp, type: "email" })
                       .then(({ data: fallbackData }) => {
                         if (fallbackData?.session) {
@@ -147,7 +148,7 @@ export function useAgentSettings() {
               })
               .catch((e) => console.error("Error verifying OTP with token hash:", e));
           } else if (email && otp) {
-            supabase.auth
+            client.auth
               .verifyOtp({ email, token: otp, type: "email" })
               .then(({ data }) => {
                 if (data?.session) {
