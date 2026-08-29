@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { fetchUserSettings, saveUserSettings } from "@/lib/api";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { fetchUserSettings, saveUserSettings, disconnectLinkedIn } from "@/lib/api";
 import { supabase } from "@/lib/supabase/client";
 import { DEFAULT_OLLAMA_URL } from "@/lib/constants";
 import type { User } from "@supabase/supabase-js";
@@ -186,25 +186,75 @@ export function useAgentSettings() {
     });
   }, []);
 
-  // 1. Fetch user settings from Supabase
+  const localSettingsRef = useRef({
+    provider,
+    apiKey,
+    modelName,
+    ollamaBaseUrl,
+    liToken,
+    liUrn,
+    liTokenExpiresAt,
+  });
+  useEffect(() => {
+    localSettingsRef.current = {
+      provider,
+      apiKey,
+      modelName,
+      ollamaBaseUrl,
+      liToken,
+      liUrn,
+      liTokenExpiresAt,
+    };
+  }, [provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, liTokenExpiresAt]);
+
+  // 1. Fetch user settings from Supabase & Atomic Uplift on sign-in
   useEffect(() => {
     const fetchSettings = async (t: string) => {
       try {
         const settings = await fetchUserSettings(t);
-        setProvider(settings.provider || "gemini");
-        setApiKey(settings.apiKey || "");
-        setModelName(settings.modelName || "");
-        setOllamaBaseUrl(settings.ollamaBaseUrl || DEFAULT_OLLAMA_URL);
-        setLiToken((prev) => settings.liToken || prev);
-        setLiUrn((prev) => settings.liUrn || prev);
+        const local = localSettingsRef.current;
+
+        const cloudHasLLM = Boolean(settings.apiKey || settings.modelName);
+        if (cloudHasLLM) {
+          if (settings.provider) setProvider(settings.provider);
+          setApiKey(settings.apiKey || "");
+          setModelName(settings.modelName || "");
+          if (settings.ollamaBaseUrl) setOllamaBaseUrl(settings.ollamaBaseUrl);
+        } else {
+          // Atomic Uplift: If cloud row is empty for LLM keys but local state has them, uplift to cloud
+          const localHasLLM = Boolean(local.apiKey || local.modelName || (local.provider && local.provider !== "gemini"));
+          if (localHasLLM) {
+            saveUserSettings(
+              {
+                provider: local.provider,
+                apiKey: local.apiKey,
+                modelName: local.modelName,
+                ollamaBaseUrl: local.ollamaBaseUrl,
+                liToken: settings.liToken || local.liToken,
+                liUrn: settings.liUrn || local.liUrn,
+                liTokenExpiresAt: settings.liTokenExpiresAt || local.liTokenExpiresAt,
+              },
+              t
+            ).catch(() => {});
+          }
+        }
+
+        if (settings.liToken) setLiToken(settings.liToken);
+        if (settings.liUrn) setLiUrn(settings.liUrn);
         if (settings.liTokenExpiresAt) {
           setLiTokenExpiresAt(settings.liTokenExpiresAt);
-          localStorage.setItem("li_token_expires_at", String(settings.liTokenExpiresAt));
+        }
+
+        // Clean up sensitive plaintext credentials from localStorage in Cloud Mode
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("li_token");
+          localStorage.removeItem("li_urn");
+          localStorage.removeItem("li_token_expires_at");
+          localStorage.removeItem("llm_api_key");
         }
       } catch (err: unknown) {
         const axiosErr = err as { response?: { status?: number } };
         if (axiosErr.response?.status === 401) {
-          // Token expired, clear invalid session token
           setToken(null);
           setUser(null);
         }
@@ -279,6 +329,48 @@ export function useAgentSettings() {
     prevSettingsOpen.current = isSettingsOpen;
   }, [isSettingsOpen, provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, liTokenExpiresAt, token]);
 
+  // 5. Atomic Purge / Teardown on Sign-Out
+  const handleSignOut = useCallback(async () => {
+    setUser(null);
+    setToken(null);
+    setLiToken("");
+    setLiUrn("");
+    setLiTokenExpiresAt(undefined);
+    setApiKey("");
+
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("li_token");
+      localStorage.removeItem("li_urn");
+      localStorage.removeItem("li_token_expires_at");
+      localStorage.removeItem("llm_api_key");
+      document.cookie =
+        "praxis_oauth_handoff=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    }
+
+    if (supabase) {
+      await supabase.auth.signOut().catch(() => {});
+    }
+  }, []);
+
+  // 6. Dedicated LinkedIn Disconnect Action
+  const handleDisconnectLinkedIn = useCallback(async () => {
+    if (token) {
+      await disconnectLinkedIn(token).catch((e) => {
+        console.error("Failed to disconnect LinkedIn from cloud account:", e);
+      });
+    }
+
+    setLiToken("");
+    setLiUrn("");
+    setLiTokenExpiresAt(undefined);
+
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("li_token");
+      localStorage.removeItem("li_urn");
+      localStorage.removeItem("li_token_expires_at");
+    }
+  }, [token]);
+
   return {
     provider,
     setProvider,
@@ -300,5 +392,7 @@ export function useAgentSettings() {
     token,
     setToken,
     isHydrated,
+    handleSignOut,
+    handleDisconnectLinkedIn,
   };
 }

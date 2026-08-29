@@ -34,6 +34,7 @@ export default function Home() {
     setProvider, setApiKey, setModelName, setOllamaBaseUrl,
     setLiToken, setLiUrn, setIsSettingsOpen,
     setSelectedFiles, handleUploadFile,
+    handleSignOut, handleDisconnectLinkedIn,
   } = agentState;
 
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -79,6 +80,8 @@ export default function Home() {
             if (!isGenerating) setIsSettingsOpen(true);
           }}
           disabled={isGenerating}
+          user={user}
+          liToken={liToken}
         />
 
         <main className="flex-1 p-6 max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-5 gap-3 lg:gap-6 items-start">
@@ -198,6 +201,8 @@ export default function Home() {
           setLiUrn={setLiUrn}
           liTokenExpiresAt={liTokenExpiresAt}
           user={user}
+          onSignOut={handleSignOut}
+          onDisconnectLinkedIn={handleDisconnectLinkedIn}
         />
 
         <Dialog open={showLoginModal} onOpenChange={(open) => setShowLoginModal(open)}>

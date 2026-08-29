@@ -335,5 +335,7 @@ export function useAgent() {
     handleUploadFile,
     handleClearDraft,
     handleNewPost,
+    handleSignOut: settings.handleSignOut,
+    handleDisconnectLinkedIn: settings.handleDisconnectLinkedIn,
   };
 }

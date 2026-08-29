@@ -20,3 +20,14 @@ export async function saveUserSettings(
     body: JSON.stringify(settings),
   }, "Failed to save settings");
 }
+
+export async function disconnectLinkedIn(
+  token: string
+): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>("/api/user/settings/linkedin", {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  }, "Failed to disconnect LinkedIn account");
+}

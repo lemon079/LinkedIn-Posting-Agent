@@ -112,6 +112,28 @@ export async function saveLinkedInCredentials(
   }
 }
 
+export async function disconnectLinkedInCredentials(
+  client: SupabaseClient<Database>,
+  userId: string
+): Promise<void> {
+  const updatePayload: UserSettingsUpdate = {
+    encrypted_linkedin_token: null,
+    linkedin_urn: null,
+    encrypted_linkedin_refresh_token: null,
+    linkedin_token_expires_at: null,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await client
+    .from("user_settings")
+    .update(updatePayload)
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 export async function saveUserSettings(
   client: SupabaseClient<Database>,
   userId: string,

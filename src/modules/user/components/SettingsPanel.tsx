@@ -16,7 +16,6 @@ import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { useMedia } from "use-media";
 import { healthCheck } from "@/lib/api";
 import { AuthForm } from "@/modules/auth/components/AuthForm";
-import { supabase } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { cleanErrorMessage } from "@/lib/utils";
 import {
@@ -30,6 +29,9 @@ import {
   User as UserIcon,
   LogOut,
   ShieldCheck,
+  Cloud,
+  HardDrive,
+  Unlink,
 } from "lucide-react";
 
 interface SettingsPanelProps {
@@ -49,6 +51,8 @@ interface SettingsPanelProps {
   setLiUrn: (val: string) => void;
   liTokenExpiresAt?: number;
   user: User | null;
+  onSignOut?: () => void;
+  onDisconnectLinkedIn?: () => void;
 }
 
 const CLOUD_MODELS: Record<string, string[]> = {
@@ -74,6 +78,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   setLiUrn,
   liTokenExpiresAt,
   user,
+  onSignOut,
+  onDisconnectLinkedIn,
 }) => {
   const [currentTime] = useState(() => Date.now());
   const daysUntilRenewal = liTokenExpiresAt
@@ -87,8 +93,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   }>({ status: "idle" });
 
   const isWide = useMedia("(min-width: 768px)");
-
   const [isCustomMode, setIsCustomMode] = useState(false);
+  const [isEditingKey, setIsEditingKey] = useState(false);
 
   useEffect(() => {
     if (provider !== "ollama" && modelName) {
@@ -132,14 +138,17 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         setOllamaModels([]);
         setOllamaFetchState({
           status: "unreachable",
-          errorMsg: response.error || "Could not connect to Ollama. Make sure it's running on your machine."
+          errorMsg: response.error || "Could not connect to Ollama. Make sure it's running on your machine.",
         });
       }
     } catch (err) {
       setOllamaModels([]);
       setOllamaFetchState({
         status: "unreachable",
-        errorMsg: err instanceof Error ? err.message : "Could not connect to Ollama. Make sure it's running on your machine."
+        errorMsg:
+          err instanceof Error
+            ? err.message
+            : "Could not connect to Ollama. Make sure it's running on your machine.",
       });
     }
   }, [provider, ollamaBaseUrl, modelName, setModelName]);
@@ -178,32 +187,61 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     }
   };
 
+  const handleDisconnect = () => {
+    if (onDisconnectLinkedIn) {
+      onDisconnectLinkedIn();
+    } else {
+      setLiToken("");
+      setLiUrn("");
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("li_token");
+        localStorage.removeItem("li_urn");
+        localStorage.removeItem("li_token_expires_at");
+      }
+    }
+  };
+
   const renderPanelBody = () => (
     <>
       {/* Header */}
-      <div className="p-6 border-b border-border bg-surface-container-low flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-brand-blue/10 text-brand-blue">
-          <Settings2 className="size-5" />
+      <div className="p-6 border-b border-border bg-surface-container-low flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-brand-blue/10 text-brand-blue">
+            <Settings2 className="size-5" />
+          </div>
+          <div>
+            {isWide ? (
+              <SheetTitle className="font-bold text-slate-900 text-lg leading-tight">
+                Account & API Settings
+              </SheetTitle>
+            ) : (
+              <DrawerTitle className="font-bold text-slate-900 text-lg leading-tight">
+                Account & API Settings
+              </DrawerTitle>
+            )}
+            <p className="text-xs text-slate-500 mt-0.5">
+              Configure your account sync, AI engine, and credentials.
+            </p>
+          </div>
         </div>
-        <div>
-          {isWide ? (
-            <SheetTitle className="font-bold text-slate-900 text-lg leading-tight">
-              Account & API Settings
-            </SheetTitle>
-          ) : (
-            <DrawerTitle className="font-bold text-slate-900 text-lg leading-tight">
-              Account & API Settings
-            </DrawerTitle>
-          )}
-          <p className="text-xs text-slate-500 mt-0.5">
-            Configure your account sync, AI engine, and search keys.
-          </p>
-        </div>
+
+        {/* Sync Mode Badge */}
+        {user ? (
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs">
+            <Cloud className="size-3.5 text-emerald-600" />
+            <span className="hidden sm:inline">Cloud Sync</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200 shadow-xs">
+            <HardDrive className="size-3.5 text-slate-500" />
+            <span className="hidden sm:inline">Local Mode</span>
+          </div>
+        )}
       </div>
 
       {/* Scrollable Form Area */}
       <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar text-slate-900 select-text">
-        {/* Section: Cloud Sync Account */}
+        {/* Section 1: Account Cloud Sync */}
         <div className="space-y-4">
           <div className="flex items-center gap-2 pb-1.5 border-b border-border">
             <UserIcon className="size-4 text-brand-blue" />
@@ -220,60 +258,89 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   <p className="text-sm font-bold text-slate-800">{user.email}</p>
                 </div>
                 <Button
-                  onClick={async () => {
-                    if (supabase) {
-                      await supabase.auth.signOut();
-                    }
-                  }}
+                  onClick={onSignOut}
                   className="bg-white hover:bg-slate-50 border border-border text-slate-700 hover:text-rose-600 hover:border-rose-200 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition duration-150 cursor-pointer"
                 >
                   <LogOut className="size-3.5" />
-                  <span className="hidden md:inline">Sign Out</span>
+                  <span>Sign Out</span>
                 </Button>
               </div>
               <p className="text-xs text-slate-500 leading-relaxed">
-                {liTokenExpiresAt
-                  ? `✓ Settings synchronized • LinkedIn connected (Auto-refresh active, ${daysUntilRenewal}d until renewal)`
-                  : "✓ Settings synchronized. Your configurations are saved securely."}
-              </p>
-            </div>
-          ) : liToken ? (
-            <div className="bg-surface-container-low border border-border p-4 rounded-xl space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <p className="text-xs font-semibold text-slate-500">LinkedIn Account</p>
-                  <p className="text-sm font-bold text-slate-800">Connected (Local Mode)</p>
-                </div>
-                <Button
-                  onClick={() => {
-                    setLiToken("");
-                    setLiUrn("");
-                    localStorage.removeItem("li_token");
-                    localStorage.removeItem("li_urn");
-                  }}
-                  className="bg-white hover:bg-slate-50 border border-border text-slate-700 hover:text-rose-600 hover:border-rose-200 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition duration-150 cursor-pointer"
-                >
-                  <LogOut className="size-3.5" />
-                  Disconnect
-                </Button>
-              </div>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Settings are saved locally in this browser. Configure Supabase environment variables on the server to enable cloud synchronization.
+                ✓ All configuration parameters are encrypted with AES-256-GCM and synchronized securely to your cloud profile.
               </p>
             </div>
           ) : (
             <div className="bg-surface-container-low border border-border p-4 rounded-xl space-y-4">
-              <AuthForm onSuccess={() => { }} />
+              <AuthForm onSuccess={() => {}} />
               <div className="border-t border-slate-200 pt-3">
                 <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                  If you proceed without signing in, settings will only be saved locally in this browser.
+                  Operating in <strong>Local Storage Mode</strong>. Sign in with LinkedIn above to enable automatic cloud backup and cross-device sync.
                 </p>
               </div>
             </div>
           )}
         </div>
 
-        {/* Section: LLM Integration */}
+        {/* Section 2: LinkedIn Connection Status */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 pb-1.5 border-b border-border">
+            <Link2 className="size-4 text-brand-blue" />
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              LinkedIn Integration
+            </h3>
+          </div>
+
+          {liToken && liUrn ? (
+            <div className="bg-emerald-50/80 border border-emerald-200 text-emerald-800 p-4 rounded-xl space-y-3 animate-fade-in-up">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2 className="size-5 text-emerald-600 shrink-0" />
+                  <div>
+                    <p className="font-bold text-sm text-emerald-950">LinkedIn Connected</p>
+                    <p className="text-xs text-emerald-700 font-mono mt-0.5 truncate max-w-[200px] sm:max-w-[280px]">
+                      {liUrn}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={handleDisconnect}
+                  className="bg-white hover:bg-rose-50 border border-rose-200 text-rose-700 hover:text-rose-800 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition duration-150 cursor-pointer"
+                >
+                  <Unlink className="size-3.5" />
+                  <span>Disconnect</span>
+                </Button>
+              </div>
+              <p className="text-xs text-emerald-700 font-normal leading-relaxed">
+                {liTokenExpiresAt
+                  ? `Active session • Auto-refresh configured (${daysUntilRenewal} days until scheduled renewal).`
+                  : "Active session connected and ready for one-click publishing."}
+              </p>
+            </div>
+          ) : (
+            <div className="bg-surface-container-low border border-border p-4 rounded-xl space-y-3 animate-fade-in-up">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <XCircle className="size-5 text-slate-400 shrink-0" />
+                  <div>
+                    <p className="font-bold text-sm text-slate-700">LinkedIn Not Connected</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Required to publish generated drafts to your feed.</p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => {
+                    window.location.href = "/api/auth/linkedin?state=login";
+                  }}
+                  className="bg-brand-blue hover:bg-brand-blue-hover text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition duration-150 cursor-pointer"
+                >
+                  <Link2 className="size-3.5" />
+                  <span>Connect</span>
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Section 3: AI Engine Settings */}
         <div className="space-y-4">
           <div className="flex items-center gap-2 pb-1.5 border-b border-border">
             <Layers className="size-4 text-brand-blue" />
@@ -307,12 +374,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   <SelectValue placeholder="Select provider" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="gemini">Google</SelectItem>
+                  <SelectItem value="gemini">Google Gemini</SelectItem>
                   <SelectItem value="openai">OpenAI</SelectItem>
                   <SelectItem value="anthropic">Anthropic</SelectItem>
-                  <SelectItem value="ollama">
-                    Ollama (Local)
-                  </SelectItem>
+                  <SelectItem value="ollama">Ollama (Local Desktop)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -333,7 +398,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   }}
                 />
                 <p className="text-xs text-slate-500">
-                  Verify Ollama is running locally or on your private network.
+                  Ensure Ollama is running locally on your desktop machine.
                 </p>
               </div>
             )}
@@ -341,55 +406,78 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             {/* API Key (Cloud Providers Only) */}
             {provider !== "ollama" && (
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">
-                  API Key
-                </Label>
-                <Input
-                  type="password"
-                  placeholder={
-                    provider === "gemini"
-                      ? "AIzaSy..."
-                      : provider === "openai"
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-slate-700">
+                    API Key
+                  </Label>
+                  {apiKey && !isEditingKey && (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingKey(true)}
+                      className="text-xs text-brand-blue hover:underline font-semibold cursor-pointer"
+                    >
+                      Update Key
+                    </button>
+                  )}
+                </div>
+
+                {apiKey && !isEditingKey ? (
+                  <div className="flex items-center justify-between p-2.5 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="size-4 text-emerald-600 shrink-0" />
+                      <span className="font-semibold text-emerald-900">API Key Configured & Encrypted</span>
+                    </div>
+                    <span className="font-mono text-xs text-slate-400 bg-white px-2 py-0.5 rounded border border-emerald-100">
+                      ••••••••••••
+                    </span>
+                  </div>
+                ) : (
+                  <Input
+                    type="password"
+                    placeholder={
+                      provider === "gemini"
+                        ? "AIzaSy..."
+                        : provider === "openai"
                         ? "sk-proj-..."
                         : "sk-ant-..."
-                  }
-                  value={apiKey}
-                  onChange={(e) => {
-                    setApiKey(e.target.value);
-                    setTestState({ status: "idle" });
-                  }}
-                />
+                    }
+                    value={apiKey}
+                    onChange={(e) => {
+                      setApiKey(e.target.value);
+                      setTestState({ status: "idle" });
+                    }}
+                  />
+                )}
+
                 <p className="text-[11px] text-slate-500 flex items-start gap-1.5 mt-1.5 leading-relaxed bg-emerald-50/60 border border-emerald-200/60 p-2 rounded-lg">
                   <ShieldCheck className="size-3.5 text-emerald-600 shrink-0 mt-0.5" />
                   <span>
-                    <strong>Safe & Encrypted:</strong> Your key is encrypted using <strong>AES-256-GCM</strong> before storage. It is never logged in server logs or exposed in response payloads.
+                    <strong>Encrypted at Rest:</strong> Encrypted using <strong>AES-256-GCM</strong>. Secrets are never logged or exposed.
                   </span>
                 </p>
               </div>
             )}
 
-            {/* Model Name Override (Ollama Only) */}
+            {/* Model Selection (Ollama) */}
             {provider === "ollama" && (
               <div className="space-y-1.5 animate-fade-in">
                 <Label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
                   <span>Model Name</span>
-                  <span className="text-xs text-slate-450 font-normal">
-                    Select local model
-                  </span>
+                  <span className="text-xs text-slate-450 font-normal">Select local model</span>
                 </Label>
 
                 {ollamaFetchState.status === "loading" && (
                   <div className="flex items-center gap-2 p-3 text-xs text-slate-500 bg-slate-50 border border-border rounded-xl">
                     <Loader2 className="size-3.5 animate-spin text-brand-blue" />
-                    Fetching local models from Ollama...
+                    Fetching models from Ollama...
                   </div>
                 )}
 
                 {ollamaFetchState.status === "unreachable" && (
                   <div className="space-y-2">
                     <div className="p-3 bg-rose-50 border border-rose-200 text-xs text-rose-800 rounded-xl space-y-1">
-                      <p className="font-semibold">⚠️ Connection Error</p>
-                      <p>{cleanErrorMessage(ollamaFetchState.errorMsg || "Could not connect to Ollama. Make sure it's running on your machine.")}</p>
+                      <p className="font-semibold">⚠️ Ollama Unreachable</p>
+                      <p>{cleanErrorMessage(ollamaFetchState.errorMsg || "Could not connect to Ollama.")}</p>
                     </div>
                     <div className="flex gap-2">
                       <Input
@@ -417,7 +505,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   <div className="space-y-2">
                     <div className="p-3 bg-amber-50 border border-amber-200 text-xs text-amber-800 rounded-xl space-y-1">
                       <p className="font-semibold">⚠️ No Models Found</p>
-                      <p>No models found on your machine. Pull a model using <code className="bg-amber-100/60 px-1 py-0.5 rounded font-mono">ollama pull &lt;model-name&gt;</code>.</p>
+                      <p>Pull a model using <code className="bg-amber-100/60 px-1 py-0.5 rounded font-mono">ollama pull llama3</code>.</p>
                     </div>
                     <div className="flex gap-2">
                       <Input
@@ -441,7 +529,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   </div>
                 )}
 
-                {(ollamaFetchState.status === "success" || (ollamaFetchState.status === "idle" && ollamaModels.length > 0)) && (
+                {(ollamaFetchState.status === "success" ||
+                  (ollamaFetchState.status === "idle" && ollamaModels.length > 0)) && (
                   <Select
                     value={modelName}
                     onValueChange={(val) => {
@@ -461,32 +550,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     </SelectContent>
                   </Select>
                 )}
-
-                {/* Available models pills (if discovered from Ollama tags) */}
-                {ollamaModels.length > 0 && (ollamaFetchState.status === "success" || ollamaFetchState.status === "idle") && (
-                  <div className="space-y-1 mt-2">
-                    <span className="text-xs text-slate-550 block font-semibold">Quick Select:</span>
-                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                      {ollamaModels.map((m) => (
-                        <button
-                          key={m}
-                          type="button"
-                          onClick={() => setModelName(m)}
-                          className={`text-xs px-2.5 py-1 rounded-full border transition duration-150 cursor-pointer ${modelName === m
-                            ? "bg-brand-blue border-brand-blue text-white font-semibold"
-                            : "bg-slate-100 border-border text-slate-650 hover:bg-slate-200 hover:border-slate-400"
-                            }`}
-                        >
-                          {m}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
-            {/* Model Name (Cloud Providers Only) */}
+            {/* Model Selection (Cloud) */}
             {provider !== "ollama" && (
               <div className="space-y-1.5 animate-fade-in">
                 <Label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
@@ -537,7 +604,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               </div>
             )}
 
-            {/* Test Connection Actions */}
+            {/* Test Connection Button */}
             <div className="pt-2">
               <Button
                 type="button"
@@ -558,7 +625,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 )}
               </Button>
 
-              {/* Connection results output */}
               {testState.status === "success" && (
                 <div className="mt-2.5 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs text-emerald-800 animate-fade-in">
                   <CheckCircle2 className="size-4 mt-0.5 shrink-0 text-emerald-600" />
@@ -581,44 +647,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             </div>
           </div>
         </div>
-
-        {/* Section: LinkedIn Integration */}
-        <div className="space-y-4 pt-2">
-          <div className="flex items-center gap-2 pb-1.5 border-b border-border">
-            <Link2 className="size-4 text-brand-blue" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              LinkedIn Account
-            </h3>
-          </div>
-
-          <div className="space-y-4">
-            {liToken && liUrn ? (
-              <div className="flex items-center gap-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-xl text-sm font-semibold animate-fade-in-up">
-                <CheckCircle2 className="size-4.5 text-emerald-600 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-emerald-900">LinkedIn Connected</p>
-                  <p className="text-xs text-slate-500 font-normal mt-0.5 font-mono truncate">{liUrn}</p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2.5 bg-slate-50 border border-border text-slate-500 p-4 rounded-xl text-sm font-semibold animate-fade-in-up">
-                <XCircle className="size-4.5 text-slate-400 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-slate-700">LinkedIn Not Connected</p>
-                  <p className="text-xs text-slate-500 font-normal mt-0.5">Please sign in to the portal using LinkedIn above.</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
 
       {/* Footer */}
       <div className="p-6 border-t border-border bg-surface-container-low/50 flex items-center justify-between">
         <p className="text-xs text-slate-500 max-w-[50%]">
           {user
-            ? "Your settings are securely saved in your cloud profile."
-            : "Your settings are saved locally in this browser."}
+            ? "Settings synchronized to your encrypted cloud profile."
+            : "Settings stored locally in this browser."}
         </p>
         <Button
           onClick={onClose}
