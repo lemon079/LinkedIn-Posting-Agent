@@ -147,18 +147,71 @@ npm run tests
 
 ```mermaid
 graph TD
-    Start([User Input: Topic + Domain + Context]) --> Analyze[1. analyzeIntake]
-    Analyze --> Generate[2. generateDraft]
-    Generate --> Critique[3. critiqueDraft]
-    Critique --> Decision{Score >= 7 or Count >= 3?}
-    Decision -- No --> Refine[4. refineDraft]
+    %% Styling & Theme
+    classDef startEnd fill:#1e293b,stroke:#64748b,stroke-width:2px,color:#f8fafc;
+    classDef processNode fill:#0f172a,stroke:#3b82f6,stroke-width:2px,color:#f8fafc;
+    classDef decisionNode fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#f8fafc;
+    classDef interruptNode fill:#451a03,stroke:#f59e0b,stroke-width:2px,color:#fef3c7;
+    classDef publishNode fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#ecfdf5;
+    classDef errorNode fill:#450a0a,stroke:#ef4444,stroke-width:2px,color:#fee2e2;
+
+    Start(["🚀 Start: User Input (Topic, Domain, Context)"]):::startEnd
+    ErrExit(["❌ End (Error / Unrecoverable)"]):::errorNode
+    Done(["🎉 Published to LinkedIn (Live URL)"]):::publishNode
+
+    subgraph Intake & Generation ["Phase 1: Intake & Generation"]
+        Analyze["1. analyzeIntake<br/><i>(Extract domain, tone & angle)</i>"]:::processNode
+        Generate["2. generateDraft<br/><i>(Primary LLM + Fast Fallback)</i>"]:::processNode
+    end
+
+    subgraph Reflection Loop ["Phase 2: Self-Critique & Refinement Loop"]
+        Critique["3. critiqueDraft<br/><i>(Structured Evaluation 1-10)</i>"]:::processNode
+        ScoreCheck{"Score >= 7<br/>OR Count >= 2?"}:::decisionNode
+        Refine["4. refineDraft<br/><i>(Apply Critique Feedback)</i>"]:::processNode
+        Promote["5. promoteBestDraft<br/><i>(Select Highest Scoring Draft)</i>"]:::processNode
+    end
+
+    subgraph Safety & Validation ["Phase 3: Safety & Constraints"]
+        Guardrails["6. runGuardrails<br/><i>(Content Safety Evaluation)</i>"]:::processNode
+        Validate["7. validatePost<br/><i>(Length 1-3000 chars & Structure)</i>"]:::processNode
+        ValidCheck{"Length Valid &<br/>Retries < 2?"}:::decisionNode
+    end
+
+    subgraph Human in the Loop ["Phase 4: Checkpoint & Human Review"]
+        Interrupt{{"⏸️ Interrupt Before Publish<br/><i>(Persisted Checkpoint State)</i><br/>• Review / Edit Content<br/>• Attach Media (Image / Document)"}}:::interruptNode
+    end
+
+    subgraph Publication ["Phase 5: LinkedIn Publishing"]
+        Publish["8. publishPost<br/><i>(LinkedIn UGC API via ephemeral OAuth)</i>"]:::publishNode
+    end
+
+    %% Flow connections
+    Start --> Analyze
+    Analyze -->|Success| Generate
+    Analyze -->|Error| ErrExit
+
+    Generate -->|Success| Critique
+    Generate -->|Error| ErrExit
+
+    Critique -->|Evaluated| ScoreCheck
+    Critique -->|Error| ErrExit
+
+    ScoreCheck -->|No: Score < 7 & Count < 2| Refine
+    ScoreCheck -->|Yes: Score >= 7 OR Count >= 2| Promote
     Refine --> Critique
-    Decision -- Yes --> Promote[5. promoteBestDraft]
-    Promote --> Guardrail[6. runGuardrails]
-    Guardrail --> Validate[7. validatePost]
-    Validate --> Pause{{Interrupt: Human Review & Edit}}
-    Pause --> Publish[8. publishPost & LinkedIn UGC API]
-    Publish --> Done([Post Published])
+
+    Promote --> Guardrails
+    Guardrails -->|Safe| Validate
+    Guardrails -->|Unsafe / Error| ErrExit
+
+    Validate --> ValidCheck
+    Validate -->|Error| ErrExit
+    ValidCheck -->|Pass| Interrupt
+    ValidCheck -->|Fail: Empty / >3000 chars| Refine
+
+    Interrupt -->|User Approves / Clicks Publish| Publish
+    Publish -->|Success| Done
+    Publish -->|Error| ErrExit
 ```
 
 ---
