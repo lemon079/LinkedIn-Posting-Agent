@@ -44,7 +44,7 @@ export function decrypt(cipherText: string): string {
     return decrypted;
   } catch (err: unknown) {
     log.error("Failed to decrypt ciphertext with active encryption key", { error: err });
-    return cipherText;
+    return "";
   }
 }
 
@@ -52,6 +52,6 @@ export function safeDecrypt(cipherText: string): string {
   try {
     return decrypt(cipherText);
   } catch {
-    return cipherText;
+    return "";
   }
 }

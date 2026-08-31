@@ -11,7 +11,10 @@ const log = logger.child({ module: "Graph:promoteBestDraft" });
  * critique loop performance.
  */
 export async function promoteBestDraft(state: State): Promise<Partial<State>> {
+  if (state.error) return {};
+
   const bestDraft = state.bestDraft || state.draft || "";
+
 
   const initialScore = state.critiqueScores?.[0] ?? 0;
   const finalScore = state.bestScore ?? 0;

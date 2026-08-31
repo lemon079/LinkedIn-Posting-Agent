@@ -13,8 +13,14 @@ import {
 import type { State } from "@/modules/agent/core/state";
 import * as llmService from "@/modules/agent/llm/factory";
 import * as linkedinService from "@/modules/linkedin/api";
+import { invokeWithTimeout } from "@/modules/agent/llm/timeout";
+import { agent } from "@/modules/agent/graph";
+
 
 describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
   const baseState: State = {
     topic: "Building Resilient Microservices with Kafka",
     context: "Focus on idempotent consumer groups",
@@ -118,7 +124,56 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
       expect(result.draft).not.toContain("[DRAFT]");
       expect(result.postContent).toBe(result.draft);
     });
+
+    it("should recover via fast fallback when primary LLM times out", async () => {
+      const fallbackDraftText = "[DRAFT]Kafka consumer group tuning saves latency during peaks.\n\n#kafka #backend[/DRAFT]";
+      const mockFallbackLlm = new FakeListChatModel({ responses: [fallbackDraftText] });
+      
+      let callCount = 0;
+      jest.spyOn(llmService, "createLLM").mockImplementation((opts) => {
+        callCount++;
+        if (callCount === 1) {
+          // Primary attempt with reasoning throws timeout error
+          return {
+            invoke: jest.fn().mockRejectedValue(new Error("LLM invocation timed out after 60000ms")),
+          } as unknown as ReturnType<typeof llmService.createLLM>;
+        }
+        // Fallback attempt succeeds
+        return mockFallbackLlm as unknown as ReturnType<typeof llmService.createLLM>;
+      });
+
+      const result = await generateDraft(baseState);
+
+      expect(callCount).toBe(2);
+      expect(result.draft).toContain("Kafka consumer group tuning saves latency");
+      expect(result.error).toBeUndefined();
+      expect(result.postContent).toBe(result.draft);
+    });
+
+    it("should return error if both primary and fallback attempts fail", async () => {
+      jest.spyOn(llmService, "createLLM").mockImplementation(() => {
+        return {
+          invoke: jest.fn().mockRejectedValue(new Error("Network connection reset")),
+        } as unknown as ReturnType<typeof llmService.createLLM>;
+      });
+
+      const result = await generateDraft(baseState);
+
+      expect(result.error).toBe("Network connection reset");
+      expect(result.draft).toBeUndefined();
+    });
+
+    it("should skip execution if state already has an error", async () => {
+      const errorState: State = {
+        ...baseState,
+        error: "Prior error occurred",
+      };
+
+      const result = await generateDraft(errorState);
+      expect(result).toEqual({});
+    });
   });
+
 
   describe("3. critiqueDraft Node", () => {
     it("should evaluate draft, update bestScore and bestDraft when score is higher", async () => {
@@ -393,4 +448,123 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
       expect(retrieved?.channel_values.draft).toBe("Persisted draft text");
     });
   });
+
+  describe("10. invokeWithTimeout & AbortController", () => {
+    it("should resolve value before timeout without triggering abort", async () => {
+      const controller = new AbortController();
+      const quickPromise = Promise.resolve("Success value");
+
+      const result = await invokeWithTimeout(quickPromise, 1000, controller);
+
+      expect(result).toBe("Success value");
+      expect(controller.signal.aborted).toBe(false);
+    });
+
+    it("should abort controller and reject when timeout occurs", async () => {
+      const controller = new AbortController();
+      const slowPromise = new Promise<string>((resolve) => {
+        const timer = setTimeout(() => resolve("Too slow"), 500);
+        if (typeof timer.unref === "function") timer.unref();
+      });
+
+      await expect(invokeWithTimeout(slowPromise, 20, controller)).rejects.toThrow(
+        "LLM invocation timed out after 20ms"
+      );
+      expect(controller.signal.aborted).toBe(true);
+    });
+
+    it("should immediately reject if controller was already aborted", async () => {
+      const controller = new AbortController();
+      controller.abort();
+
+      const promise = Promise.resolve("Never reached");
+      await expect(invokeWithTimeout(promise, 1000, controller)).rejects.toThrow(
+        "LLM invocation was aborted prior to execution"
+      );
+    });
+  });
+
+  describe("11. Graph Short-Circuit Routing on Node Failure", () => {
+    it("should immediately stop execution and not execute critiqueDraft when generateDraft fails", async () => {
+      let criticCallCount = 0;
+      const critiqueSpy = jest.fn();
+      jest.spyOn(llmService, "createCriticLLM").mockImplementation(() => {
+        criticCallCount++;
+        if (criticCallCount === 1) {
+          // 1st call is for analyzeIntake
+          return {
+            withStructuredOutput: jest.fn().mockReturnValue({
+              invoke: jest.fn().mockResolvedValue({
+                topic: "Kafka Gotchas",
+                context: "max.poll.interval.ms",
+                domain: "engineering",
+                angle: "Gotcha analysis",
+                tone: "conversational",
+              }),
+            }),
+          } as unknown as ReturnType<typeof llmService.createCriticLLM>;
+        }
+        // 2nd call would be for critiqueDraft (should NOT be reached)
+        return {
+          withStructuredOutput: jest.fn().mockReturnValue({
+            invoke: critiqueSpy,
+          }),
+        } as unknown as ReturnType<typeof llmService.createCriticLLM>;
+      });
+
+      // Make createLLM fail both primary and fallback attempts
+      jest.spyOn(llmService, "createLLM").mockImplementation(() => {
+        return {
+          invoke: jest.fn().mockRejectedValue(new Error("Unrecoverable LLM timeout")),
+        } as unknown as ReturnType<typeof llmService.createLLM>;
+      });
+
+      const threadId = `short-circuit-test-${Date.now()}`;
+      const threadConfig = { configurable: { thread_id: threadId } };
+
+      const eventStream = agent.streamEvents(
+        {
+          topic: "Kafka Gotchas",
+          context: "max.poll.interval.ms",
+          domain: "engineering",
+          llmProvider: "mock",
+          llmApiKey: "mock-key",
+          llmModel: "mock-model",
+        },
+        {
+          version: "v2",
+          configurable: threadConfig.configurable,
+        }
+      );
+
+      const executedNodes: string[] = [];
+      let streamError: string | undefined = undefined;
+      for await (const event of eventStream) {
+        if (event.event === "on_chain_start" && ["analyzeIntake", "generateDraft", "critiqueDraft", "refineDraft", "promoteBestDraft", "runGuardrails"].includes(event.name)) {
+          executedNodes.push(event.name);
+        }
+
+        const chunk = event.data?.chunk as Record<string, unknown> | undefined;
+        const out = event.data?.output as Record<string, unknown> | undefined;
+        if (chunk?.error) streamError = String(chunk.error);
+        if (out?.error) streamError = String(out.error);
+        if (chunk && typeof chunk === "object") {
+          const gen = chunk.generateDraft as Record<string, unknown> | undefined;
+          if (gen?.error) streamError = String(gen.error);
+        }
+        if (out && typeof out === "object") {
+          const gen = out.generateDraft as Record<string, unknown> | undefined;
+          if (gen?.error) streamError = String(gen.error);
+        }
+      }
+
+      expect(executedNodes).toContain("generateDraft");
+      // CRITICAL: critiqueDraft must NOT have been executed
+      expect(executedNodes).not.toContain("critiqueDraft");
+      expect(criticCallCount).toBe(1); // Only analyzeIntake was called
+      expect(critiqueSpy).not.toHaveBeenCalled();
+    });
+  });
+
 });
+

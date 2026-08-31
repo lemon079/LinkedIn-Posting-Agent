@@ -10,7 +10,7 @@ import {
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { supabase } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
-import type { Json } from "@/types/database.types";
+import type { Database, Json } from "@/types/database.types";
 
 const log = logger.child({ module: "SupabaseCheckpointer" });
 
@@ -190,6 +190,7 @@ export class SupabaseCheckpointer extends BaseCheckpointSaver {
     const thread_id = config.configurable?.thread_id;
     if (!thread_id) return config;
 
+    const user_id = (config.configurable?.userId as string) || null;
     const checkpoint_ns = config.configurable?.checkpoint_ns ?? "";
     const parent_id = config.configurable?.checkpoint_id || null;
 
@@ -203,17 +204,32 @@ export class SupabaseCheckpointer extends BaseCheckpointSaver {
       const checkpointJson = JSON.parse(checkpointStr) as Json;
       const metadataJson = JSON.parse(metadataStr) as Json;
 
-      const { error } = await supabase.from("agent_checkpoints").upsert(
-        {
-          thread_id,
-          checkpoint_id: checkpoint.id,
-          parent_id,
-          checkpoint_json: checkpointJson,
-          metadata_json: metadataJson,
-          created_at: new Date().toISOString(),
-        },
+      const record: Record<string, unknown> = {
+        thread_id,
+        checkpoint_id: checkpoint.id,
+        parent_id,
+        checkpoint_json: checkpointJson,
+        metadata_json: metadataJson,
+        created_at: new Date().toISOString(),
+      };
+      if (user_id) {
+        record.user_id = user_id;
+      }
+
+      let { error } = await supabase.from("agent_checkpoints").upsert(
+        record as unknown as Database["public"]["Tables"]["agent_checkpoints"]["Insert"],
         { onConflict: "thread_id,checkpoint_id" }
       );
+
+      // Graceful backwards-compatibility if user_id column not yet migrated in remote database
+      if (error && error.message?.includes("user_id")) {
+        delete record.user_id;
+        const retry = await supabase.from("agent_checkpoints").upsert(
+          record as unknown as Database["public"]["Tables"]["agent_checkpoints"]["Insert"],
+          { onConflict: "thread_id,checkpoint_id" }
+        );
+        error = retry.error;
+      }
 
       if (error) {
         log.error("Failed to persist checkpoint to Supabase", {
@@ -246,6 +262,7 @@ export class SupabaseCheckpointer extends BaseCheckpointSaver {
 
     const thread_id = config.configurable?.thread_id;
     const checkpoint_id = config.configurable?.checkpoint_id;
+    const user_id = (config.configurable?.userId as string) || null;
     if (!thread_id || !checkpoint_id) return;
 
     try {
@@ -257,7 +274,7 @@ export class SupabaseCheckpointer extends BaseCheckpointSaver {
             valueJson = JSON.parse(new TextDecoder().decode(valueBytes)) as Json;
           }
 
-          return {
+          const rowRecord: Record<string, unknown> = {
             thread_id,
             checkpoint_id,
             task_id: taskId,
@@ -267,12 +284,30 @@ export class SupabaseCheckpointer extends BaseCheckpointSaver {
             value_json: valueJson,
             created_at: new Date().toISOString(),
           };
+          if (user_id) {
+            rowRecord.user_id = user_id;
+          }
+          return rowRecord;
         })
       );
 
-      const { error } = await supabase.from("agent_checkpoint_writes").upsert(rows, {
-        onConflict: "thread_id,checkpoint_id,task_id,idx",
-      });
+      let { error } = await supabase.from("agent_checkpoint_writes").upsert(
+        rows as unknown as Database["public"]["Tables"]["agent_checkpoint_writes"]["Insert"][],
+        { onConflict: "thread_id,checkpoint_id,task_id,idx" }
+      );
+
+      // Graceful backwards-compatibility if user_id column not yet migrated in remote database
+      if (error && error.message?.includes("user_id")) {
+        const fallbackRows = rows.map((r) => {
+          const { user_id: _, ...rest } = r;
+          return rest;
+        });
+        const retry = await supabase.from("agent_checkpoint_writes").upsert(
+          fallbackRows as unknown as Database["public"]["Tables"]["agent_checkpoint_writes"]["Insert"][],
+          { onConflict: "thread_id,checkpoint_id,task_id,idx" }
+        );
+        error = retry.error;
+      }
 
       if (error) {
         log.error("Failed to persist checkpoint writes to Supabase", {

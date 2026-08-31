@@ -42,7 +42,7 @@ src/
 │   ├── agent/         # LangGraph graph, nodes, prompts, schemas, checkpointer, LLM factory & health check
 │   ├── auth/          # Session auth, AES-256 crypto, LinkedIn OAuth callback
 │   ├── linkedin/      # UGC API publisher, token manager, LinkedInFeed UI preview
-│   ├── user/          # User settings persistence, post history, SettingsPanel UI drawer
+│   ├── user/          # User settings persistence, post history, SettingsDialog UI dialog
 │   └── media/         # Presigned storage uploads & file management
 ├── tests/             # Comprehensive Jest test suite (unit, integration, evals, logger, UI)
 └── types/             # Consolidated global & database types (database.types, stream, keys, config, health)

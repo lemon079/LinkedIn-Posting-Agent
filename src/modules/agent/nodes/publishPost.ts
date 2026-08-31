@@ -4,10 +4,15 @@ import { deleteStorageFile } from "@/modules/media/storage";
 import { recordPostHistory } from "@/modules/user/history";
 import { logger } from "@/lib/logger";
 
+import type { RunnableConfig } from "@langchain/core/runnables";
+
 const log = logger.child({ module: "Graph:publishPost" });
 
-export const publishPost = async (state: Partial<State>): Promise<Partial<State>> => {
+export const publishPost = async (state: Partial<State>, config?: RunnableConfig): Promise<Partial<State>> => {
   if (state.error || !state.postContent) return {};
+
+  const effectiveToken = (config?.configurable?.liToken as string) || state.linkedinToken || undefined;
+  const effectiveUrn = (config?.configurable?.liUrn as string) || state.linkedinUrn || undefined;
 
   log.info(`Executing LinkedIn publish node`, {
     contentLengthChars: state.postContent.length,
@@ -16,8 +21,8 @@ export const publishPost = async (state: Partial<State>): Promise<Partial<State>
 
   const response = await publishLinkedInPost(
     state.postContent,
-    state.linkedinToken || undefined,
-    state.linkedinUrn || undefined,
+    effectiveToken,
+    effectiveUrn,
     state.mediaFiles || undefined
   );
 

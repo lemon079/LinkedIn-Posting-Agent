@@ -5,14 +5,16 @@ import type { CritiqueResultType } from "../core/schemas";
 import type { State } from "../core/state";
 import { DOMAINS } from "../core/domains";
 import { getCritiquePrompt } from "../core/prompts";
-import { invokeWithTimeout } from "../llm/timeout";
+import { invokeWithTimeout, CRITIC_TIMEOUT_MS } from "../llm/timeout";
 import { logger } from "@/lib/logger";
+
+import type { RunnableConfig } from "@langchain/core/runnables";
 
 const log = logger.child({ module: "Graph:critiqueDraft" });
 
-const getLLMOpts = (state: State) => ({
+const getLLMOpts = (state: State, config?: RunnableConfig) => ({
   provider: state.llmProvider || undefined,
-  apiKey: state.llmApiKey || undefined,
+  apiKey: (config?.configurable?.apiKey as string) || state.llmApiKey || undefined,
   model: state.llmModel || undefined,
   ollamaBaseUrl: state.ollamaBaseUrl || undefined,
 });
@@ -28,7 +30,11 @@ const getLLMOpts = (state: State) => ({
  * with score 7 (pass threshold) so the pipeline continues to guardrails
  * rather than looping on a broken critic.
  */
-export async function critiqueDraft(state: State): Promise<Partial<State>> {
+export async function critiqueDraft(state: State, config?: RunnableConfig): Promise<Partial<State>> {
+  if (state.error || !state.draft) {
+    return {};
+  }
+
   const startTime = Date.now();
   const domainKey = state.activeDomain || state.intake?.domain || "general";
   const domainConfig = DOMAINS[domainKey] || DOMAINS.general;
@@ -42,13 +48,17 @@ export async function critiqueDraft(state: State): Promise<Partial<State>> {
   });
 
   try {
-    const llm = createCriticLLM(getLLMOpts(state));
+    const llm = createCriticLLM(getLLMOpts(state, config));
     const structuredLLM = llm.withStructuredOutput(CritiqueResult);
 
     const prompt = getCritiquePrompt(domainConfig, currentDraft);
+    const controller = new AbortController();
     const critique = (await invokeWithTimeout(
-      structuredLLM.invoke([new HumanMessage(prompt)])
+      structuredLLM.invoke([new HumanMessage(prompt)], { signal: controller.signal }),
+      CRITIC_TIMEOUT_MS,
+      controller
     )) as CritiqueResultType;
+
 
     // Track best draft across iterations
     const prevBestScore = state.bestScore ?? 0;

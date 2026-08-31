@@ -74,6 +74,7 @@ create table if not exists public.agent_checkpoints (
   thread_id text not null,
   checkpoint_id text not null,
   parent_id text,
+  user_id uuid references auth.users(id) on delete cascade,
   checkpoint_json jsonb not null,
   metadata_json jsonb,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
@@ -85,18 +86,20 @@ alter table public.agent_checkpoints enable row level security;
 do $$
 begin
   if not exists (
-    select 1 from pg_policies where schemaname = 'public' and tablename = 'agent_checkpoints' and policyname = 'Allow service and authenticated access to checkpoints'
+    select 1 from pg_policies where schemaname = 'public' and tablename = 'agent_checkpoints' and policyname = 'Users can only access their own checkpoints'
   ) then
-    create policy "Allow service and authenticated access to checkpoints"
+    create policy "Users can only access their own checkpoints"
       on public.agent_checkpoints
       for all
-      using (true)
-      with check (true);
+      using (auth.uid() = user_id or user_id is null)
+      with check (auth.uid() = user_id or user_id is null);
   end if;
 end $$;
 
 create index if not exists idx_agent_checkpoints_thread_created
   on public.agent_checkpoints (thread_id, created_at desc);
+create index if not exists idx_agent_checkpoints_user_id
+  on public.agent_checkpoints (user_id);
 
 
 -- 4. Table: agent_checkpoint_writes
@@ -106,6 +109,7 @@ create table if not exists public.agent_checkpoint_writes (
   checkpoint_id text not null,
   task_id text not null,
   idx integer not null,
+  user_id uuid references auth.users(id) on delete cascade,
   channel text not null,
   type text,
   value_json jsonb,
@@ -118,13 +122,13 @@ alter table public.agent_checkpoint_writes enable row level security;
 do $$
 begin
   if not exists (
-    select 1 from pg_policies where schemaname = 'public' and tablename = 'agent_checkpoint_writes' and policyname = 'Allow service and authenticated access to checkpoint writes'
+    select 1 from pg_policies where schemaname = 'public' and tablename = 'agent_checkpoint_writes' and policyname = 'Users can only access their own checkpoint writes'
   ) then
-    create policy "Allow service and authenticated access to checkpoint writes"
+    create policy "Users can only access their own checkpoint writes"
       on public.agent_checkpoint_writes
       for all
-      using (true)
-      with check (true);
+      using (auth.uid() = user_id or user_id is null)
+      with check (auth.uid() = user_id or user_id is null);
   end if;
 end $$;
 

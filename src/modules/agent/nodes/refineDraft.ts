@@ -4,15 +4,17 @@ import type { State } from "../core/state";
 import { DOMAINS } from "../core/domains";
 import { getRefinePrompt } from "../core/prompts";
 import { getRecentHooks, addHook } from "@/modules/user/history";
-import { invokeWithTimeout } from "../llm/timeout";
+import { invokeWithTimeout, REFINE_TIMEOUT_MS } from "../llm/timeout";
 import { logger } from "@/lib/logger";
 import type { LangChainMessageBlock } from "@/types";
 
+import type { RunnableConfig } from "@langchain/core/runnables";
+
 const log = logger.child({ module: "Graph:refineDraft" });
 
-const getLLMOpts = (state: State) => ({
+const getLLMOpts = (state: State, config?: RunnableConfig) => ({
   provider: state.llmProvider || undefined,
-  apiKey: state.llmApiKey || undefined,
+  apiKey: (config?.configurable?.apiKey as string) || state.llmApiKey || undefined,
   model: state.llmModel || undefined,
   ollamaBaseUrl: state.ollamaBaseUrl || undefined,
   maxReasoningTokens: 2048,
@@ -28,7 +30,9 @@ const getLLMOpts = (state: State) => ({
  * Failure path: if refinement fails, keeps state.draft unchanged so
  * a working draft is never discarded because the refiner errored.
  */
-export async function refineDraft(state: State): Promise<Partial<State>> {
+export async function refineDraft(state: State, config?: RunnableConfig): Promise<Partial<State>> {
+  if (state.error) return {};
+
   const startTime = Date.now();
   const currentDraft = state.draft || "";
   if (!currentDraft) return {};
@@ -47,8 +51,14 @@ export async function refineDraft(state: State): Promise<Partial<State>> {
   const prompt = getRefinePrompt(domainConfig, currentDraft, critiqueInstructions, recentHooks);
 
   try {
-    const llm = createLLM(getLLMOpts(state));
-    const res = await invokeWithTimeout(llm.invoke([new HumanMessage(prompt)]));
+    const llm = createLLM(getLLMOpts(state, config));
+    const controller = new AbortController();
+    const res = await invokeWithTimeout(
+      llm.invoke([new HumanMessage(prompt)], { signal: controller.signal }),
+      REFINE_TIMEOUT_MS,
+      controller
+    );
+
     const output =
       typeof res.content === "string"
         ? res.content

@@ -7,10 +7,22 @@ import { redactSecrets } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import type { PublishRequest } from "@/modules/linkedin/types";
 
+import { checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
+
 export async function POST(request: Request) {
   const startTime = Date.now();
   const requestId = Date.now().toString();
   const log = logger.child({ module: "API-Publish", requestId });
+
+  const clientIp = getClientIp(request);
+  const rateCheck = checkRateLimit(`publish_${clientIp}`, { limit: 10, windowMs: 60_000 });
+  if (!rateCheck.allowed) {
+    log.warn(`Rate limit exceeded for publishing`, { clientIp });
+    return NextResponse.json(
+      { error: "Too many publishing requests. Please wait a moment before trying again." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rateCheck.resetMs / 1000)) } }
+    );
+  }
 
   log.info(`Incoming post publish request received`);
 
@@ -66,7 +78,13 @@ export async function POST(request: Request) {
     // 1. If threadId is provided, check if the graph thread exists and is paused before publishPost
     if (threadId) {
       try {
-        const threadConfig = { configurable: { thread_id: threadId } };
+        const threadConfig = {
+          configurable: {
+            thread_id: threadId,
+            liToken: effectiveToken || undefined,
+            liUrn: effectiveUrn || undefined,
+          },
+        };
         const state = await agent.getState(threadConfig);
 
         if (state.values && state.next?.[0] === "publishPost") {
@@ -74,8 +92,6 @@ export async function POST(request: Request) {
           log.info(`Resuming paused graph thread for publication`, { threadId });
           await agent.updateState(threadConfig, {
             postContent: draft,
-            linkedinToken: effectiveToken || null,
-            linkedinUrn: effectiveUrn || null,
             mediaFiles: files || null,
             error: null,
           });

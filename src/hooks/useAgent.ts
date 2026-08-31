@@ -290,6 +290,10 @@ export function useAgent() {
     }
   };
 
+  const handleDismissError = () => {
+    setStatus((p) => ({ ...p, err: null }));
+  };
+
   return {
     customTopic,
     context,
@@ -335,7 +339,9 @@ export function useAgent() {
     handleUploadFile,
     handleClearDraft,
     handleNewPost,
+    handleDismissError,
     handleSignOut: settings.handleSignOut,
     handleDisconnectLinkedIn: settings.handleDisconnectLinkedIn,
   };
 }
+

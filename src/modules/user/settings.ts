@@ -34,10 +34,10 @@ export async function fetchUserSettingsRow(
 export function mapRowToUserSettings(data: UserSettingsRow): UserSettings & { linkedInConnected: boolean } {
   return {
     provider: data.llm_provider || undefined,
-    apiKey: data.encrypted_api_key ? safeDecrypt(data.encrypted_api_key) : "",
+    apiKey: data.encrypted_api_key ? "••••••••••••" : "",
     modelName: data.llm_model || "",
     ollamaBaseUrl: data.ollama_base_url || DEFAULT_OLLAMA_URL,
-    liToken: data.encrypted_linkedin_token ? safeDecrypt(data.encrypted_linkedin_token) : "",
+    liToken: data.encrypted_linkedin_token ? "••••••••••••" : "",
     liUrn: data.linkedin_urn || "",
     liTokenExpiresAt: data.linkedin_token_expires_at || undefined,
     linkedInConnected: !!data.encrypted_linkedin_token,
@@ -56,10 +56,10 @@ export function buildSettingsUpsert(
     updated_at: new Date().toISOString(),
   };
 
-  if (settings.apiKey !== undefined) {
+  if (settings.apiKey !== undefined && settings.apiKey !== "••••••••••••") {
     updateData.encrypted_api_key = settings.apiKey ? encrypt(settings.apiKey) : "";
   }
-  if (settings.liToken !== undefined) {
+  if (settings.liToken !== undefined && settings.liToken !== "••••••••••••") {
     updateData.encrypted_linkedin_token = settings.liToken ? encrypt(settings.liToken) : "";
   }
   if (settings.liUrn !== undefined) {

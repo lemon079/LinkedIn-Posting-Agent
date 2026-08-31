@@ -52,10 +52,8 @@ export async function GET(request: Request) {
     });
     const base64Payload = Buffer.from(payload, "utf-8").toString("base64");
 
-    // Dual-channel handoff: URL parameter + Cookie for guaranteed delivery on both localhost and live production
+    // Safe cookie-only handoff: tokens are not exposed in URL query parameters
     const redirectUrl = new URL(`${baseUrl}/`);
-    redirectUrl.searchParams.set("auth_handoff", base64Payload);
-
     const response = NextResponse.redirect(redirectUrl.toString());
 
     // Clear the CSRF state cookie

@@ -19,10 +19,22 @@ const NODE_TITLES: Record<string, string> = {
 // Nodes whose streaming events we forward to the client
 const STREAMABLE_NODES = new Set(Object.keys(NODE_TITLES));
 
+import { checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
+
 export async function POST(request: Request) {
   const startTime = Date.now();
   const requestId = Date.now().toString();
   const log = logger.child({ module: "API-Draft", requestId });
+
+  const clientIp = getClientIp(request);
+  const rateCheck = checkRateLimit(`draft_${clientIp}`, { limit: 20, windowMs: 60_000 });
+  if (!rateCheck.allowed) {
+    log.warn(`Rate limit exceeded for draft generation`, { clientIp });
+    return NextResponse.json(
+      { error: "Too many draft generation requests. Please slow down and try again in a moment." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rateCheck.resetMs / 1000)) } }
+    );
+  }
 
   log.info(`Incoming draft generation request received`);
 
@@ -67,13 +79,20 @@ export async function POST(request: Request) {
       domain: domain || null,
       userId: user?.id || null,
       llmProvider: provider,
-      llmApiKey: apiKey,
       llmModel: model,
       ollamaBaseUrl,
     };
 
     const threadId = Date.now().toString();
-    const threadConfig = { configurable: { thread_id: threadId } };
+    const threadConfig = {
+      configurable: {
+        thread_id: threadId,
+        userId: user?.id || undefined,
+        apiKey: apiKey || undefined,
+        liToken: creds.liToken || undefined,
+        liUrn: creds.liUrn || undefined,
+      },
+    };
 
     log.info(`Starting agent streaming execution`, { threadId });
 

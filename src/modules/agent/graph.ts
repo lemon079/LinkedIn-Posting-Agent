@@ -24,6 +24,16 @@ import {
 //
 // This means at most 1 refine call and 2 critique calls per run.
 
+const routeIntake = (state: State) => {
+  if (state.error) return END;
+  return "generateDraft";
+};
+
+const routeDraft = (state: State) => {
+  if (state.error || !state.draft) return END;
+  return "critiqueDraft";
+};
+
 const routeCritique = (state: State) => {
   if (state.error) return END;
   const score = state.critique?.score ?? 10;
@@ -60,8 +70,14 @@ const builder = new StateGraph(AgentState)
 
   // ── Edges ─────────────────────────────────────────────────────────────
   .addEdge(START, "analyzeIntake")
-  .addEdge("analyzeIntake", "generateDraft")
-  .addEdge("generateDraft", "critiqueDraft")
+  .addConditionalEdges("analyzeIntake", routeIntake, {
+    generateDraft: "generateDraft",
+    [END]: END,
+  })
+  .addConditionalEdges("generateDraft", routeDraft, {
+    critiqueDraft: "critiqueDraft",
+    [END]: END,
+  })
   .addConditionalEdges("critiqueDraft", routeCritique, {
     promoteBestDraft: "promoteBestDraft",
     refineDraft: "refineDraft",
@@ -73,6 +89,7 @@ const builder = new StateGraph(AgentState)
     validatePost: "validatePost",
     [END]: END,
   })
+
   .addConditionalEdges("validatePost", routeValidation, {
     publish: "publishPost",
     retry: "refineDraft",

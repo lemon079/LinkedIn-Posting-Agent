@@ -22,8 +22,8 @@ export function redactSecrets(text: string): string {
 
   let redacted = stripAnsi(text);
 
-  // 1. Google Gemini API keys: AIzaSy... (30-45 chars total)
-  redacted = redacted.replace(/AIzaSy[a-zA-Z0-9_-]{30,40}/g, "[REDACTED_API_KEY]");
+  // 1. Google Gemini API keys: AIzaSy... (20-50 chars after prefix)
+  redacted = redacted.replace(/AIzaSy[a-zA-Z0-9_-]{20,50}/g, "[REDACTED_API_KEY]");
 
   // 2. OpenAI API keys: sk-... or sk-proj-...
   redacted = redacted.replace(/sk-(proj-)?[a-zA-Z0-9_-]{20,}/g, "[REDACTED_API_KEY]");
@@ -161,18 +161,22 @@ export function cleanErrorMessage(rawError: string): string {
   // Rate limits / billing / quota issues
   if (
     err.includes("rate limit") ||
+    err.includes("ratelimit") ||
     err.includes("quota") ||
     err.includes("429") ||
+    err.includes("resource_exhausted") ||
+    err.includes("insufficient_quota") ||
     err.includes("exhausted") ||
     err.includes("billing")
   ) {
-    return "API rate limit or usage quota exceeded. Please check your billing profile or try again later.";
+    return "API rate limit or usage quota exceeded. Please check your billing profile, try again later, or switch providers in Settings.";
   }
 
   // Default case for short messages
-  if (safeError.length < 100) {
+  if (safeError.length < 120) {
     return safeError;
   }
 
   return "An unexpected error occurred. Please verify your settings and try again.";
 }
+

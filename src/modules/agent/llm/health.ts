@@ -1,6 +1,7 @@
 import { createLLM } from "./factory";
 import { HumanMessage } from "@langchain/core/messages";
 import { DEFAULT_OLLAMA_URL } from "@/lib/constants";
+import { validateSafeUrl } from "@/lib/security/urlValidation";
 import type { HealthResult } from "@/types/health";
 import axios from "axios";
 
@@ -12,7 +13,15 @@ export const checkConnection = async (
 ): Promise<HealthResult> => {
   try {
     if (provider === "ollama") {
-      const base = ollamaBaseUrl || DEFAULT_OLLAMA_URL;
+      const rawBase = ollamaBaseUrl || DEFAULT_OLLAMA_URL;
+      const validation = validateSafeUrl(rawBase);
+      if (!validation.isValid || !validation.sanitizedUrl) {
+        return {
+          ok: false,
+          error: validation.error || "Invalid Ollama base URL.",
+        };
+      }
+      const base = validation.sanitizedUrl;
       try {
         const res = await axios.get(`${base}/api/tags`, { timeout: 5000 });
         const data = res.data as { models: { name: string }[] };

@@ -12,7 +12,11 @@ export function loadConfig(): AppConfig {
     LANGCHAIN_TRACING_V2, LANGCHAIN_ENDPOINT, LANGCHAIN_API_KEY, LANGCHAIN_PROJECT
   } = process.env;
 
-  const resolvedEncryptionKey = ENCRYPTION_KEY || "praxis_default_fallback_encryption_key_32bytes_hex_string_123456";
+  if (process.env.NODE_ENV === "production" && !ENCRYPTION_KEY) {
+    throw new Error("CRITICAL SECURITY CONFIGURATION ERROR: ENCRYPTION_KEY environment variable is required in production.");
+  }
+
+  const resolvedEncryptionKey = ENCRYPTION_KEY || (process.env.NODE_ENV === "test" ? "praxis_test_encryption_key_32bytes_hex_123456" : "");
 
   // Resolve LangSmith configuration from either LANGSMITH_* or LANGCHAIN_* variables
   const tracingEnabled = LANGSMITH_TRACING === "true" || LANGCHAIN_TRACING_V2 === "true";

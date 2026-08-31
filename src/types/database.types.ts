@@ -92,6 +92,7 @@ export interface Database {
           thread_id: string;
           checkpoint_id: string;
           parent_id: string | null;
+          user_id: string | null;
           checkpoint_json: Json;
           metadata_json: Json | null;
           created_at: string;
@@ -100,6 +101,7 @@ export interface Database {
           thread_id: string;
           checkpoint_id: string;
           parent_id?: string | null;
+          user_id?: string | null;
           checkpoint_json: Json;
           metadata_json?: Json | null;
           created_at?: string;
@@ -108,6 +110,7 @@ export interface Database {
           thread_id?: string;
           checkpoint_id?: string;
           parent_id?: string | null;
+          user_id?: string | null;
           checkpoint_json?: Json;
           metadata_json?: Json | null;
           created_at?: string;
@@ -120,6 +123,7 @@ export interface Database {
           checkpoint_id: string;
           task_id: string;
           idx: number;
+          user_id: string | null;
           channel: string;
           type: string | null;
           value_json: Json | null;
@@ -130,6 +134,7 @@ export interface Database {
           checkpoint_id: string;
           task_id: string;
           idx: number;
+          user_id?: string | null;
           channel: string;
           type?: string | null;
           value_json?: Json | null;
@@ -140,6 +145,7 @@ export interface Database {
           checkpoint_id?: string;
           task_id?: string;
           idx?: number;
+          user_id?: string | null;
           channel?: string;
           type?: string | null;
           value_json?: Json | null;

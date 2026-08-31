@@ -137,10 +137,10 @@ describe("Backend API Endpoints", () => {
       expect(response.status).toBe(200);
       expect(json).toMatchObject({
         provider: "openai",
-        apiKey: "open-key",
+        apiKey: "••••••••••••",
         modelName: "gpt-4",
         ollamaBaseUrl: "http://localhost:11434",
-        liToken: "li-token",
+        liToken: "••••••••••••",
         liUrn: "urn:li:person:123",
         linkedInConnected: true,
       });
@@ -272,8 +272,14 @@ describe("Backend API Endpoints", () => {
       try {
         expect(json.postUrl).toBe("https://linkedin.com/123");
         expect(agent.updateState).toHaveBeenCalledWith(
-          { configurable: { thread_id: "123" } },
-          expect.objectContaining({ postContent: "My Final Draft", linkedinToken: "mock-li-token", linkedinUrn: "urn:li:person:123" })
+          {
+            configurable: {
+              thread_id: "123",
+              liToken: "mock-li-token",
+              liUrn: "urn:li:person:123",
+            },
+          },
+          expect.objectContaining({ postContent: "My Final Draft" })
         );
       } catch (err: unknown) {
         console.error("ASSERTION FAILED:", err instanceof Error ? err.message : err);
@@ -308,8 +314,14 @@ describe("Backend API Endpoints", () => {
       const json = await response.json();
       expect(json.postUrl).toBe("https://linkedin.com/123");
       expect(agent.updateState).toHaveBeenCalledWith(
-        { configurable: { thread_id: "123" } },
-        expect.objectContaining({ postContent: "My Final Draft", linkedinToken: "mock-li-token", linkedinUrn: "urn:li:person:123" })
+        {
+          configurable: {
+            thread_id: "123",
+            liToken: "mock-li-token",
+            liUrn: "urn:li:person:123",
+          },
+        },
+        expect.objectContaining({ postContent: "My Final Draft" })
       );
     });
   });

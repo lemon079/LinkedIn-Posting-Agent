@@ -18,14 +18,18 @@ export const supabase =
 
 // Returns a request-scoped Supabase client forwarding the user's authorization JWT
 export function getSupabaseClient(token?: string) {
-  if (!config.SUPABASE_URL || !config.SUPABASE_SERVICE_ROLE_KEY) return null;
+  if (!config.SUPABASE_URL) return null;
+
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const apiKey = token && anonKey ? anonKey : config.SUPABASE_SERVICE_ROLE_KEY;
+  if (!apiKey) return null;
 
   const headers: Record<string, string> = {};
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  return createClient<Database>(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, {
+  return createClient<Database>(config.SUPABASE_URL, apiKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

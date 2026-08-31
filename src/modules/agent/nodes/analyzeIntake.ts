@@ -5,14 +5,16 @@ import type { IntakeAnalysisType } from "../core/schemas";
 import type { State } from "../core/state";
 import { inferDomain } from "../core/domains";
 import { getIntakePrompt } from "../core/prompts";
-import { invokeWithTimeout } from "../llm/timeout";
+import { invokeWithTimeout, INTAKE_TIMEOUT_MS } from "../llm/timeout";
 import { logger } from "@/lib/logger";
+
+import type { RunnableConfig } from "@langchain/core/runnables";
 
 const log = logger.child({ module: "Graph:analyzeIntake" });
 
-const getLLMOpts = (state: State) => ({
+const getLLMOpts = (state: State, config?: RunnableConfig) => ({
   provider: state.llmProvider || undefined,
-  apiKey: state.llmApiKey || undefined,
+  apiKey: (config?.configurable?.apiKey as string) || state.llmApiKey || undefined,
   model: state.llmModel || undefined,
   ollamaBaseUrl: state.ollamaBaseUrl || undefined,
 });
@@ -24,7 +26,11 @@ const getLLMOpts = (state: State) => ({
  * using withStructuredOutput + zod schema. If the LLM call fails, falls
  * back to regex-based domain inference with safe defaults for all fields.
  */
-export async function analyzeIntake(state: State): Promise<Partial<State>> {
+export async function analyzeIntake(state: State, config?: RunnableConfig): Promise<Partial<State>> {
+  if (state.error) {
+    return {};
+  }
+
   const startTime = Date.now();
   const topic = state.topic || "";
   const context = state.context || "";
@@ -33,14 +39,17 @@ export async function analyzeIntake(state: State): Promise<Partial<State>> {
   log.info(`Starting intake analysis`, { topic, userDomain: userDomain || "auto" });
 
   try {
-    const llm = createCriticLLM(getLLMOpts(state));
+    const llm = createCriticLLM(getLLMOpts(state, config));
     const structuredLLM = llm.withStructuredOutput(IntakeAnalysis);
 
     const prompt = getIntakePrompt(topic, context, userDomain);
+    const controller = new AbortController();
     const intake = (await invokeWithTimeout(
-      structuredLLM.invoke([new HumanMessage(prompt)]),
-      30000
+      structuredLLM.invoke([new HumanMessage(prompt)], { signal: controller.signal }),
+      INTAKE_TIMEOUT_MS,
+      controller
     )) as IntakeAnalysisType;
+
 
     // If the user specified an explicit domain preference (other than 'auto'), respect it over model inference
     const resolvedDomain =

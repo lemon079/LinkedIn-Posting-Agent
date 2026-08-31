@@ -136,4 +136,20 @@ describe("Frontend Dashboard UI", () => {
       screen.getByRole("button", { name: /Publish/i })
     ).toBeInTheDocument();
   });
+
+  test("renders rate limit warning with settings action button when error occurs", () => {
+    (useAgent as jest.Mock).mockReturnValue({
+      ...mockDefaultState,
+      error: "429 RESOURCE_EXHAUSTED: Google Gemini rate limit reached",
+    });
+
+    render(<Home />);
+
+    expect(screen.getAllByText(/Google Gemini/i)[0]).toBeInTheDocument();
+    expect(screen.getByText(/Usage Quota Exceeded/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Change Model \/ Settings/i })
+    ).toBeInTheDocument();
+  });
 });
+

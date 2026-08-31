@@ -7,7 +7,7 @@ import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { Header } from "@/components/Header";
 import { ControlPanel } from "@/components/ControlPanel";
 import { EditorPanel } from "@/components/EditorPanel";
-import { SettingsPanel } from "@/components/SettingsPanel";
+import { SettingsDialog } from "@/components/SettingsDialog";
 import { AuthForm } from "@/components/AuthForm";
 import {
   Dialog,
@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { AssistantErrorState } from "@/components/assistant-ui";
 import { FileText, CheckCircle2, ExternalLink, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { parseApiError } from "@/lib/errors";
 
 export default function Home() {
   const agentState = useAgent();
@@ -30,7 +31,7 @@ export default function Home() {
     selectedFiles, isUploading,
     reasoningSteps,
     setCustomTopic, setContext, setDomain, setDraftText, setStreamingText,
-    handleGenerate, handlePublish, handleClearDraft, handleNewPost,
+    handleGenerate, handlePublish, handleClearDraft, handleNewPost, handleDismissError,
     setProvider, setApiKey, setModelName, setOllamaBaseUrl,
     setLiToken, setLiUrn, setIsSettingsOpen,
     setSelectedFiles, handleUploadFile,
@@ -38,6 +39,36 @@ export default function Home() {
   } = agentState;
 
   const [showLoginModal, setShowLoginModal] = useState(false);
+
+  const handleShowErrorToast = (err: string | Error) => {
+    const parsed = parseApiError(err);
+    if (
+      parsed.isRateLimit ||
+      parsed.isQuota ||
+      parsed.type === "linkedin_rate_limit" ||
+      parsed.type === "model_overloaded"
+    ) {
+      toast.warning(parsed.title, {
+        description: parsed.message,
+        action: {
+          label: "Settings",
+          onClick: () => setIsSettingsOpen(true),
+        },
+        duration: 7000,
+      });
+    } else if (parsed.type === "auth") {
+      toast.error(parsed.title, {
+        description: parsed.message,
+        action: {
+          label: "Settings",
+          onClick: () => setIsSettingsOpen(true),
+        },
+        duration: 6000,
+      });
+    } else {
+      toast.error(parsed.message);
+    }
+  };
 
   const runtime = useAgentRuntime({
     customTopic,
@@ -54,15 +85,16 @@ export default function Home() {
       if (tId) localStorage.setItem("praxis_thread_id", tId);
     },
     onError: (err) => {
-      toast.error(err);
+      handleShowErrorToast(err);
     },
   });
 
   useEffect(() => {
     if (error) {
-      toast.error(error);
+      handleShowErrorToast(error);
     }
   }, [error]);
+
 
   const onPublishClick = () => {
     if (!user && !liToken) {
@@ -145,6 +177,7 @@ export default function Home() {
                   error={error}
                   onRetry={handleGenerate}
                   onOpenSettings={() => setIsSettingsOpen(true)}
+                  onDismiss={handleDismissError}
                 />
               </div>
             )}
@@ -170,6 +203,7 @@ export default function Home() {
                   onRetry={handleGenerate}
                   onOpenSettings={() => setIsSettingsOpen(true)}
                   error={error}
+                  onDismissError={handleDismissError}
                   reasoningSteps={reasoningSteps}
                 />
               </div>
@@ -184,7 +218,7 @@ export default function Home() {
           </section>
         </main>
 
-        <SettingsPanel
+        <SettingsDialog
           isOpen={isSettingsOpen}
           onClose={() => setIsSettingsOpen(false)}
           provider={provider}
