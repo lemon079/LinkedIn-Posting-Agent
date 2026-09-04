@@ -38,7 +38,6 @@ import {
   LogOut,
   ShieldCheck,
   Cloud,
-  HardDrive,
   Unlink,
   Hourglass,
   ZapOff,
@@ -242,19 +241,14 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
         </div>
 
         {/* Sync Mode Badge */}
-        <div className={isModal ? "mr-6 shrink-0" : "shrink-0"}>
-          {user ? (
+        {user && (
+          <div className={isModal ? "mr-6 shrink-0" : "shrink-0"}>
             <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs">
               <Cloud className="size-3.5 text-emerald-600" />
               <span className="hidden sm:inline">Cloud Sync</span>
             </div>
-          ) : (
-            <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200 shadow-xs">
-              <HardDrive className="size-3.5 text-slate-500" />
-              <span className="hidden sm:inline">Local Mode</span>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Scrollable Form Area */}
@@ -278,13 +272,9 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                   <div>
                     <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                       <p className="font-bold text-xs sm:text-sm text-emerald-950">LinkedIn Connected</p>
-                      {user ? (
+                      {user && (
                         <span className="text-[10px] sm:text-[11px] font-semibold bg-emerald-200/60 text-emerald-800 px-2 py-0.5 rounded-full">
                           Cloud Synced
-                        </span>
-                      ) : (
-                        <span className="text-[10px] sm:text-[11px] font-medium bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
-                          Local Session
                         </span>
                       )}
                     </div>
@@ -322,10 +312,8 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                     ? `Auto-refresh configured (${daysUntilRenewal} days until scheduled renewal)`
                     : "Active session ready for one-click publishing"}
                 </span>
-                {user ? (
+                {user && (
                   <span className="text-[10px] sm:text-[11px] text-emerald-800/80">AES-256 Cloud Backup Active</span>
-                ) : (
-                  <span className="text-[10px] sm:text-[11px] text-emerald-800/80">Encrypted in Local Storage</span>
                 )}
               </div>
             </div>
@@ -686,7 +674,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
         <p className="text-[11px] sm:text-xs text-slate-500 max-w-[55%] truncate sm:whitespace-normal">
           {user
             ? "Settings synchronized to your cloud profile."
-            : "Settings stored securely in this browser."}
+            : "Sign in to synchronize settings to your cloud profile."}
         </p>
         <Button
           onClick={onClose}

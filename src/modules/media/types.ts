@@ -12,7 +12,6 @@ export interface MediaSignRequest {
 }
 
 export interface MediaSignResponse {
-  localMode?: boolean;
   uploadUrl?: string;
   storagePath?: string;
   readUrl?: string;

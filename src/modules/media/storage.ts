@@ -11,8 +11,8 @@ export async function getSignedUploadUrl(
   userId?: string
 ): Promise<MediaSignResponse> {
   if (!supabase) {
-    log.debug(`Supabase not configured, operating in local mode`);
-    return { localMode: true };
+    log.error(`Supabase client is not configured for media storage`);
+    return { error: "Supabase storage is not configured" };
   }
 
   const baseName = path.basename(filename);

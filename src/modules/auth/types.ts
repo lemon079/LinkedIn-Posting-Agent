@@ -2,7 +2,6 @@ export interface LinkedInCallbackResult {
   accessToken: string;
   personUrn: string;
   expiresAt: number;
-  localMode?: boolean;
   actionLink?: string;
   emailOtp?: string;
   hashedToken?: string;
@@ -12,7 +11,6 @@ export interface LinkedInCallbackResult {
 export interface LinkedInCallbackResponse {
   accessToken: string;
   personUrn: string;
-  localMode?: boolean;
   actionLink?: string;
   emailOtp?: string;
   hashedToken?: string;

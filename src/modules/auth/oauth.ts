@@ -77,15 +77,10 @@ export async function handleLinkedInCallback(
     throw new Error("Email not returned by LinkedIn OIDC");
   }
 
-  // If Supabase is not active, run in local fallback mode
+  // Require Supabase to be configured for authentication
   if (!supabase) {
-    log.info("Operating in local mode: Supabase not configured");
-    return {
-      accessToken,
-      personUrn,
-      expiresAt,
-      localMode: true,
-    };
+    log.error("Supabase client is not configured for authentication");
+    throw new Error("Supabase is not configured for authentication");
   }
 
   // 3. Try to create the user in Supabase

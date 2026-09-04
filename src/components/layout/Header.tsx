@@ -1,6 +1,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Settings, Cloud, HardDrive, CheckCircle2 } from "lucide-react";
+import { Settings, Cloud, CheckCircle2 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 
 interface HeaderProps {
@@ -27,16 +27,11 @@ export const Header: React.FC<HeaderProps> = ({
     </div>
 
     <div className="flex items-center gap-2.5">
-      {/* Mode Indicator Chip */}
-      {user ? (
+      {/* Cloud Sync Status Chip */}
+      {user && (
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
           <Cloud className="size-3.5 text-emerald-600 shrink-0" />
           <span className="hidden sm:inline">Cloud Sync</span>
-        </div>
-      ) : (
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200 shadow-2xs">
-          <HardDrive className="size-3.5 text-slate-500 shrink-0" />
-          <span className="hidden sm:inline">Local Mode</span>
         </div>
       )}
 

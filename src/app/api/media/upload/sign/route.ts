@@ -33,11 +33,6 @@ export async function GET(request: Request) {
     const result = await getSignedUploadUrl(filename, mimeType, user.id);
     const durationMs = Date.now() - startTime;
 
-    if (result.localMode) {
-      log.info(`Local mode detected (Supabase client not initialized)`, { durationMs });
-      return NextResponse.json({ localMode: true });
-    }
-
     if (result.error || !result.uploadUrl) {
       log.error(`Service call failed to generate signed URL`, { error: result.error, durationMs });
       return NextResponse.json(

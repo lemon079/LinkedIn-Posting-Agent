@@ -74,7 +74,6 @@ export async function GET(request: Request) {
 
     log.info(`OAuth flow completed successfully, redirecting to origin`, {
       baseUrl,
-      localMode: Boolean(result.localMode),
     });
 
     return response;

@@ -337,18 +337,18 @@ describe("Backend API Endpoints", () => {
       expect(json.error).toBe("Missing filename or mimeType");
     });
 
-    test("returns localMode true when supabase client is not initialized", async () => {
+    test("returns 500 when storage generation fails or client is not configured", async () => {
       (verifyAuth as jest.Mock).mockResolvedValue({ id: "user-123" });
       const request = new Request("http://localhost/api/media/upload/sign?filename=test.png&mimeType=image/png", {
         method: "GET",
         headers: { Authorization: "Bearer test-token" },
       });
-      (getSignedUploadUrl as jest.Mock).mockResolvedValue({ localMode: true });
+      (getSignedUploadUrl as jest.Mock).mockResolvedValue({ error: "Supabase storage is not configured" });
 
       const response = await mediaUploadSign(request);
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(500);
       const json = await response.json();
-      expect(json.localMode).toBe(true);
+      expect(json.error).toBe("Supabase storage is not configured");
     });
 
     test("returns 401 when user is not authenticated", async () => {

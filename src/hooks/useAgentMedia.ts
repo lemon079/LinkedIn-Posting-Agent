@@ -65,26 +65,6 @@ export function useAgentMedia(token: string | null) {
 
       const signData = signRes.data;
 
-      if (signData.localMode) {
-        const reader = new FileReader();
-        const base64Promise = new Promise<string>((resolve, reject) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-        });
-        reader.readAsDataURL(file);
-        const base64 = await base64Promise;
-
-        setSelectedFiles((prev) => [
-          ...prev,
-          {
-            name: file.name,
-            type: file.type,
-            base64,
-          },
-        ]);
-        return;
-      }
-
       if (signData.error || !signData.uploadUrl) {
         throw new Error(signData.error || "Failed to generate signed upload URL");
       }

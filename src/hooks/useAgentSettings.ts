@@ -160,21 +160,15 @@ export function useAgentSettings() {
           }
         }
       } else {
-        const savedLiToken = localStorage.getItem("li_token");
-        if (savedLiToken) setLiToken(savedLiToken);
-
-        const savedLiUrn = localStorage.getItem("li_urn");
-        if (savedLiUrn) setLiUrn(savedLiUrn);
-
-        const savedLiExpiresAt = localStorage.getItem("li_token_expires_at");
-        if (savedLiExpiresAt) setLiTokenExpiresAt(Number(savedLiExpiresAt));
+        // Clean up legacy localStorage secrets if any exist
+        localStorage.removeItem("li_token");
+        localStorage.removeItem("li_urn");
+        localStorage.removeItem("li_token_expires_at");
+        localStorage.removeItem("llm_api_key");
       }
 
       const savedProvider = localStorage.getItem("llm_provider");
       if (savedProvider) setProviderState(savedProvider);
-
-      const savedApiKey = localStorage.getItem("llm_api_key");
-      if (savedApiKey) setApiKey(savedApiKey);
 
       const savedModel = localStorage.getItem("llm_model");
       if (savedModel) setModelName(savedModel);
@@ -186,58 +180,16 @@ export function useAgentSettings() {
     });
   }, []);
 
-  const localSettingsRef = useRef({
-    provider,
-    apiKey,
-    modelName,
-    ollamaBaseUrl,
-    liToken,
-    liUrn,
-    liTokenExpiresAt,
-  });
-  useEffect(() => {
-    localSettingsRef.current = {
-      provider,
-      apiKey,
-      modelName,
-      ollamaBaseUrl,
-      liToken,
-      liUrn,
-      liTokenExpiresAt,
-    };
-  }, [provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, liTokenExpiresAt]);
-
-  // 1. Fetch user settings from Supabase & Atomic Uplift on sign-in
+  // 1. Fetch user settings from Supabase on sign-in
   useEffect(() => {
     const fetchSettings = async (t: string) => {
       try {
         const settings = await fetchUserSettings(t);
-        const local = localSettingsRef.current;
 
-        const cloudHasLLM = Boolean(settings.apiKey || settings.modelName);
-        if (cloudHasLLM) {
-          if (settings.provider) setProvider(settings.provider);
-          setApiKey(settings.apiKey || "");
-          setModelName(settings.modelName || "");
-          if (settings.ollamaBaseUrl) setOllamaBaseUrl(settings.ollamaBaseUrl);
-        } else {
-          // Atomic Uplift: If cloud row is empty for LLM keys but local state has them, uplift to cloud
-          const localHasLLM = Boolean(local.apiKey || local.modelName || (local.provider && local.provider !== "gemini"));
-          if (localHasLLM) {
-            saveUserSettings(
-              {
-                provider: local.provider,
-                apiKey: local.apiKey,
-                modelName: local.modelName,
-                ollamaBaseUrl: local.ollamaBaseUrl,
-                liToken: settings.liToken || local.liToken,
-                liUrn: settings.liUrn || local.liUrn,
-                liTokenExpiresAt: settings.liTokenExpiresAt || local.liTokenExpiresAt,
-              },
-              t
-            ).catch(() => {});
-          }
-        }
+        if (settings.provider) setProvider(settings.provider);
+        if (settings.apiKey) setApiKey(settings.apiKey);
+        if (settings.modelName) setModelName(settings.modelName);
+        if (settings.ollamaBaseUrl) setOllamaBaseUrl(settings.ollamaBaseUrl);
 
         if (settings.liToken) setLiToken(settings.liToken);
         if (settings.liUrn) setLiUrn(settings.liUrn);
@@ -316,14 +268,8 @@ export function useAgentSettings() {
         ).catch(() => {});
       } else {
         localStorage.setItem("llm_provider", provider);
-        localStorage.setItem("llm_api_key", apiKey);
         localStorage.setItem("llm_model", modelName);
         localStorage.setItem("ollama_base_url", ollamaBaseUrl);
-        localStorage.setItem("li_token", liToken);
-        localStorage.setItem("li_urn", liUrn);
-        if (liTokenExpiresAt) {
-          localStorage.setItem("li_token_expires_at", String(liTokenExpiresAt));
-        }
       }
     }
     prevSettingsOpen.current = isSettingsOpen;
