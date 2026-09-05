@@ -27,7 +27,7 @@ import { supabase } from "@/lib/supabase/client";
 import { AuthForm } from "@/modules/auth/components/AuthForm";
 import type { User } from "@supabase/supabase-js";
 import { cleanErrorMessage } from "@/lib/utils";
-import { parseApiError, type ParsedApiError } from "@/lib/errors";
+import { parseApiError, type ParsedApiError, type LlmProviderType } from "@/lib/errors";
 import {
   CheckCircle2,
   XCircle,
@@ -198,7 +198,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
             title: "API Key Required",
             message: "Please enter your API key to test, or sign in to test your saved cloud key.",
             advice: "Enter your API key above to verify connection.",
-            provider: provider as any,
+            provider: provider as LlmProviderType,
             isAuth: true,
             isRateLimit: false,
             isQuota: false,

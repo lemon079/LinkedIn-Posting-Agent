@@ -264,7 +264,7 @@ export function useAgentSettings() {
   // 2. Load auth session and listen for refresh
   useEffect(() => {
     if (!supabase) {
-      setIsHydrating(false);
+      queueMicrotask(() => setIsHydrating(false));
       return;
     }
     supabase.auth

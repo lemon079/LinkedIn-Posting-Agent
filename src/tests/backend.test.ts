@@ -218,7 +218,7 @@ describe("Backend API Endpoints", () => {
 
     test("returns 401 when LinkedIn authentication is missing", async () => {
       const origToken = config.LINKEDIN_ACCESS_TOKEN;
-      (config as any).LINKEDIN_ACCESS_TOKEN = "";
+      (config as unknown as Record<string, unknown>).LINKEDIN_ACCESS_TOKEN = "";
       try {
         const request = new Request("http://localhost/api/draft", {
           method: "POST",
@@ -230,7 +230,7 @@ describe("Backend API Endpoints", () => {
         const data = await response.json();
         expect(data.error).toContain("LinkedIn");
       } finally {
-        (config as any).LINKEDIN_ACCESS_TOKEN = origToken;
+        (config as unknown as Record<string, unknown>).LINKEDIN_ACCESS_TOKEN = origToken;
       }
     });
   });

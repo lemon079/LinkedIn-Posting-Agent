@@ -29,14 +29,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Setup Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install Node Dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build Next.js Production App
         run: npm run build
@@ -65,7 +65,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Setup Java JDK
@@ -83,7 +83,7 @@ jobs:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
 
       - name: Install Node Dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build Next.js Production App
         run: npm run build

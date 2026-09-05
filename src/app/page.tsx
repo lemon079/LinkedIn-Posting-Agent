@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useAgent } from "@/hooks/useAgent";
 import { useAgentRuntime } from "@/hooks/useAgentRuntime";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
@@ -62,12 +62,12 @@ export default function Home() {
 
   const [isRedirectingToLogin, setIsRedirectingToLogin] = useState(false);
 
-  const handleInitiateLinkedInLogin = () => {
+  const handleInitiateLinkedInLogin = useCallback(() => {
     setIsRedirectingToLogin(true);
     window.location.href = "/api/auth/linkedin?state=login";
-  };
+  }, []);
 
-  const handleShowErrorToast = (err: string | Error) => {
+  const handleShowErrorToast = useCallback((err: string | Error) => {
     const parsed = parseApiError(err);
     if (
       parsed.isRateLimit ||
@@ -107,7 +107,7 @@ export default function Home() {
     } else {
       toast.error(parsed.message);
     }
-  };
+  }, [isAuthenticated, handleInitiateLinkedInLogin, setIsSettingsOpen]);
 
   const runtime = useAgentRuntime({
     customTopic,
@@ -132,7 +132,7 @@ export default function Home() {
     if (error) {
       handleShowErrorToast(error);
     }
-  }, [error]);
+  }, [error, handleShowErrorToast]);
 
   const effectiveTopic = !isAuthenticated && !customTopic ? SHOWCASE_TOPIC : customTopic;
   const effectiveContext = !isAuthenticated && !context ? SHOWCASE_CONTEXT : context;

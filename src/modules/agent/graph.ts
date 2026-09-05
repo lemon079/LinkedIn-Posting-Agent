@@ -111,7 +111,7 @@ const builder = new StateGraph(AgentState)
     generateDraft: "generateDraft",
     [END]: END,
   })
-  .addConditionalEdges("publishPost", (_state: State) => END);
+  .addEdge("publishPost", END);
 
 // In production / Supabase environments, use PostgreSQL checkpointer. In local development fallback to MemorySaver singleton.
 const globalForGraph = globalThis as unknown as { agentCheckpointer?: BaseCheckpointSaver };

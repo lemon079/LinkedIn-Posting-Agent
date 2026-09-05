@@ -1,6 +1,7 @@
 import { HumanMessage } from "@langchain/core/messages";
 import { createLLM } from "../llm/factory";
 import type { State } from "../core/state";
+import { DOMAIN_OPTIONS } from "../core/schemas";
 import { inferDomain } from "../core/domains";
 import { logger } from "@/lib/logger";
 import type { RunnableConfig } from "@langchain/core/runnables";
@@ -56,7 +57,9 @@ export async function handleAgentError(
       intake: {
         topic: state.topic || "Professional Insights",
         context: state.context || "",
-        domain: (domain as any) || "general",
+        domain: (DOMAIN_OPTIONS as readonly string[]).includes(domain)
+          ? (domain as (typeof DOMAIN_OPTIONS)[number])
+          : "general",
         angle: "actionable takeaway and real-world lesson",
         tone: "authoritative",
       },
@@ -138,7 +141,13 @@ Rules:
       generatedText = response.content;
     } else if (Array.isArray(response.content)) {
       generatedText = response.content
-        .map((p: any) => (typeof p === "string" ? p : p.text || ""))
+        .map((p) =>
+          typeof p === "string"
+            ? p
+            : p && typeof p === "object" && "text" in p && typeof (p as { text: unknown }).text === "string"
+            ? (p as { text: string }).text
+            : ""
+        )
         .join("");
     }
 
