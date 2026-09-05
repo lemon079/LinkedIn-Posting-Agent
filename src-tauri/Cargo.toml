@@ -1,6 +1,6 @@
 [package]
 name = "praxis"
-version = "0.1.0"
+version = "1.1.0"
 description = "Praxis LinkedIn Agent Native Desktop Application"
 authors = ["Praxis Team"]
 edition = "2021"
