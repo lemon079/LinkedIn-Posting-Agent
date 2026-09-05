@@ -31,7 +31,7 @@ export const checkConnection = async (
             ok: false,
             error:
               names.length > 0
-                ? `Model "${model}" not found in Ollama. Run 'ollama pull ${model}' in your desktop terminal. Available: ${names.join(", ")}`
+                ? `Model "${model}" not found in Ollama. Run 'ollama pull ${model}' in your terminal. Available: ${names.join(", ")}`
                 : `Ollama is running on ${base}, but no models are installed. Run 'ollama pull ${model || "llama3.1"}' in your terminal.`,
             models: names,
           };
@@ -46,7 +46,7 @@ export const checkConnection = async (
         ) {
           return {
             ok: false,
-            error: `Ollama service is not running on ${base}. Please start Ollama on your desktop app and try again.`,
+            error: `Ollama service is not running on ${base}. Please ensure Ollama is running locally and try again.`,
           };
         }
         return {

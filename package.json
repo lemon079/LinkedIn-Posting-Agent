@@ -7,17 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "tests": "jest",
-    "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build",
-    "build:desktop": "tauri build",
-    "build:mobile": "tauri android build",
-    "tauri:android:init": "tauri android init",
-    "tauri:android:dev": "tauri android dev",
-    "tauri:android:build": "tauri android build",
-    "tauri:ios:init": "tauri ios init",
-    "tauri:ios:build": "tauri ios build"
+    "tests": "jest"
   },
   "dependencies": {
     "@assistant-ui/react": "^0.15.14",
@@ -31,7 +21,6 @@
     "@langchain/openai": "^1.5.2",
     "@langchain/tavily": "^1.2.0",
     "@supabase/supabase-js": "^2.108.2",
-    "@tauri-apps/api": "^2.2.0",
     "@vercel/analytics": "^2.0.1",
     "axios": "^1.18.1",
     "class-variance-authority": "^0.7.1",
@@ -57,7 +46,6 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@tauri-apps/cli": "^2.2.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/jest": "^30.0.0",

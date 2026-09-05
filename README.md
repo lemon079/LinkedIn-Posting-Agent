@@ -20,8 +20,6 @@
   - Custom `SupabaseCheckpointer` persisting LangGraph state checkpoints and thread history to Supabase PostgreSQL.
 - **Secure Multi-User Credentials & OAuth**:
   - AES-256-GCM encryption at rest for user API keys and LinkedIn OAuth tokens.
-- **Native Desktop & Web**:
-  - Runs in any modern web browser or as a native desktop application via **Tauri v2**.
 
 ---
 
@@ -116,13 +114,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### 3. Run Native Desktop App (Optional)
-
-```bash
-npm run tauri:dev
-```
-
-### 4. Build for Production
+### 3. Build for Production
 
 ```bash
 npm run build
