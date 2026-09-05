@@ -130,8 +130,37 @@ npm start
 npm run lint
 
 # Run all test suites (Unit, Integration, Evals, API, and UI)
-npm run tests
+npm run test
 ```
+
+---
+
+## 📱 Android Mobile App
+
+Praxis is available as an Android mobile application powered by Tauri v2:
+
+### Prerequisites
+- **Android SDK** & **Android NDK** (`r26d` recommended)
+- **Java JDK 17+**
+- **Rust Toolchain** with Android targets:
+  ```bash
+  rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+  ```
+
+### Mobile Commands
+```bash
+# Initialize Android project (one-time setup)
+npm run tauri:android:init
+
+# Run live on connected device or emulator
+npm run tauri:android:dev
+
+# Build production Android APK
+npm run build:mobile
+```
+
+### Automated CI/CD Releases
+Pushing a version tag (e.g. `git tag v1.1.0 && git push origin v1.1.0`) triggers the GitHub Actions release workflow to automatically build the native Android APK and publish it to GitHub Releases.
 
 ---
 
