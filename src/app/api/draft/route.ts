@@ -62,6 +62,15 @@ export async function POST(request: Request) {
     });
 
     const creds = await resolveAgentCredentials(request, client, user?.id);
+    const hasLinkedIn = Boolean(creds.liToken || config.LINKEDIN_ACCESS_TOKEN || user);
+    if (!hasLinkedIn) {
+      log.warn(`Rejecting draft request: LinkedIn authentication required`);
+      return NextResponse.json(
+        { error: "LinkedIn authentication is required to generate drafts. Please sign in with LinkedIn." },
+        { status: 401 }
+      );
+    }
+
     const provider = keys?.provider || creds.provider || config.defaultProvider;
     const model = keys?.modelName || creds.model || config.defaultModel;
     const apiKey = keys?.apiKey || creds.apiKey;

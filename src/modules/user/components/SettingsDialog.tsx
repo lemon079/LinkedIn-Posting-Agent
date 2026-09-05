@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/drawer";
 import { useMedia } from "use-media";
 import { healthCheck } from "@/lib/api";
+import { supabase } from "@/lib/supabase/client";
 import { AuthForm } from "@/modules/auth/components/AuthForm";
 import type { User } from "@supabase/supabase-js";
 import { cleanErrorMessage } from "@/lib/utils";
@@ -42,11 +43,13 @@ import {
   Hourglass,
   ZapOff,
   Lightbulb,
+  X,
 } from "lucide-react";
 
 export interface SettingsDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  isAuthenticated?: boolean;
   provider: string;
   setProvider: (val: string) => void;
   apiKey: string;
@@ -74,6 +77,7 @@ const CLOUD_MODELS: Record<string, string[]> = {
 export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   isOpen,
   onClose,
+  isAuthenticated,
   provider,
   setProvider,
   apiKey,
@@ -173,8 +177,49 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
 
   const handleTestConnection = async () => {
     setTestState({ status: "testing" });
+
+    const isMasked = !apiKey || apiKey === "••••••••••••" || apiKey.includes("•");
+    let authToken: string | undefined;
+
+    if (isMasked && provider !== "ollama") {
+      if (supabase) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          authToken = session?.access_token;
+        } catch { }
+      }
+
+      if (!authToken && !user) {
+        setTestState({
+          status: "error",
+          errorMsg: "Please enter your API key to test, or sign in to test your saved cloud key.",
+          errorInfo: {
+            type: "auth",
+            title: "API Key Required",
+            message: "Please enter your API key to test, or sign in to test your saved cloud key.",
+            advice: "Enter your API key above to verify connection.",
+            provider: provider as any,
+            isAuth: true,
+            isRateLimit: false,
+            isQuota: false,
+            isRetryable: false,
+            suggestSettings: true,
+            rawError: "Missing key or auth session",
+          },
+        });
+        return;
+      }
+    }
+
     try {
-      const response = await healthCheck(provider, apiKey, modelName, ollamaBaseUrl);
+      const response = await healthCheck(
+        provider,
+        isMasked ? undefined : apiKey,
+        modelName,
+        ollamaBaseUrl,
+        authToken,
+        isMasked
+      );
       if (response.ok) {
         setTestState({
           status: "success",
@@ -219,40 +264,53 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   const renderContent = (isModal: boolean) => (
     <>
       {/* Header */}
-      <div className="p-4 sm:p-6 border-b border-border bg-surface-container-low flex items-center justify-between gap-3 shrink-0">
-        <div className="flex items-center gap-3">
+      <div className="px-4 py-3.5 sm:p-6 border-b border-border bg-surface-container-low flex items-center justify-between gap-3 shrink-0">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
           <div className="p-2 sm:p-2.5 rounded-xl bg-brand-blue/10 text-brand-blue shrink-0">
-            <Settings2 className="size-5" />
+            <Settings2 className="size-4.5 sm:size-5" />
           </div>
-          <div>
+          <div className="min-w-0">
             {isModal ? (
-              <DialogTitle className="font-bold text-slate-900 text-base sm:text-lg leading-tight">
+              <DialogTitle className="font-bold text-slate-900 text-sm sm:text-lg leading-tight truncate">
                 Account & AI Settings
               </DialogTitle>
             ) : (
-              <DrawerTitle className="font-bold text-slate-900 text-base sm:text-lg leading-tight">
+              <DrawerTitle className="font-bold text-slate-900 text-sm sm:text-lg leading-tight truncate">
                 Account & AI Settings
               </DrawerTitle>
             )}
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 line-clamp-1 sm:line-clamp-none">
               Configure your LinkedIn integration, AI engine, and credentials.
             </p>
           </div>
         </div>
 
-        {/* Sync Mode Badge */}
-        {user && (
-          <div className={isModal ? "mr-6 shrink-0" : "shrink-0"}>
-            <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs">
-              <Cloud className="size-3.5 text-emerald-600" />
-              <span className="hidden sm:inline">Cloud Sync</span>
+        {/* Sync Mode Badge & Close button for Drawer */}
+        <div className="flex items-center gap-2 shrink-0">
+          {user && (
+            <div className={isModal ? "mr-6" : ""}>
+              <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs">
+                <Cloud className="size-3 sm:size-3.5 text-emerald-600 shrink-0" />
+                <span className="hidden sm:inline">Cloud Sync</span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {!isModal && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition cursor-pointer"
+              aria-label="Close settings"
+            >
+              <X className="size-4.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Scrollable Form Area */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 custom-scrollbar text-slate-900 select-text">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3.5 sm:p-6 space-y-5 sm:space-y-6 custom-scrollbar text-slate-900 select-text">
         {/* Unified Section 1: LinkedIn & Account Sync */}
         <div className="space-y-3">
           <div className="flex items-center gap-2 pb-1.5 border-b border-border">
@@ -263,14 +321,14 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
           </div>
 
           {liToken && liUrn ? (
-            <div className="bg-emerald-50/80 border border-emerald-200 text-emerald-900 p-3.5 sm:p-4 rounded-xl space-y-3 animate-fade-in-up">
-              <div className="flex items-start justify-between gap-2.5 sm:gap-3">
-                <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="bg-emerald-50/80 border border-emerald-200 text-emerald-900 p-3 sm:p-4 rounded-xl space-y-3 animate-fade-in-up">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   <div className="p-2 rounded-lg bg-emerald-100/80 text-emerald-700 shrink-0">
-                    <CheckCircle2 className="size-5" />
+                    <CheckCircle2 className="size-4 sm:size-5" />
                   </div>
-                  <div>
-                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <p className="font-bold text-xs sm:text-sm text-emerald-950">LinkedIn Connected</p>
                       {user && (
                         <span className="text-[10px] sm:text-[11px] font-semibold bg-emerald-200/60 text-emerald-800 px-2 py-0.5 rounded-full">
@@ -278,13 +336,13 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-emerald-700 font-mono mt-0.5 truncate max-w-40 sm:max-w-85">
+                    <p className="text-xs text-emerald-700 font-mono mt-0.5 truncate max-w-full" title={user?.email ? `${user.email} (${liUrn})` : liUrn}>
                       {user?.email ? `${user.email} (${liUrn})` : liUrn}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 self-end sm:self-auto">
                   {user && onSignOut && (
                     <Button
                       type="button"
@@ -292,7 +350,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                       className="bg-white hover:bg-slate-50 border border-border text-slate-700 hover:text-rose-600 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 shadow-xs transition duration-150 cursor-pointer"
                     >
                       <LogOut className="size-3.5" />
-                      <span className="hidden sm:inline">Sign Out</span>
+                      <span>Sign Out</span>
                     </Button>
                   )}
                   <Button
@@ -306,7 +364,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-emerald-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] sm:text-xs text-emerald-700">
+              <div className="pt-2 border-t border-emerald-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] sm:text-xs text-emerald-700 wrap-break-word">
                 <span>
                   {liTokenExpiresAt
                     ? `Auto-refresh configured (${daysUntilRenewal} days until scheduled renewal)`
@@ -318,7 +376,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
               </div>
             </div>
           ) : (
-            <div className="bg-surface-container-low border border-border p-4 rounded-xl space-y-3 animate-fade-in-up">
+            <div className="bg-surface-container-low border border-border p-3.5 sm:p-4 rounded-xl space-y-3 animate-fade-in-up">
               <div className="text-center sm:text-left">
                 <p className="font-bold text-sm text-slate-800">Connect with LinkedIn</p>
                 <p className="text-xs text-slate-500 mt-0.5">
@@ -412,12 +470,12 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                 </div>
 
                 {apiKey && !isEditingKey ? (
-                  <div className="flex items-center justify-between p-2.5 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs">
-                    <div className="flex items-center gap-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
                       <ShieldCheck className="size-4 text-emerald-600 shrink-0" />
-                      <span className="font-semibold text-emerald-900">API Key Configured & Encrypted</span>
+                      <span className="font-semibold text-emerald-900 truncate">API Key Configured & Encrypted</span>
                     </div>
-                    <span className="font-mono text-xs text-slate-400 bg-white px-2 py-0.5 rounded border border-emerald-100">
+                    <span className="font-mono text-xs text-slate-400 bg-white px-2 py-0.5 rounded border border-emerald-100 self-start sm:self-auto shrink-0">
                       ••••••••••••
                     </span>
                   </div>
@@ -469,7 +527,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                       <p className="font-semibold">⚠️ Ollama Unreachable</p>
                       <p>{cleanErrorMessage(ollamaFetchState.errorMsg || "Could not connect to Ollama.")}</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <Input
                         type="text"
                         placeholder="e.g. llama3, mistral"
@@ -478,12 +536,12 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                           setModelName(e.target.value);
                           setTestState({ status: "idle" });
                         }}
-                        className="flex-1"
+                        className="flex-1 w-full"
                       />
                       <Button
                         type="button"
                         onClick={fetchOllamaModels}
-                        className="px-3.5 bg-slate-100 hover:bg-slate-200 border border-border text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
+                        className="w-full sm:w-auto px-4 bg-slate-100 hover:bg-slate-200 border border-border text-slate-700 rounded-xl text-xs font-semibold cursor-pointer shrink-0"
                       >
                         Retry
                       </Button>
@@ -497,7 +555,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                       <p className="font-semibold">⚠️ No Models Found</p>
                       <p>Pull a model using <code className="bg-amber-100/60 px-1 py-0.5 rounded font-mono">ollama pull llama3</code>.</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <Input
                         type="text"
                         placeholder="e.g. llama3, mistral"
@@ -506,12 +564,12 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                           setModelName(e.target.value);
                           setTestState({ status: "idle" });
                         }}
-                        className="flex-1"
+                        className="flex-1 w-full"
                       />
                       <Button
                         type="button"
                         onClick={fetchOllamaModels}
-                        className="px-3.5 bg-slate-100 hover:bg-slate-200 border border-border text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
+                        className="w-full sm:w-auto px-4 bg-slate-100 hover:bg-slate-200 border border-border text-slate-700 rounded-xl text-xs font-semibold cursor-pointer shrink-0"
                       >
                         Retry
                       </Button>
@@ -569,7 +627,12 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                     <SelectValue placeholder="Select model..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {(CLOUD_MODELS[provider] || []).map((m) => (
+                    {Array.from(
+                      new Set([
+                        ...(CLOUD_MODELS[provider] || []),
+                        ...(testState.discoveredModels || []),
+                      ])
+                    ).map((m) => (
                       <SelectItem key={m} value={m}>
                         {m}
                       </SelectItem>
@@ -582,10 +645,10 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                   <div className="space-y-1 mt-2">
                     <Input
                       type="text"
-                      placeholder="Enter custom model name (e.g. gpt-4-32k)..."
+                      placeholder="Enter custom model name (e.g. gpt-4o, gemini-2.5-pro)..."
                       value={modelName}
                       onChange={(e) => {
-                        setModelName(e.target.value);
+                        setModelName(e.target.value.trim());
                         setTestState({ status: "idle" });
                       }}
                     />
@@ -629,23 +692,23 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                 <div
                   className={
                     testState.errorInfo?.isRateLimit || testState.errorInfo?.isQuota
-                      ? "mt-2.5 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 rounded-xl space-y-1.5 text-xs text-amber-900 dark:text-amber-100 animate-fade-in"
-                      : "mt-2.5 p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-xl flex items-start gap-2.5 text-xs text-rose-800 dark:text-rose-200 animate-fade-in"
+                      ? "mt-2.5 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 rounded-xl space-y-1.5 text-xs text-amber-900 dark:text-amber-100 animate-fade-in wrap-anywhere"
+                      : "mt-2.5 p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-xl flex items-start gap-2.5 text-xs text-rose-800 dark:text-rose-200 animate-fade-in wrap-break-word"
                   }
                 >
                   {testState.errorInfo?.isRateLimit || testState.errorInfo?.isQuota ? (
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 font-semibold text-amber-900 dark:text-amber-100">
                         {testState.errorInfo.isQuota ? (
                           <ZapOff className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
                         ) : (
                           <Hourglass className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
                         )}
-                        <span>{testState.errorInfo.title}</span>
+                        <span className="truncate">{testState.errorInfo.title}</span>
                       </div>
-                      <p className="text-amber-800 dark:text-amber-200 text-xs">{testState.errorMsg}</p>
+                      <p className="text-amber-800 dark:text-amber-200 text-xs wrap-break-word">{testState.errorMsg}</p>
                       {testState.errorInfo.advice && (
-                        <div className="mt-1 flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-300 bg-amber-100/60 dark:bg-amber-900/40 p-1.5 rounded-md">
+                        <div className="mt-1 flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-300 bg-amber-100/60 dark:bg-amber-900/40 p-1.5 rounded-md wrap-anywhere">
                           <Lightbulb className="size-3 shrink-0 mt-0.5" />
                           <span>{testState.errorInfo.advice}</span>
                         </div>
@@ -654,9 +717,9 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                   ) : (
                     <>
                       <XCircle className="size-4 mt-0.5 shrink-0 text-rose-600 dark:text-rose-400" />
-                      <div>
-                        <span className="font-semibold block">{testState.errorInfo?.title || "Connection Failed"}</span>
-                        <span className="text-rose-600 dark:text-rose-300 text-xs line-clamp-3 font-medium">
+                      <div className="min-w-0 flex-1">
+                        <span className="font-semibold block truncate">{testState.errorInfo?.title || "Connection Failed"}</span>
+                        <span className="text-rose-600 dark:text-rose-300 text-xs line-clamp-3 font-medium wrap-break-word">
                           {testState.errorMsg}
                         </span>
                       </div>
@@ -670,15 +733,15 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
       </div>
 
       {/* Footer */}
-      <div className="p-3.5 sm:p-5 border-t border-border bg-surface-container-low/50 flex items-center justify-between gap-3 shrink-0">
-        <p className="text-[11px] sm:text-xs text-slate-500 max-w-[55%] truncate sm:whitespace-normal">
+      <div className="p-3.5 sm:p-5 border-t border-border bg-surface-container-low/50 flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3 shrink-0 pb-[max(0.875rem,env(safe-area-inset-bottom))]">
+        <p className="text-[11px] sm:text-xs text-slate-500 text-center sm:text-left truncate sm:whitespace-normal">
           {user
             ? "Settings synchronized to your cloud profile."
             : "Sign in to synchronize settings to your cloud profile."}
         </p>
         <Button
           onClick={onClose}
-          className="bg-brand-blue hover:bg-brand-blue-hover active:bg-brand-blue-hover text-white font-semibold px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl transition duration-200 shadow-md cursor-pointer text-xs sm:text-sm shrink-0"
+          className="w-full sm:w-auto bg-brand-blue hover:bg-brand-blue-hover active:bg-brand-blue-hover text-white font-semibold px-6 py-2.5 rounded-xl transition duration-200 shadow-md cursor-pointer text-xs sm:text-sm shrink-0"
         >
           Apply Settings
         </Button>
@@ -686,12 +749,15 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     </>
   );
 
+  // Guest mode guard: If explicitly not authenticated, prevent the dialog/drawer from opening
+  const isEffectivelyOpen = Boolean(isOpen && (isAuthenticated !== false));
+
   if (isDesktop) {
     return (
-      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <Dialog open={isEffectivelyOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent
           showCloseButton={true}
-          className="w-full sm:max-w-2xl max-h-[88vh] p-0 flex flex-col overflow-hidden bg-card border border-border shadow-2xl rounded-2xl text-foreground"
+          className="w-full sm:max-w-2xl max-h-[85vh] sm:max-h-[85dvh] p-0 flex flex-col overflow-hidden bg-card border border-border shadow-2xl rounded-2xl text-foreground focus:outline-none"
         >
           {renderContent(true)}
         </DialogContent>
@@ -700,8 +766,8 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   }
 
   return (
-    <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DrawerContent className="w-full max-h-[88vh] bg-card border-t border-border flex flex-col justify-between shadow-2xl text-foreground overflow-hidden rounded-t-2xl">
+    <Drawer open={isEffectivelyOpen} onOpenChange={(open) => !open && onClose()}>
+      <DrawerContent className="w-full h-[90dvh] max-h-[92dvh] mt-0 bg-card border-t border-border flex flex-col shadow-2xl text-foreground overflow-hidden rounded-t-2xl focus:outline-none">
         {renderContent(false)}
       </DrawerContent>
     </Drawer>

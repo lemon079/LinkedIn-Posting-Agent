@@ -117,6 +117,20 @@ export const AgentState = Annotation.Root({
     reducer: (_x, y) => y,
     default: () => null,
   }),
+
+  // ── Error Recovery Agent ──────────────────────────────────────────────
+  failedNode: Annotation<string | null>({
+    reducer: (_x, y) => y,
+    default: () => null,
+  }),
+  errorRecoveryCount: Annotation<number>({
+    reducer: (_x, y) => y,
+    default: () => 0,
+  }),
+  rawLlmResponse: Annotation<string | null>({
+    reducer: (_x, y) => y,
+    default: () => null,
+  }),
 });
 
 export type State = typeof AgentState.State;

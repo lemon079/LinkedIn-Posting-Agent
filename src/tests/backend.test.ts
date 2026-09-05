@@ -12,6 +12,7 @@ import { agent, checkConnection } from "@/modules/agent";
 import { verifyAuth, getSupabaseClient } from "@/lib/supabase/server";
 import { getSignedUploadUrl } from "@/modules/media";
 import { encrypt } from "@/modules/auth";
+import { config } from "@/config/env";
 
 jest.mock("@/modules/agent", () => ({
   agent: {
@@ -198,6 +199,7 @@ describe("Backend API Endpoints", () => {
 
       const request = new Request("http://localhost/api/draft", {
         method: "POST",
+        headers: { "x-linkedin-token": "mock-linkedin-token" },
         body: JSON.stringify({ topic: "Tech Trends", context: "Be professional" }),
       });
 
@@ -212,6 +214,24 @@ describe("Backend API Endpoints", () => {
       expect(finalJson.draft).toBe("Mock Draft content");
       expect(finalJson.reasoningSteps).toEqual([{ title: "Outline & Planning", output: "Planning output" }]);
       expect(agent.streamEvents).toHaveBeenCalled();
+    });
+
+    test("returns 401 when LinkedIn authentication is missing", async () => {
+      const origToken = config.LINKEDIN_ACCESS_TOKEN;
+      (config as any).LINKEDIN_ACCESS_TOKEN = "";
+      try {
+        const request = new Request("http://localhost/api/draft", {
+          method: "POST",
+          body: JSON.stringify({ topic: "Tech Trends", context: "Be professional" }),
+        });
+
+        const response = await draftPost(request);
+        expect(response.status).toBe(401);
+        const data = await response.json();
+        expect(data.error).toContain("LinkedIn");
+      } finally {
+        (config as any).LINKEDIN_ACCESS_TOKEN = origToken;
+      }
     });
   });
 

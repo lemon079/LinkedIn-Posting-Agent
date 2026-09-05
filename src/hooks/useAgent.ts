@@ -316,6 +316,8 @@ export function useAgent() {
     isSettingsOpen: settings.isSettingsOpen,
     user: settings.user,
     token: settings.token,
+    isHydrating: settings.isHydrating,
+    isAuthenticated: settings.isAuthenticated,
     selectedFiles: media.selectedFiles,
     isUploading: media.isUploading,
     reasoningSteps,

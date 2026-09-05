@@ -79,6 +79,8 @@ describe("Frontend Dashboard UI", () => {
     liUrn: "",
     isSettingsOpen: false,
     user: null,
+    isHydrating: false,
+    isAuthenticated: true,
     reasoningSteps: [],
     selectedFiles: [],
     isUploading: false,
@@ -91,6 +93,7 @@ describe("Frontend Dashboard UI", () => {
     handleGenerate: jest.fn(),
     handlePublish: jest.fn(),
     handleNewPost: jest.fn(),
+    handleDismissError: jest.fn(),
     setProvider: jest.fn(),
     setApiKey: jest.fn(),
     setModelName: jest.fn(),
@@ -113,10 +116,29 @@ describe("Frontend Dashboard UI", () => {
 
     render(<Home />);
 
-    expect(screen.getByText("Praxis")).toBeInTheDocument();
+    expect(screen.getAllByText("Praxis")[0]).toBeInTheDocument();
     expect(
       screen.getByText("Configure parameters and generate a post draft.")
     ).toBeInTheDocument();
+  });
+
+  test("renders LinkedIn authentication gate overlay when unauthenticated and prevents settings from opening", () => {
+    (useAgent as jest.Mock).mockReturnValue({
+      ...mockDefaultState,
+      isAuthenticated: false,
+      isHydrating: false,
+      isSettingsOpen: true,
+    });
+
+    render(<Home />);
+
+    expect(screen.getByText(/Connect with LinkedIn to Start Creating/i)).toBeInTheDocument();
+    expect(screen.getByText(/Sign in with LinkedIn to Unlock/i)).toBeInTheDocument();
+    // Header should NOT show Configure Credentials in guest mode
+    expect(screen.queryByText("Configure Credentials")).not.toBeInTheDocument();
+    // Settings dialog/drawer should NOT be rendered open in guest mode
+    expect(screen.queryByText("Account & AI Settings")).not.toBeInTheDocument();
+    expect(screen.queryByText("Apply Settings")).not.toBeInTheDocument();
   });
 
   test("renders draft text and publish button when draft exists", () => {
@@ -146,7 +168,7 @@ describe("Frontend Dashboard UI", () => {
     render(<Home />);
 
     expect(screen.getAllByText(/Google Gemini/i)[0]).toBeInTheDocument();
-    expect(screen.getByText(/Usage Quota Exceeded/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Usage Quota Exceeded/i)[0]).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Change Model \/ Settings/i })
     ).toBeInTheDocument();

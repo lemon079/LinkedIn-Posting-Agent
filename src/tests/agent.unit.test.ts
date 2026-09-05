@@ -48,6 +48,9 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
     ollamaBaseUrl: null,
     mediaFiles: null,
     userId: "",
+    failedNode: null,
+    errorRecoveryCount: 0,
+    rawLlmResponse: null,
   };
 
   afterEach(() => {

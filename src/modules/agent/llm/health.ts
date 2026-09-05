@@ -1,4 +1,4 @@
-import { createLLM } from "./factory";
+import { createLLM, isMaskedOrInvalid } from "./factory";
 import { HumanMessage } from "@langchain/core/messages";
 import { DEFAULT_OLLAMA_URL } from "@/lib/constants";
 import { validateSafeUrl } from "@/lib/security/urlValidation";
@@ -57,7 +57,40 @@ export const checkConnection = async (
     }
     const llm = createLLM({ provider, apiKey, model, ollamaBaseUrl });
     await llm.invoke([new HumanMessage("Say OK")]);
-    return { ok: true };
+
+    let discoveredModels: string[] | undefined = undefined;
+    const safeKey = isMaskedOrInvalid(apiKey) ? undefined : apiKey;
+    if (provider === "openai" && safeKey) {
+      try {
+        const modelsRes = await axios.get("https://api.openai.com/v1/models", {
+          headers: { Authorization: `Bearer ${safeKey}` },
+          timeout: 4000,
+        });
+        const all = (modelsRes.data?.data as { id: string }[]) || [];
+        discoveredModels = all
+          .map((m) => m.id)
+          .filter((id) => id.startsWith("gpt-") || id.startsWith("o1") || id.startsWith("o3") || id.startsWith("chatgpt"))
+          .sort();
+      } catch {
+        // Non-blocking: model list fetch is best-effort
+      }
+    } else if (provider === "gemini" && safeKey) {
+      try {
+        const modelsRes = await axios.get(
+          `https://generativelanguage.googleapis.com/v1beta/models?key=${safeKey}`,
+          { timeout: 4000 }
+        );
+        const all = (modelsRes.data?.models as { name: string }[]) || [];
+        discoveredModels = all
+          .map((m) => m.name.replace(/^models\//, ""))
+          .filter((name) => name.startsWith("gemini-"))
+          .sort();
+      } catch {
+        // Non-blocking: model list fetch is best-effort
+      }
+    }
+
+    return { ok: true, models: discoveredModels };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Connection failed";
     return { ok: false, error: msg };

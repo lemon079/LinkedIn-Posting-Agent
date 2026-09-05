@@ -156,7 +156,7 @@ Generate the complete post inside [DRAFT] ... [/DRAFT] tags.`;
         durationMs: totalDurationMs,
       });
 
-      return { error: primaryMsg };
+      return { error: primaryMsg, failedNode: "generateDraft" };
     }
   }
 }

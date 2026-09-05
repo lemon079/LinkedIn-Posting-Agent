@@ -3,6 +3,7 @@ export interface HealthRequest {
   apiKey?: string;
   model?: string;
   ollamaBaseUrl?: string;
+  useSavedKey?: boolean;
 }
 
 export interface HealthResponse {

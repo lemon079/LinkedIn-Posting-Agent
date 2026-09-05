@@ -6,3 +6,4 @@ export * from "./guardrail";
 export * from "./validatePost";
 export * from "./promoteBestDraft";
 export * from "./publishPost";
+export * from "./errorHandler";

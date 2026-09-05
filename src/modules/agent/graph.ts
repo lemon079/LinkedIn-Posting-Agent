@@ -12,6 +12,7 @@ import {
   runGuardrails,
   validatePost,
   publishPost,
+  handleAgentError,
 } from "./nodes";
 
 // ── Conditional edge: critique → refine (loop) or exit ──────────────────
@@ -25,17 +26,17 @@ import {
 // This means at most 1 refine call and 2 critique calls per run.
 
 const routeIntake = (state: State) => {
-  if (state.error) return END;
+  if (state.error || !state.intake) return "handleAgentError";
   return "generateDraft";
 };
 
 const routeDraft = (state: State) => {
-  if (state.error || !state.draft) return END;
+  if (state.error || !state.draft) return "handleAgentError";
   return "critiqueDraft";
 };
 
 const routeCritique = (state: State) => {
-  if (state.error) return END;
+  if (state.error) return "handleAgentError";
   const score = state.critique?.score ?? 10;
   const count = state.critiqueCount ?? 0;
 
@@ -45,16 +46,25 @@ const routeCritique = (state: State) => {
 };
 
 const routeGuardrails = (state: State) => {
-  if (state.error) return END;
+  if (state.error) return "handleAgentError";
   return "validatePost";
 };
 
 const routeValidation = (state: State) => {
-  if (state.error) return END;
+  if (state.error) return "handleAgentError";
   if (state.postContent && state.postContent.length > 0 && state.postContent.length <= 3000) {
     return "publish";
   }
   return "retry";
+};
+
+const routeErrorRecovery = (state: State) => {
+  // If still in error state after Error Agent, abort to END
+  if (state.error) return END;
+  // If Error Agent recovered a draft, continue pipeline
+  if (state.draft) return "promoteBestDraft";
+  if (state.intake) return "generateDraft";
+  return END;
 };
 
 const builder = new StateGraph(AgentState)
@@ -67,38 +77,41 @@ const builder = new StateGraph(AgentState)
   .addNode("runGuardrails", runGuardrails)
   .addNode("validatePost", validatePost)
   .addNode("publishPost", publishPost)
+  .addNode("handleAgentError", handleAgentError)
 
   // ── Edges ─────────────────────────────────────────────────────────────
   .addEdge(START, "analyzeIntake")
   .addConditionalEdges("analyzeIntake", routeIntake, {
     generateDraft: "generateDraft",
-    [END]: END,
+    handleAgentError: "handleAgentError",
   })
   .addConditionalEdges("generateDraft", routeDraft, {
     critiqueDraft: "critiqueDraft",
-    [END]: END,
+    handleAgentError: "handleAgentError",
   })
   .addConditionalEdges("critiqueDraft", routeCritique, {
     promoteBestDraft: "promoteBestDraft",
     refineDraft: "refineDraft",
-    [END]: END,
+    handleAgentError: "handleAgentError",
   })
   .addEdge("refineDraft", "critiqueDraft") // Loop back for re-critique
   .addEdge("promoteBestDraft", "runGuardrails")
   .addConditionalEdges("runGuardrails", routeGuardrails, {
     validatePost: "validatePost",
-    [END]: END,
+    handleAgentError: "handleAgentError",
   })
 
   .addConditionalEdges("validatePost", routeValidation, {
     publish: "publishPost",
     retry: "refineDraft",
+    handleAgentError: "handleAgentError",
+  })
+  .addConditionalEdges("handleAgentError", routeErrorRecovery, {
+    promoteBestDraft: "promoteBestDraft",
+    generateDraft: "generateDraft",
     [END]: END,
   })
-  .addConditionalEdges("publishPost", (state: State) => {
-    if (state.error) return END;
-    return END;
-  });
+  .addConditionalEdges("publishPost", (_state: State) => END);
 
 // In production / Supabase environments, use PostgreSQL checkpointer. In local development fallback to MemorySaver singleton.
 const globalForGraph = globalThis as unknown as { agentCheckpointer?: BaseCheckpointSaver };

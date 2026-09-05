@@ -21,6 +21,7 @@ export function useAgentSettings() {
   // Authentication State
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [isHydrating, setIsHydrating] = useState(true);
   const pendingOAuth = useRef<{ token: string; urn: string; expiresAt?: number } | null>(null);
   const isHydrated = useRef(false);
 
@@ -36,18 +37,60 @@ export function useAgentSettings() {
     let hashedToken: string | null = null;
 
     const parseHandoffRaw = (raw: string) => {
+      if (!raw || typeof raw !== "string") return null;
+
       try {
-        let decoded = raw;
-        try {
-          decoded = atob(decoded);
-        } catch {
-          try {
-            decoded = decodeURIComponent(decodeURIComponent(decoded));
-          } catch {
-            decoded = decodeURIComponent(decoded);
-          }
+        let str = raw.trim();
+
+        // Strip surrounding quotes if present (standard cookie quotes per RFC 6265)
+        if (
+          (str.startsWith('"') && str.endsWith('"')) ||
+          (str.startsWith("'") && str.endsWith("'"))
+        ) {
+          str = str.slice(1, -1).trim();
         }
-        return JSON.parse(decoded);
+
+        // Direct parse if raw string is already unencoded JSON
+        try {
+          return JSON.parse(str);
+        } catch {}
+
+        // Decode URL encoding (handles single or double encoded query params / cookies)
+        let urlDecoded = str;
+        try {
+          urlDecoded = decodeURIComponent(urlDecoded);
+          try {
+            urlDecoded = decodeURIComponent(urlDecoded);
+          } catch {}
+        } catch {}
+
+        // Direct parse if URL decoded string is unencoded JSON
+        try {
+          return JSON.parse(urlDecoded);
+        } catch {}
+
+        // Try base64 decoding on URL decoded candidate, then raw candidate
+        const candidates = [urlDecoded, str];
+        for (const cand of candidates) {
+          // Normalize URL-safe base64 and pad with '='
+          let b64 = cand.replace(/-/g, "+").replace(/_/g, "/");
+          const padRemainder = b64.length % 4;
+          if (padRemainder === 2) b64 += "==";
+          else if (padRemainder === 3) b64 += "=";
+
+          try {
+            const binary = atob(b64);
+            const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+            const decodedText = new TextDecoder().decode(bytes);
+            return JSON.parse(decodedText);
+          } catch {}
+
+          try {
+            return JSON.parse(atob(b64));
+          } catch {}
+        }
+
+        return null;
       } catch (e) {
         console.error("Failed to decode OAuth handoff string:", e);
         return null;
@@ -220,17 +263,27 @@ export function useAgentSettings() {
 
   // 2. Load auth session and listen for refresh
   useEffect(() => {
-    if (!supabase) return;
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setToken(session?.access_token ?? null);
-    });
+    if (!supabase) {
+      setIsHydrating(false);
+      return;
+    }
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        setUser(session?.user ?? null);
+        setToken(session?.access_token ?? null);
+        setIsHydrating(false);
+      })
+      .catch(() => {
+        setIsHydrating(false);
+      });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setToken(session?.access_token ?? null);
+      setIsHydrating(false);
     });
 
     return () => subscription.unsubscribe();
@@ -338,6 +391,8 @@ export function useAgentSettings() {
     token,
     setToken,
     isHydrated,
+    isHydrating,
+    isAuthenticated: Boolean(liToken || (user && token)),
     handleSignOut,
     handleDisconnectLinkedIn,
   };

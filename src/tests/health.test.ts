@@ -56,7 +56,19 @@ describe("checkConnection", () => {
     } as unknown as import("@langchain/core/messages").AIMessageChunk);
 
     const result = await checkConnection("gemini", "mock-api-key");
-    expect(result).toEqual({ ok: true });
+    expect(result.ok).toBe(true);
+    expect(mockInvoke).toHaveBeenCalled();
+  });
+
+  test("cloud provider with masked bullet key does not crash and uses fallback/env", async () => {
+    const mockInvoke = jest.spyOn(ChatGoogle.prototype, "invoke").mockResolvedValue({
+      content: "OK",
+    } as unknown as import("@langchain/core/messages").AIMessageChunk);
+
+    // Key with unicode bullets • (\u2022) which previously caused ByteString error
+    const maskedKey = "••••••••••••";
+    const result = await checkConnection("gemini", maskedKey);
+    expect(result.ok).toBe(true);
     expect(mockInvoke).toHaveBeenCalled();
   });
 

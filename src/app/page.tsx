@@ -8,18 +8,38 @@ import { Header } from "@/components/Header";
 import { ControlPanel } from "@/components/ControlPanel";
 import { EditorPanel } from "@/components/EditorPanel";
 import { SettingsDialog } from "@/components/SettingsDialog";
-import { AuthForm } from "@/components/AuthForm";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { AssistantErrorState } from "@/components/assistant-ui";
-import { FileText, CheckCircle2, ExternalLink, Plus } from "lucide-react";
+import { FileText, CheckCircle2, ExternalLink, Plus, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { parseApiError } from "@/lib/errors";
+
+const SHOWCASE_TOPIC = "Why we migrated from synchronous REST to event-driven Kafka in production";
+const SHOWCASE_CONTEXT = "Reduced p99 latency by 68% and handled a 10x traffic spike without node degradation. Key lessons on idempotent workers and dead-letter queues.";
+const SHOWCASE_DRAFT = `We were facing 1.8s p99 latency on our core order-processing service.
+
+Every traffic spike triggered cascading timeouts across three downstream microservices.
+
+Here is the exact architecture change that reduced p99 latency by 68%:
+
+1. Decoupled write-heavy endpoints using Apache Kafka message streaming.
+2. Implemented strict consumer idempotency using Redis SETNX deduplication keys.
+3. Isolated poison messages into dedicated Dead Letter Queues (DLQ) with automated replay policies.
+
+The result?
+- 68% decrease in p99 latency
+- Zero dropped events during our last 10x traffic spike
+- 40% reduction in database connection pool contention
+
+Architectural lesson: Never let synchronous REST dependencies dictate your system's availability boundaries.
+
+What strategies has your team used to decouple high-throughput microservices?`;
+
+const SHOWCASE_STEPS = [
+  { title: "Analyzing Architecture Context", output: "Identified high-impact technical takeaway on event-driven decoupling." },
+  { title: "Calibrating Engineering Voice", output: "Configured direct, senior-engineer technical authority with metrics." },
+  { title: "Drafting Post & Hook Optimization", output: "Generated hook and structured takeaway points for maximum readability." },
+];
 
 export default function Home() {
   const agentState = useAgent();
@@ -28,6 +48,8 @@ export default function Home() {
     draftText, streamingText, postUrl, isGenerating, isPublishing, error,
     provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, liTokenExpiresAt, isSettingsOpen,
     user,
+    isHydrating,
+    isAuthenticated,
     selectedFiles, isUploading,
     reasoningSteps,
     setCustomTopic, setContext, setDomain, setDraftText, setStreamingText,
@@ -38,7 +60,12 @@ export default function Home() {
     handleSignOut, handleDisconnectLinkedIn,
   } = agentState;
 
-  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [isRedirectingToLogin, setIsRedirectingToLogin] = useState(false);
+
+  const handleInitiateLinkedInLogin = () => {
+    setIsRedirectingToLogin(true);
+    window.location.href = "/api/auth/linkedin?state=login";
+  };
 
   const handleShowErrorToast = (err: string | Error) => {
     const parsed = parseApiError(err);
@@ -51,8 +78,14 @@ export default function Home() {
       toast.warning(parsed.title, {
         description: parsed.message,
         action: {
-          label: "Settings",
-          onClick: () => setIsSettingsOpen(true),
+          label: isAuthenticated ? "Settings" : "Sign in",
+          onClick: () => {
+            if (isAuthenticated) {
+              setIsSettingsOpen(true);
+            } else {
+              handleInitiateLinkedInLogin();
+            }
+          },
         },
         duration: 7000,
       });
@@ -60,8 +93,14 @@ export default function Home() {
       toast.error(parsed.title, {
         description: parsed.message,
         action: {
-          label: "Settings",
-          onClick: () => setIsSettingsOpen(true),
+          label: isAuthenticated ? "Settings" : "Sign in",
+          onClick: () => {
+            if (isAuthenticated) {
+              setIsSettingsOpen(true);
+            } else {
+              handleInitiateLinkedInLogin();
+            }
+          },
         },
         duration: 6000,
       });
@@ -95,22 +134,49 @@ export default function Home() {
     }
   }, [error]);
 
+  const effectiveTopic = !isAuthenticated && !customTopic ? SHOWCASE_TOPIC : customTopic;
+  const effectiveContext = !isAuthenticated && !context ? SHOWCASE_CONTEXT : context;
+  const effectiveDraft = !isAuthenticated && !draftText ? SHOWCASE_DRAFT : draftText;
+  const effectiveSteps = !isAuthenticated && reasoningSteps.length === 0 ? SHOWCASE_STEPS : reasoningSteps;
+
+  const onGenerateClick = () => {
+    if (!isAuthenticated) {
+      handleInitiateLinkedInLogin();
+      return;
+    }
+    handleGenerate();
+  };
 
   const onPublishClick = () => {
-    if (!user && !liToken) {
-      setShowLoginModal(true);
+    if (!isAuthenticated) {
+      handleInitiateLinkedInLogin();
     } else {
       handlePublish();
     }
   };
+
+  if (isHydrating) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center space-y-3">
+        <Loader2 className="size-8 text-brand-blue animate-spin" />
+        <p className="text-xs font-semibold text-slate-500">Initializing workspace...</p>
+      </div>
+    );
+  }
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <div className="min-h-screen bg-background text-foreground flex flex-col antialiased selection:bg-brand-blue/20">
         <Header
           onOpenSettings={() => {
+            if (!isAuthenticated) {
+              handleInitiateLinkedInLogin();
+              return;
+            }
             if (!isGenerating) setIsSettingsOpen(true);
           }}
+          onSignIn={handleInitiateLinkedInLogin}
+          isAuthenticated={isAuthenticated}
           disabled={isGenerating}
           user={user}
           liToken={liToken}
@@ -119,14 +185,14 @@ export default function Home() {
         <main className="flex-1 p-6 max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-5 gap-3 lg:gap-6 items-start">
           <aside className="lg:col-span-2">
             <ControlPanel
-              customTopic={customTopic}
-              context={context}
+              customTopic={effectiveTopic}
+              context={effectiveContext}
               domain={domain}
               isGenerating={isGenerating}
-              setCustomTopic={setCustomTopic}
-              setContext={setContext}
-              setDomain={setDomain}
-              onGenerate={handleGenerate}
+              setCustomTopic={isAuthenticated ? setCustomTopic : () => {}}
+              setContext={isAuthenticated ? setContext : () => {}}
+              setDomain={isAuthenticated ? setDomain : () => {}}
+              onGenerate={onGenerateClick}
             />
           </aside>
 
@@ -175,17 +241,17 @@ export default function Home() {
               <div className="mb-4">
                 <AssistantErrorState
                   error={error}
-                  onRetry={handleGenerate}
-                  onOpenSettings={() => setIsSettingsOpen(true)}
+                  onRetry={onGenerateClick}
+                  onOpenSettings={isAuthenticated ? () => setIsSettingsOpen(true) : handleInitiateLinkedInLogin}
                   onDismiss={handleDismissError}
                 />
               </div>
             )}
 
-            {isGenerating || streamingText !== null || draftText !== null ? (
+            {isGenerating || streamingText !== null || effectiveDraft !== null ? (
               <div className="space-y-4 animate-fade-in-up">
                 <EditorPanel
-                  draftText={draftText}
+                  draftText={effectiveDraft}
                   streamingText={streamingText}
                   isGenerating={isGenerating}
                   onStreamingComplete={() => {
@@ -196,15 +262,15 @@ export default function Home() {
                   selectedFiles={selectedFiles}
                   setSelectedFiles={setSelectedFiles}
                   isUploading={isUploading}
-                  onUploadFile={handleUploadFile}
-                  onChange={setDraftText}
+                  onUploadFile={isAuthenticated ? handleUploadFile : handleInitiateLinkedInLogin}
+                  onChange={isAuthenticated ? setDraftText : () => {}}
                   onPublish={onPublishClick}
                   onDiscard={handleClearDraft}
-                  onRetry={handleGenerate}
-                  onOpenSettings={() => setIsSettingsOpen(true)}
+                  onRetry={onGenerateClick}
+                  onOpenSettings={isAuthenticated ? () => setIsSettingsOpen(true) : handleInitiateLinkedInLogin}
                   error={error}
                   onDismissError={handleDismissError}
-                  reasoningSteps={reasoningSteps}
+                  reasoningSteps={effectiveSteps}
                 />
               </div>
             ) : (
@@ -218,8 +284,60 @@ export default function Home() {
           </section>
         </main>
 
+        {!isAuthenticated && (
+          <div className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-[2.5px] flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white/95 dark:bg-slate-900/95 border border-white/20 dark:border-slate-800 shadow-2xl rounded-3xl p-6 sm:p-8 max-w-lg w-full text-center space-y-5 animate-fade-in-up">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-xs font-semibold">
+                <Sparkles className="size-3.5" />
+                <span>Live Agentic Workspace Preview</span>
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                  Connect with LinkedIn to Start Creating
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                  Praxis AI ghostwrites authentic technical posts in your engineering voice and publishes directly to your network.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 text-left space-y-2.5 text-xs text-slate-700 dark:text-slate-300">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
+                  <span>Calibrates tone & style from your authentic LinkedIn profile</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
+                  <span>Autonomous multi-agent drafting, critique & guardrail loops</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
+                  <span>1-click direct publishing to your public LinkedIn feed</span>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                size="lg"
+                disabled={isRedirectingToLogin}
+                onClick={handleInitiateLinkedInLogin}
+                className="w-full h-11 bg-[#0A66C2] hover:bg-[#004182] text-white font-semibold rounded-xl text-sm gap-2 shadow-md cursor-pointer transition flex items-center justify-center"
+              >
+                {isRedirectingToLogin ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <svg className="size-4 fill-current shrink-0" viewBox="0 0 24 24">
+                    <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.45c-.9 0-1.63.73-1.63 1.63 0 .9.73 1.63 1.63 1.63.9 0 1.63-.73 1.63-1.63 0-.9-.73-1.63-1.63-1.63Z" />
+                  </svg>
+                )}
+                <span>{isRedirectingToLogin ? "Connecting to LinkedIn..." : "Sign in with LinkedIn to Unlock"}</span>
+              </Button>
+            </div>
+          </div>
+        )}
+
         <SettingsDialog
-          isOpen={isSettingsOpen}
+          isOpen={isAuthenticated && isSettingsOpen}
+          isAuthenticated={isAuthenticated}
           onClose={() => setIsSettingsOpen(false)}
           provider={provider}
           setProvider={setProvider}
@@ -238,20 +356,6 @@ export default function Home() {
           onSignOut={handleSignOut}
           onDisconnectLinkedIn={handleDisconnectLinkedIn}
         />
-
-        <Dialog open={showLoginModal} onOpenChange={(open) => setShowLoginModal(open)}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-base font-bold">Sign in with LinkedIn</DialogTitle>
-            </DialogHeader>
-            <AuthForm
-              onSuccess={() => {
-                setShowLoginModal(false);
-                handlePublish();
-              }}
-            />
-          </DialogContent>
-        </Dialog>
       </div>
     </AssistantRuntimeProvider>
   );
