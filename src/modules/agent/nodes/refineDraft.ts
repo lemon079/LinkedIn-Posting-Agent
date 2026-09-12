@@ -4,7 +4,7 @@ import type { State } from "../core/state";
 import { DOMAINS } from "../core/domains";
 import { getRefinePrompt } from "../core/prompts";
 import { getRecentHooks, addHook } from "@/modules/user/history";
-import { invokeWithTimeout, REFINE_TIMEOUT_MS } from "../llm/timeout";
+import { invokeWithTimeout, REFINE_TIMEOUT_MS, getRemainingTimeoutMs } from "../llm/timeout";
 import { logger } from "@/lib/logger";
 import type { LangChainMessageBlock } from "@/types";
 
@@ -53,9 +53,10 @@ export async function refineDraft(state: State, config?: RunnableConfig): Promis
   try {
     const llm = createLLM(getLLMOpts(state, config));
     const controller = new AbortController();
+    const timeoutMs = getRemainingTimeoutMs(state.deadlineTimestamp, REFINE_TIMEOUT_MS);
     const res = await invokeWithTimeout(
       llm.invoke([new HumanMessage(prompt)], { signal: controller.signal }),
-      REFINE_TIMEOUT_MS,
+      timeoutMs,
       controller
     );
 

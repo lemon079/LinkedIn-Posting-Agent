@@ -123,9 +123,21 @@ export const AgentState = Annotation.Root({
     reducer: (_x, y) => y,
     default: () => null,
   }),
+  lastFailedNode: Annotation<string | null>({
+    reducer: (_x, y) => y,
+    default: () => null,
+  }),
   errorRecoveryCount: Annotation<number>({
     reducer: (_x, y) => y,
     default: () => 0,
+  }),
+  nodeRecoveryCounts: Annotation<Record<string, number>>({
+    reducer: (x, y) => ({ ...(x || {}), ...(y || {}) }),
+    default: () => ({}),
+  }),
+  deadlineTimestamp: Annotation<number | null>({
+    reducer: (_x, y) => y,
+    default: () => null,
   }),
   rawLlmResponse: Annotation<string | null>({
     reducer: (_x, y) => y,

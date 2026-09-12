@@ -39,6 +39,8 @@ function extractDraftText(content: unknown): string {
   return raw.replace(/\[\/?DRAFT\]/gi, "").trim();
 }
 
+const MIN_DRAFT_CHARS = 50;
+
 /**
  * Draft Writer node.
  *
@@ -47,9 +49,9 @@ function extractDraftText(content: unknown): string {
  * quality matters here).
  *
  * Resilient Execution:
- * - Primary attempt: User's model with reasoning budget (60s timeout with AbortController).
- * - Fallback attempt: Non-reasoning fast generation (25s timeout with AbortController)
- *   if the primary attempt times out or fails.
+ * - Primary attempt: User's model with reasoning budget (timeout with AbortController).
+ * - Fallback attempt: Non-reasoning fast generation (timeout with AbortController)
+ *   if the primary attempt times out, fails, or produces an insufficient draft (< 50 chars).
  */
 export async function generateDraft(state: State, config?: RunnableConfig): Promise<Partial<State>> {
   if (state.error) {
@@ -98,6 +100,13 @@ Generate the complete post inside [DRAFT] ... [/DRAFT] tags.`;
 
     const rawDraft = extractDraftText(response.content);
 
+    // Validate draft quality and length at the node boundary: reject 0-char or insufficient output
+    if (!rawDraft || rawDraft.trim().length < MIN_DRAFT_CHARS) {
+      throw new Error(
+        `Primary LLM produced empty or insufficient draft (${rawDraft?.trim().length || 0} chars, minimum ${MIN_DRAFT_CHARS})`
+      );
+    }
+
     // Extract hook (first line) and save to history
     const hook = rawDraft.split("\n")[0]?.trim();
     if (hook && hook.length > 10) {
@@ -110,7 +119,7 @@ Generate the complete post inside [DRAFT] ... [/DRAFT] tags.`;
       durationMs,
     });
 
-    return { draft: rawDraft, postContent: rawDraft };
+    return { draft: rawDraft, postContent: rawDraft, failedNode: null };
   } catch (primaryError: unknown) {
     const primaryDurationMs = Date.now() - startTime;
     const primaryMsg =
@@ -133,6 +142,12 @@ Generate the complete post inside [DRAFT] ... [/DRAFT] tags.`;
 
       const fallbackDraft = extractDraftText(fallbackResponse.content);
 
+      if (!fallbackDraft || fallbackDraft.trim().length < MIN_DRAFT_CHARS) {
+        throw new Error(
+          `Fallback LLM produced empty or insufficient draft (${fallbackDraft?.trim().length || 0} chars, minimum ${MIN_DRAFT_CHARS})`
+        );
+      }
+
       const hook = fallbackDraft.split("\n")[0]?.trim();
       if (hook && hook.length > 10) {
         await addHook(hook, state.userId, domainKey);
@@ -144,7 +159,7 @@ Generate the complete post inside [DRAFT] ... [/DRAFT] tags.`;
         durationMs: totalDurationMs,
       });
 
-      return { draft: fallbackDraft, postContent: fallbackDraft };
+      return { draft: fallbackDraft, postContent: fallbackDraft, failedNode: null };
     } catch (fallbackError: unknown) {
       const totalDurationMs = Date.now() - startTime;
       const finalMsg =
@@ -156,7 +171,11 @@ Generate the complete post inside [DRAFT] ... [/DRAFT] tags.`;
         durationMs: totalDurationMs,
       });
 
-      return { error: primaryMsg, failedNode: "generateDraft" };
+      return {
+        error: `Draft generation failed: ${finalMsg}`,
+        failedNode: "generateDraft",
+        lastFailedNode: "generateDraft",
+      };
     }
   }
 }

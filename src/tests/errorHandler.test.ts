@@ -105,13 +105,46 @@ describe("handleAgentError (Error Agent Node)", () => {
   test("aborts with clear error when recovery attempts exceed limit", async () => {
     const state: State = {
       ...baseState,
-      errorRecoveryCount: 2,
+      errorRecoveryCount: 3,
+      nodeRecoveryCounts: { generateDraft: 2 },
       failedNode: "generateDraft",
       error: "Repeated timeout error",
     };
 
     const result = await handleAgentError(state);
     expect(result.error).toContain("Generation encountered an issue in generateDraft");
-    expect(result.errorRecoveryCount).toBe(3);
+    expect(result.errorRecoveryCount).toBe(4);
+  });
+
+  test("strictly fails closed on runGuardrails errors and NEVER bypasses via sanitization", async () => {
+    const state: State = {
+      ...baseState,
+      draft: "Here is a LinkedIn post for you:\n\nSome post content that had a guardrail outage.",
+      failedNode: "runGuardrails",
+      error: "Safety evaluation service is temporarily unavailable",
+    };
+
+    const result = await handleAgentError(state);
+    // MUST NOT clear error to null
+    expect(result.error).toBeDefined();
+    expect(result.error).toContain("Safety guardrail check failed");
+    expect(result.failedNode).toBe("runGuardrails");
+  });
+
+  test("scopes recovery budget per node so upstream error does not starve downstream node", async () => {
+    const state: State = {
+      ...baseState,
+      errorRecoveryCount: 1,
+      nodeRecoveryCounts: { generateDraft: 1 }, // generateDraft used 1 recovery attempt
+      failedNode: "analyzeIntake",
+      error: "Schema parse error",
+    };
+
+    const result = await handleAgentError(state);
+    // analyzeIntake has used 0 attempts so far, so it should successfully recover
+    expect(result.error).toBeNull();
+    expect(result.intake).toBeDefined();
+    expect(result.nodeRecoveryCounts?.analyzeIntake).toBe(1);
+    expect(result.nodeRecoveryCounts?.generateDraft).toBe(1);
   });
 });

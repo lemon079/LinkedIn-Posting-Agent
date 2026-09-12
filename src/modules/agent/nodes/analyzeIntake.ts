@@ -3,9 +3,9 @@ import { createCriticLLM } from "../llm/factory";
 import { IntakeAnalysis } from "../core/schemas";
 import type { IntakeAnalysisType } from "../core/schemas";
 import type { State } from "../core/state";
-import { inferDomain } from "../core/domains";
+import { inferDomain, inferAngle } from "../core/domains";
 import { getIntakePrompt } from "../core/prompts";
-import { invokeWithTimeout, INTAKE_TIMEOUT_MS } from "../llm/timeout";
+import { invokeWithRetryAndTimeout, INTAKE_TIMEOUT_MS } from "../llm/timeout";
 import { logger } from "@/lib/logger";
 
 import type { RunnableConfig } from "@langchain/core/runnables";
@@ -24,7 +24,7 @@ const getLLMOpts = (state: State, config?: RunnableConfig) => ({
  *
  * Parses the user's raw topic + context into a structured IntakeAnalysis
  * using withStructuredOutput + zod schema. If the LLM call fails, falls
- * back to regex-based domain inference with safe defaults for all fields.
+ * back to heuristic-based domain and angle inference with safe defaults for all fields.
  */
 export async function analyzeIntake(state: State, config?: RunnableConfig): Promise<Partial<State>> {
   if (state.error) {
@@ -43,13 +43,21 @@ export async function analyzeIntake(state: State, config?: RunnableConfig): Prom
     const structuredLLM = llm.withStructuredOutput(IntakeAnalysis);
 
     const prompt = getIntakePrompt(topic, context, userDomain);
-    const controller = new AbortController();
-    const intake = (await invokeWithTimeout(
-      structuredLLM.invoke([new HumanMessage(prompt)], { signal: controller.signal }),
-      INTAKE_TIMEOUT_MS,
-      controller
+    const intake = (await invokeWithRetryAndTimeout(
+      (signal) => structuredLLM.invoke([new HumanMessage(prompt)], { signal }),
+      {
+        timeoutMs: INTAKE_TIMEOUT_MS,
+        maxRetries: 1,
+        deadlineTimestamp: state.deadlineTimestamp,
+        onRetry: (attempt, err, delay) => {
+          log.warn(`Intake analysis retry scheduled`, {
+            attempt,
+            error: err instanceof Error ? err.message : String(err),
+            delayMs: Math.round(delay),
+          });
+        },
+      }
     )) as IntakeAnalysisType;
-
 
     // If the user specified an explicit domain preference (other than 'auto'), respect it over model inference
     const resolvedDomain =
@@ -87,11 +95,19 @@ export async function analyzeIntake(state: State, config?: RunnableConfig): Prom
         ? userDomain
         : inferDomain(topic, context);
 
+    const fallbackAngle = inferAngle(topic, context, fallbackDomain);
+
+    log.info(`Intake fallback activated: Heuristic angle generated due to LLM unavailability`, {
+      domain: fallbackDomain,
+      angle: fallbackAngle,
+      reason: msg,
+    });
+
     const fallbackIntake: IntakeAnalysisType = {
       topic,
       context,
       domain: fallbackDomain as IntakeAnalysisType["domain"],
-      angle: "",
+      angle: fallbackAngle,
       tone: "conversational",
     };
 

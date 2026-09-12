@@ -77,13 +77,60 @@ export const createBaseLLM = (opts: LLMOptions = {}) => {
       return new ChatGoogle({
         model: normalizedModel || "gemini-3.7-flash",
         temperature: 0.9,
-        maxRetries: 2,
+        maxRetries: 1, // Keep internal retries short so withFallbacks / timeouts can engage fast
         apiKey: llmKey,
         ...googleThinking,
       });
     }
   }
 };
+
+// ── In-Memory Circuit Breaker ──────────────────────────────────────────
+interface CallRecord {
+  timestamp: number;
+  success: boolean;
+  isTransient: boolean;
+}
+
+class LLMCircuitBreaker {
+  private history: Map<string, CallRecord[]> = new Map();
+  private readonly windowMs = 60_000;
+  private readonly thresholdRate = 0.3; // 30% error rate
+  private readonly minCalls = 3;
+
+  private getKey(provider: string, model?: string): string {
+    return `${provider}:${model || "default"}`;
+  }
+
+  record(provider: string, model: string | undefined, success: boolean, isTransient: boolean = false) {
+    const key = this.getKey(provider, model);
+    const records = this.history.get(key) || [];
+    const now = Date.now();
+    records.push({ timestamp: now, success, isTransient });
+    const valid = records.filter((r) => now - r.timestamp <= this.windowMs);
+    this.history.set(key, valid);
+  }
+
+  isDegraded(provider: string, model?: string): boolean {
+    const key = this.getKey(provider, model);
+    const records = this.history.get(key);
+    if (!records || records.length < this.minCalls) return false;
+    const now = Date.now();
+    const recent = records.filter((r) => now - r.timestamp <= this.windowMs);
+    if (recent.length < this.minCalls) return false;
+    const failures = recent.filter((r) => !r.success);
+    const rate = failures.length / recent.length;
+    const lastTwoTransient =
+      recent.length >= 2 && !recent[recent.length - 1].success && !recent[recent.length - 2].success;
+    return rate >= this.thresholdRate || lastTwoTransient;
+  }
+
+  reset() {
+    this.history.clear();
+  }
+}
+
+export const circuitBreaker = new LLMCircuitBreaker();
 
 export const createLLM = (opts: LLMOptions = {}) => {
   const primary = createBaseLLM(opts);
@@ -93,7 +140,7 @@ export const createLLM = (opts: LLMOptions = {}) => {
 
   const defaultModel =
     llmProvider === "gemini"
-      ? "gemini-3.7-pro"
+      ? "gemini-3.7-flash"
       : llmProvider === "openai"
       ? "gpt-4o"
       : llmProvider === "anthropic"
@@ -119,14 +166,31 @@ export const createLLM = (opts: LLMOptions = {}) => {
     return primary.withFallbacks([fallback]);
   }
 
-  if (llmProvider === "gemini" && currentModel !== "gemini-2.0-flash") {
-    const fallback = new ChatGoogle({
-      model: "gemini-2.0-flash",
-      temperature: 0.9,
-      maxRetries: 1,
-      apiKey: llmKey,
-    });
-    return primary.withFallbacks([fallback]);
+  if (llmProvider === "gemini") {
+    const fallbacks: ChatGoogle[] = [];
+    if (currentModel !== "gemini-2.0-flash") {
+      fallbacks.push(
+        new ChatGoogle({
+          model: "gemini-2.0-flash",
+          temperature: 0.9,
+          maxRetries: 1,
+          apiKey: llmKey,
+        })
+      );
+    }
+    if (currentModel !== "gemini-1.5-flash") {
+      fallbacks.push(
+        new ChatGoogle({
+          model: "gemini-1.5-flash",
+          temperature: 0.9,
+          maxRetries: 1,
+          apiKey: llmKey,
+        })
+      );
+    }
+    if (fallbacks.length > 0) {
+      return primary.withFallbacks(fallbacks);
+    }
   }
 
   return primary;
@@ -135,9 +199,10 @@ export const createLLM = (opts: LLMOptions = {}) => {
 const CRITIC_MODEL_MAP: Record<string, Record<string, string>> = {
   gemini: {
     "gemini-3.7-pro": "gemini-3.7-flash",
-    "gemini-1.5-pro": "gemini-1.5-flash",
+    "gemini-3.7-flash": "gemini-2.0-flash",
     "gemini-2.0-pro": "gemini-2.0-flash",
     "gemini-2.0-flash": "gemini-2.0-flash-lite",
+    "gemini-1.5-pro": "gemini-1.5-flash",
   },
   openai: {
     "gpt-4o": "gpt-4o-mini",
@@ -161,10 +226,71 @@ export const createCriticLLM = (opts: LLMOptions = {}) => {
   const provider = opts.provider || "gemini";
   const userModel = opts.model || "";
   const criticModel = resolveCriticModel(provider, userModel);
+  const llmKey = resolveApiKey(provider, opts.apiKey);
 
-  return createBaseLLM({
+  const baseCritic = createBaseLLM({
     ...opts,
     model: criticModel,
     maxReasoningTokens: 0,
   });
+
+  const criticFallbacks: any[] = [];
+  if (provider === "gemini") {
+    if (criticModel !== "gemini-2.0-flash") {
+      criticFallbacks.push(
+        new ChatGoogle({
+          model: "gemini-2.0-flash",
+          temperature: 0.7,
+          maxRetries: 1,
+          apiKey: llmKey,
+        })
+      );
+    }
+    if (criticModel !== "gemini-1.5-flash") {
+      criticFallbacks.push(
+        new ChatGoogle({
+          model: "gemini-1.5-flash",
+          temperature: 0.7,
+          maxRetries: 1,
+          apiKey: llmKey,
+        })
+      );
+    }
+  } else if (provider === "openai" && criticModel !== "gpt-4o-mini") {
+    criticFallbacks.push(
+      new ChatOpenAI({
+        model: "gpt-4o-mini",
+        temperature: 0.7,
+        apiKey: llmKey,
+      })
+    );
+  } else if (provider === "anthropic" && criticModel !== "claude-3-5-haiku-latest") {
+    criticFallbacks.push(
+      new ChatAnthropic({
+        model: "claude-3-5-haiku-latest",
+        temperature: 0.7,
+        apiKey: llmKey,
+      })
+    );
+  }
+
+  // Preserve BaseChatModel interface and enhance withStructuredOutput to support fallbacks
+  const critic = baseCritic as any;
+  if (criticFallbacks.length > 0) {
+    const originalWithStructuredOutput = critic.withStructuredOutput?.bind(critic);
+    if (originalWithStructuredOutput) {
+      critic.withStructuredOutput = (schema: any, options?: any) => {
+        const primaryStructured = originalWithStructuredOutput(schema, options);
+        const fallbackStructured = criticFallbacks
+          .filter((f) => typeof f.withStructuredOutput === "function")
+          .map((f) => f.withStructuredOutput(schema, options));
+        if (fallbackStructured.length > 0) {
+          return primaryStructured.withFallbacks(fallbackStructured);
+        }
+        return primaryStructured;
+      };
+    }
+  }
+
+  return critic;
 };

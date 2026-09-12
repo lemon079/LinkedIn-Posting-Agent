@@ -102,3 +102,44 @@ export const inferDomain = (topic: string, context: string): string => {
 
   return "general";
 };
+
+export const inferAngle = (topic: string, context: string, domain: string): string => {
+  const combined = (topic + " " + context).toLowerCase();
+  const cleanTopic = topic.trim() || "modern systems";
+
+  if (domain === "engineering") {
+    if (combined.match(/dead letter queue|dlq|queue|kafka|rabbitmq|sqs|event|pubsub/i)) {
+      return `Production triage: preventing poison-pill messages and cascading retry storms with ${cleanTopic}`;
+    }
+    if (combined.match(/postgres|mysql|database|sql|mvcc|index|vacuum|query/i)) {
+      return `Under the hood: latency bottlenecks, locking tradeoffs, and tuning ${cleanTopic} for high throughput`;
+    }
+    if (combined.match(/microservices|distributed|consensus|cap|partition|network/i)) {
+      return `Distributed systems reality check: failure domain isolation and reliability tradeoffs in ${cleanTopic}`;
+    }
+    if (combined.match(/cache|redis|memcached|invalidation/i)) {
+      return `Cache coherence and stampede mitigation strategies when operating ${cleanTopic} at scale`;
+    }
+    return `Architectural tradeoffs, failure modes, and concrete production lessons with ${cleanTopic}`;
+  }
+
+  if (domain === "hr") {
+    if (combined.match(/hiring|interview|rubric|candidate/i)) {
+      return `High-signal evaluation: replacing pedigree bias with outcome-based rubrics in ${cleanTopic}`;
+    }
+    return `Operational frameworks and retention levers for scaling ${cleanTopic}`;
+  }
+
+  if (domain === "sales") {
+    if (combined.match(/objection|closing|negotiation|pricing/i)) {
+      return `Overcoming buyer friction: disciplined qualification and conciseness in ${cleanTopic}`;
+    }
+    return `Predictable enterprise pipeline: multi-threading and technical alignment in ${cleanTopic}`;
+  }
+
+  if (domain === "marketing") {
+    return `Shifting from vanity metrics to high-intent pipeline velocity in ${cleanTopic}`;
+  }
+
+  return `Actionable takeaways and counterintuitive principles for navigating ${cleanTopic}`;
+};

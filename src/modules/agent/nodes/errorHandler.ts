@@ -2,65 +2,110 @@ import { HumanMessage } from "@langchain/core/messages";
 import { createLLM } from "../llm/factory";
 import type { State } from "../core/state";
 import { DOMAIN_OPTIONS } from "../core/schemas";
-import { inferDomain } from "../core/domains";
+import { inferDomain, inferAngle } from "../core/domains";
 import { logger } from "@/lib/logger";
 import type { RunnableConfig } from "@langchain/core/runnables";
 
 const log = logger.child({ module: "Graph:errorHandler" });
 
-const MAX_ERROR_RECOVERY_ATTEMPTS = 2;
+const MAX_TOTAL_RECOVERY_ATTEMPTS = 3;
+const MAX_NODE_RECOVERY_ATTEMPTS = 2;
 
 /**
  * Error Agent Node.
  *
  * Intercepts unexpected LLM responses (empty text, thought-only responses,
  * malformed schemas, conversational filler, or transient API errors) and
- * applies autonomous self-correction strategies.
+ * applies autonomous self-correction strategies with scoped per-node budgets.
+ *
+ * CRITICAL SAFETY INVARIANT:
+ * Guardrail failures are NEVER bypassed, sanitized, or cleared here.
  */
 export async function handleAgentError(
   state: State,
   config?: RunnableConfig
 ): Promise<Partial<State>> {
-  const currentCount = (state.errorRecoveryCount ?? 0) + 1;
-  const failedNode = state.failedNode || "unknown";
+  const currentTotal = (state.errorRecoveryCount ?? 0) + 1;
+  const failedNode = state.failedNode || state.lastFailedNode || "unknown";
   const rawError = state.error || "Unexpected LLM response";
 
+  const nodeCounts: Record<string, number> = { ...(state.nodeRecoveryCounts || {}) };
+  const currentNodeCount = (nodeCounts[failedNode] ?? 0) + 1;
+  nodeCounts[failedNode] = currentNodeCount;
+
   log.warn(`Error Agent activated`, {
-    attempt: currentCount,
-    maxAttempts: MAX_ERROR_RECOVERY_ATTEMPTS,
+    attempt: currentTotal,
+    maxAttempts: MAX_TOTAL_RECOVERY_ATTEMPTS,
+    nodeAttempt: currentNodeCount,
+    maxNodeAttempts: MAX_NODE_RECOVERY_ATTEMPTS,
     failedNode,
     error: rawError,
   });
 
-  // Guard against infinite loops: if recovery attempts exceeded, abort cleanly
-  if (currentCount > MAX_ERROR_RECOVERY_ATTEMPTS) {
+  // Guardrail errors MUST FAIL CLOSED — never sanitize or bypass safety checks
+  if (failedNode === "runGuardrails" || failedNode === "guardrail") {
+    log.error(`guardrail_fail_closed`, {
+      reason: "Guardrail errors are strictly fail-closed and cannot be bypassed by error recovery",
+      failedNode,
+      error: rawError,
+    });
+    return {
+      error: rawError.includes("Guardrail violation")
+        ? rawError
+        : `Safety guardrail check failed: ${rawError}. Content blocked.`,
+      failedNode: "runGuardrails",
+      lastFailedNode: "runGuardrails",
+      errorRecoveryCount: currentTotal,
+      nodeRecoveryCounts: nodeCounts,
+    };
+  }
+
+  // Guard against infinite loops: if per-node or total recovery attempts exceeded, abort cleanly
+  if (currentNodeCount > MAX_NODE_RECOVERY_ATTEMPTS || currentTotal > MAX_TOTAL_RECOVERY_ATTEMPTS) {
     log.error(`Error Agent exceeded maximum recovery attempts`, {
-      attempts: currentCount,
+      totalAttempts: currentTotal,
+      nodeAttempts: currentNodeCount,
       failedNode,
     });
     return {
       error: `Generation encountered an issue in ${failedNode}: ${rawError}`,
-      errorRecoveryCount: currentCount,
+      failedNode,
+      lastFailedNode: failedNode,
+      errorRecoveryCount: currentTotal,
+      nodeRecoveryCounts: nodeCounts,
     };
   }
 
   // ── Strategy 1: Schema / Intake Failure Recovery ─────────────────────────
-  if (failedNode === "analyzeIntake" || (!state.intake && failedNode !== "critiqueDraft" && failedNode !== "generateDraft" && failedNode !== "guardrail" && failedNode !== "validatePost")) {
+  if (
+    failedNode === "analyzeIntake" ||
+    (!state.intake &&
+      failedNode !== "critiqueDraft" &&
+      failedNode !== "generateDraft" &&
+      failedNode !== "runGuardrails" &&
+      failedNode !== "validatePost")
+  ) {
     log.info(`Error Agent repairing intake analysis with heuristic inference`);
-    const domain = state.domain && state.domain !== "auto"
-      ? state.domain
-      : inferDomain(state.topic || "", state.context || "");
+    const domain =
+      state.domain && state.domain !== "auto"
+        ? state.domain
+        : inferDomain(state.topic || "", state.context || "");
+
+    const angle = inferAngle(state.topic || "", state.context || "", domain);
 
     return {
       error: null,
-      errorRecoveryCount: currentCount,
+      failedNode: null,
+      lastFailedNode: "analyzeIntake",
+      errorRecoveryCount: currentTotal,
+      nodeRecoveryCounts: nodeCounts,
       intake: {
         topic: state.topic || "Professional Insights",
         context: state.context || "",
         domain: (DOMAIN_OPTIONS as readonly string[]).includes(domain)
           ? (domain as (typeof DOMAIN_OPTIONS)[number])
           : "general",
-        angle: "actionable takeaway and real-world lesson",
+        angle,
         tone: "authoritative",
       },
       activeDomain: domain,
@@ -73,7 +118,10 @@ export async function handleAgentError(
     const fallbackScore = 7;
     return {
       error: null,
-      errorRecoveryCount: currentCount,
+      failedNode: null,
+      lastFailedNode: "critiqueDraft",
+      errorRecoveryCount: currentTotal,
+      nodeRecoveryCounts: nodeCounts,
       critique: {
         score: fallbackScore,
         strengths: ["Clear topic relevance"],
@@ -86,46 +134,65 @@ export async function handleAgentError(
   }
 
   // ── Strategy 3: Conversational Fluff & Boilerplate Cleanup ───────────────
-  if (state.draft && typeof state.draft === "string" && state.draft.length > 0) {
-    let cleaned = state.draft;
+  // ONLY run when draft generation or refinement succeeded but returned conversational fluff
+  if (
+    (failedNode === "generateDraft" || failedNode === "refineDraft" || failedNode === "unknown") &&
+    state.draft &&
+    typeof state.draft === "string" &&
+    state.draft.length > 0
+  ) {
+    const hasFluff =
+      /^(?:Here(?:'s| is) (?:a|your) (?:draft|post|LinkedIn post)[^:\n]*:?\s*)/i.test(state.draft) ||
+      /\n+(?:Hope this helps|Let me know if you (?:need|want) any (?:changes|edits)|Feel free to tweak)[^\n]*$/i.test(
+        state.draft
+      ) ||
+      /\[\/?DRAFT\]/i.test(state.draft);
 
-    // Strip leading conversational phrases
-    cleaned = cleaned.replace(
-      /^(?:Here(?:'s| is) (?:a|your) (?:draft|post|LinkedIn post)[^:\n]*:?\s*)/i,
-      ""
-    );
-    // Strip trailing conversational sign-offs
-    cleaned = cleaned.replace(
-      /\n+(?:Hope this helps|Let me know if you (?:need|want) any (?:changes|edits)|Feel free to tweak)[^\n]*$/i,
-      ""
-    );
-    cleaned = cleaned.replace(/\[\/?DRAFT\]/gi, "").trim();
+    if (hasFluff) {
+      let cleaned = state.draft;
 
-    if (cleaned.length > 20) {
-      log.info(`Error Agent successfully sanitized draft text`);
-      return {
-        error: null,
-        draft: cleaned,
-        postContent: cleaned,
-        errorRecoveryCount: currentCount,
-      };
+      // Strip leading conversational phrases
+      cleaned = cleaned.replace(
+        /^(?:Here(?:'s| is) (?:a|your) (?:draft|post|LinkedIn post)[^:\n]*:?\s*)/i,
+        ""
+      );
+      // Strip trailing conversational sign-offs
+      cleaned = cleaned.replace(
+        /\n+(?:Hope this helps|Let me know if you (?:need|want) any (?:changes|edits)|Feel free to tweak)[^\n]*$/i,
+        ""
+      );
+      cleaned = cleaned.replace(/\[\/?DRAFT\]/gi, "").trim();
+
+      if (cleaned.length > 20) {
+        log.info(`Error Agent successfully sanitized draft text`);
+        return {
+          error: null,
+          failedNode: null,
+          lastFailedNode: failedNode,
+          draft: cleaned,
+          postContent: cleaned,
+          errorRecoveryCount: currentTotal,
+          nodeRecoveryCounts: nodeCounts,
+        };
+      }
     }
   }
 
   // ── Strategy 4: Empty Draft / Thought-Only Autonomous Regeneration ─────────
-  log.info(`Error Agent attempting emergency direct draft synthesis`);
-  try {
-    const fallbackLlm = createLLM({
-      provider: state.llmProvider || undefined,
-      apiKey: (config?.configurable?.apiKey as string) || state.llmApiKey || undefined,
-      model: state.llmModel || undefined,
-      ollamaBaseUrl: state.ollamaBaseUrl || undefined,
-      maxReasoningTokens: 0, // Disable thinking to avoid thought-only empty responses
-    });
+  if (failedNode === "generateDraft" || !state.draft || state.draft.length < 50) {
+    log.info(`Error Agent attempting emergency direct draft synthesis`);
+    try {
+      const fallbackLlm = createLLM({
+        provider: state.llmProvider || undefined,
+        apiKey: (config?.configurable?.apiKey as string) || state.llmApiKey || undefined,
+        model: state.llmModel || undefined,
+        ollamaBaseUrl: state.ollamaBaseUrl || undefined,
+        maxReasoningTokens: 0, // Disable thinking to avoid thought-only empty responses
+      });
 
-    const topic = state.intake?.topic || state.topic || "Professional Growth";
-    const context = state.intake?.context || state.context || "";
-    const emergencyPrompt = `You are a professional LinkedIn ghostwriter. Write a concise, engaging LinkedIn post (under 250 words) about:
+      const topic = state.intake?.topic || state.topic || "Professional Growth";
+      const context = state.intake?.context || state.context || "";
+      const emergencyPrompt = `You are a professional LinkedIn ghostwriter. Write a concise, engaging LinkedIn post (under 250 words) about:
 Topic: "${topic}"
 Context: "${context}"
 
@@ -135,42 +202,49 @@ Rules:
 - Do not include hashtags at the very top.
 - Include a strong opening hook, 2-3 short body paragraphs, and a closing question.`;
 
-    const response = await fallbackLlm.invoke([new HumanMessage(emergencyPrompt)]);
-    let generatedText = "";
-    if (typeof response.content === "string") {
-      generatedText = response.content;
-    } else if (Array.isArray(response.content)) {
-      generatedText = response.content
-        .map((p) =>
-          typeof p === "string"
-            ? p
-            : p && typeof p === "object" && "text" in p && typeof (p as { text: unknown }).text === "string"
-            ? (p as { text: string }).text
-            : ""
-        )
-        .join("");
-    }
+      const response = await fallbackLlm.invoke([new HumanMessage(emergencyPrompt)]);
+      let generatedText = "";
+      if (typeof response.content === "string") {
+        generatedText = response.content;
+      } else if (Array.isArray(response.content)) {
+        generatedText = response.content
+          .map((p) =>
+            typeof p === "string"
+              ? p
+              : p && typeof p === "object" && "text" in p && typeof (p as { text: unknown }).text === "string"
+              ? (p as { text: string }).text
+              : ""
+          )
+          .join("");
+      }
 
-    generatedText = generatedText.replace(/\[\/?DRAFT\]/gi, "").trim();
+      generatedText = generatedText.replace(/\[\/?DRAFT\]/gi, "").trim();
 
-    if (generatedText.length > 30) {
-      log.info(`Error Agent successfully generated emergency fallback draft`);
-      return {
-        error: null,
-        draft: generatedText,
-        postContent: generatedText,
-        bestDraft: generatedText,
-        errorRecoveryCount: currentCount,
-      };
+      if (generatedText.length > 30) {
+        log.info(`Error Agent successfully generated emergency fallback draft`);
+        return {
+          error: null,
+          failedNode: null,
+          lastFailedNode: "generateDraft",
+          draft: generatedText,
+          postContent: generatedText,
+          bestDraft: generatedText,
+          errorRecoveryCount: currentTotal,
+          nodeRecoveryCounts: nodeCounts,
+        };
+      }
+    } catch (regenError: unknown) {
+      const msg = regenError instanceof Error ? regenError.message : "Emergency generation failed";
+      log.error(`Error Agent emergency generation attempt failed`, { error: msg });
     }
-  } catch (regenError: unknown) {
-    const msg = regenError instanceof Error ? regenError.message : "Emergency generation failed";
-    log.error(`Error Agent emergency generation attempt failed`, { error: msg });
   }
 
   // If all recovery strategies fail, terminate gracefully with user advice
   return {
-    error: `Agent encountered an issue: ${rawError}. Please try again or adjust your prompt in Settings.`,
-    errorRecoveryCount: currentCount,
+    error: `Agent encountered an issue in ${failedNode}: ${rawError}. Please try again or adjust your prompt in Settings.`,
+    failedNode,
+    lastFailedNode: failedNode,
+    errorRecoveryCount: currentTotal,
+    nodeRecoveryCounts: nodeCounts,
   };
 }

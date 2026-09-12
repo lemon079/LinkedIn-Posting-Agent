@@ -61,8 +61,13 @@ const routeValidation = (state: State) => {
 const routeErrorRecovery = (state: State) => {
   // If still in error state after Error Agent, abort to END
   if (state.error) return END;
-  // If Error Agent recovered a draft, continue pipeline
-  if (state.draft) return "promoteBestDraft";
+  // If Error Agent recovered a draft, continue pipeline through critique if unreviewed
+  if (state.draft) {
+    if ((state.critiqueCount ?? 0) === 0) {
+      return "critiqueDraft";
+    }
+    return "promoteBestDraft";
+  }
   if (state.intake) return "generateDraft";
   return END;
 };
@@ -107,6 +112,7 @@ const builder = new StateGraph(AgentState)
     handleAgentError: "handleAgentError",
   })
   .addConditionalEdges("handleAgentError", routeErrorRecovery, {
+    critiqueDraft: "critiqueDraft",
     promoteBestDraft: "promoteBestDraft",
     generateDraft: "generateDraft",
     [END]: END,

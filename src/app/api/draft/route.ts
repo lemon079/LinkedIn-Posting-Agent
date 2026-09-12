@@ -82,6 +82,8 @@ export async function POST(request: Request) {
       hasApiKey: Boolean(apiKey),
     });
 
+    const deadlineTimestamp = startTime + 35_000; // 35s hard latency budget ceiling
+
     const initialState = {
       topic,
       context: userContext || "",
@@ -90,6 +92,7 @@ export async function POST(request: Request) {
       llmProvider: provider,
       llmModel: model,
       ollamaBaseUrl,
+      deadlineTimestamp,
     };
 
     const threadId = Date.now().toString();

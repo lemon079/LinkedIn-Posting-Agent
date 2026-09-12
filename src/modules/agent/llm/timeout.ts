@@ -1,10 +1,39 @@
-export const DEFAULT_LLM_TIMEOUT_MS = 60000;
-export const DRAFT_TIMEOUT_MS = 60000;
-export const FALLBACK_DRAFT_TIMEOUT_MS = 25000;
-export const INTAKE_TIMEOUT_MS = 30000;
-export const CRITIC_TIMEOUT_MS = 35000;
-export const REFINE_TIMEOUT_MS = 45000;
-export const GUARDRAIL_TIMEOUT_MS = 20000;
+export const DEFAULT_LLM_TIMEOUT_MS = 25000;
+export const DRAFT_TIMEOUT_MS = 20000;
+export const FALLBACK_DRAFT_TIMEOUT_MS = 12000;
+export const INTAKE_TIMEOUT_MS = 6000;
+export const CRITIC_TIMEOUT_MS = 8000;
+export const REFINE_TIMEOUT_MS = 12000;
+export const GUARDRAIL_TIMEOUT_MS = 5000;
+
+export function getRemainingTimeoutMs(
+  deadlineTimestamp?: number | null,
+  fallbackTimeoutMs: number = DEFAULT_LLM_TIMEOUT_MS
+): number {
+  if (!deadlineTimestamp) return fallbackTimeoutMs;
+  const remaining = deadlineTimestamp - Date.now() - 1000; // 1s safety margin
+  if (remaining <= 1000) return 1000;
+  return Math.min(fallbackTimeoutMs, remaining);
+}
+
+export function isTransientLLMError(error: unknown): boolean {
+  if (!error) return false;
+  const msg = error instanceof Error ? error.message : String(error);
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes("high demand") ||
+    lower.includes("overloaded") ||
+    lower.includes("rate limit") ||
+    lower.includes("quota exceeded") ||
+    lower.includes("resource_exhausted") ||
+    lower.includes("spikes in demand") ||
+    lower.includes("503") ||
+    lower.includes("429") ||
+    lower.includes("econnreset") ||
+    lower.includes("etimedout") ||
+    lower.includes("timed out")
+  );
+}
 
 export async function invokeWithTimeout<T>(
   llmInvokePromise: Promise<T>,
@@ -36,5 +65,55 @@ export async function invokeWithTimeout<T>(
   } finally {
     clearTimeout(timeoutHandle!);
   }
+}
+
+export interface RetryTimeoutOptions {
+  timeoutMs?: number;
+  maxRetries?: number;
+  initialDelayMs?: number;
+  deadlineTimestamp?: number | null;
+  onRetry?: (attempt: number, error: unknown, delayMs: number) => void;
+}
+
+export async function invokeWithRetryAndTimeout<T>(
+  invokeFn: (signal: AbortSignal) => Promise<T>,
+  opts: RetryTimeoutOptions = {}
+): Promise<T> {
+  const maxRetries = opts.maxRetries ?? 1;
+  const initialDelayMs = opts.initialDelayMs ?? 400;
+  const configuredTimeout = opts.timeoutMs ?? DEFAULT_LLM_TIMEOUT_MS;
+
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const timeoutMs = getRemainingTimeoutMs(opts.deadlineTimestamp, configuredTimeout);
+    const controller = new AbortController();
+
+    try {
+      return await invokeWithTimeout(invokeFn(controller.signal), timeoutMs, controller);
+    } catch (err) {
+      lastError = err;
+      const isTransient = isTransientLLMError(err);
+
+      if (attempt < maxRetries && isTransient) {
+        // Calculate exponential backoff with jitter
+        const delay = initialDelayMs * Math.pow(2, attempt) + Math.random() * 200;
+        if (opts.deadlineTimestamp && Date.now() + delay >= opts.deadlineTimestamp) {
+          // Deadline would be exceeded by waiting, throw immediately
+          break;
+        }
+        if (opts.onRetry) {
+          opts.onRetry(attempt + 1, err, delay);
+        }
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+
+      // Non-transient error or retries exhausted
+      break;
+    }
+  }
+
+  throw lastError;
 }
 

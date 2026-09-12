@@ -19,7 +19,12 @@ export const validatePost = async (state: State): Promise<Partial<State>> => {
       reason,
       contentLengthChars: content?.length || 0,
     });
-    return { retries, error: `Validation failed: max retries reached (${reason}).` };
+    return {
+      retries,
+      error: `Validation failed: max retries reached (${reason}).`,
+      failedNode: "validatePost",
+      lastFailedNode: "validatePost",
+    };
   }
 
   log.warn(`Post validation failed, retrying refinement`, {
