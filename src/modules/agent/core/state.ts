@@ -1,6 +1,6 @@
 import { Annotation } from "@langchain/langgraph";
-import type { IntakeAnalysisType, CritiqueResultType } from "./schemas";
-import type { MediaFileMetadata } from "@/modules/media/types";
+import type { IntakeAnalysis, CritiqueResult } from "./schemas";
+import type { MediaFileMetadata } from "@/types/media";
 
 export const AgentState = Annotation.Root({
   // ── User-supplied inputs ──────────────────────────────────────────────
@@ -19,7 +19,7 @@ export const AgentState = Annotation.Root({
   }),
 
   // ── Intake analysis ───────────────────────────────────────────────────
-  intake: Annotation<IntakeAnalysisType | null>({
+  intake: Annotation<IntakeAnalysis | null>({
     reducer: (_x, y) => y,
     default: () => null,
   }),
@@ -43,7 +43,8 @@ export const AgentState = Annotation.Root({
   }),
 
   // ── Critique loop ─────────────────────────────────────────────────────
-  critique: Annotation<CritiqueResultType | null>({
+  critique: Annotation<CritiqueResult | null>({
+
     reducer: (_x, y) => y,
     default: () => null,
   }),

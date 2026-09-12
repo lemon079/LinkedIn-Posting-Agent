@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
+import axios from "axios";
 import { publishPost } from "@/lib/api";
 import { getApiBaseUrl } from "@/lib/api/config";
 import { cleanErrorMessage } from "@/lib/utils";
-import type { CustomKeys } from "@/types";
+import type { CustomKeys, StreamEvent } from "@/types";
 import { useAgentSettings } from "./useAgentSettings";
 import { useAgentMedia } from "./useAgentMedia";
 
@@ -115,39 +116,48 @@ export function useAgent() {
         if (settings.ollamaBaseUrl) headers["x-ollama-base-url"] = settings.ollamaBaseUrl;
       }
 
-      const response = await fetch(`${getApiBaseUrl()}/api/draft`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          topic: customTopic || undefined,
-          context: context
-            ? `${context}${customInstruction ? `\n\nInstructions: ${customInstruction}` : ""}`
-            : customInstruction || undefined,
-          domain: domain === "auto" ? undefined : domain,
-          keys: {
-            provider: settings.provider,
-            apiKey: settings.apiKey || undefined,
-            modelName: settings.modelName || undefined,
-            ollamaBaseUrl: settings.ollamaBaseUrl || undefined,
+      let stream: ReadableStream<Uint8Array>;
+      try {
+        const response = await axios.post<ReadableStream<Uint8Array>>(
+          `${getApiBaseUrl()}/api/draft`,
+          {
+            topic: customTopic || undefined,
+            context: context
+              ? `${context}${customInstruction ? `\n\nInstructions: ${customInstruction}` : ""}`
+              : customInstruction || undefined,
+            domain: domain === "auto" ? undefined : domain,
+            keys: {
+              provider: settings.provider,
+              apiKey: settings.apiKey || undefined,
+              modelName: settings.modelName || undefined,
+              ollamaBaseUrl: settings.ollamaBaseUrl || undefined,
+            },
           },
-        }),
-      });
+          {
+            headers,
+            adapter: "fetch",
+            responseType: "stream",
+          }
+        );
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          settings.setToken(null);
-          settings.setUser(null);
-          throw new Error("Your session has expired. Please sign in again.");
+        if (!response.data) {
+          throw new Error("No response body received from stream");
         }
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        stream = response.data;
+      } catch (err: unknown) {
+        if (axios.isAxiosError(err)) {
+          if (err.response?.status === 401) {
+            settings.setToken(null);
+            settings.setUser(null);
+            throw new Error("Your session has expired. Please sign in again.");
+          }
+          const errorData = err.response?.data as { error?: string } | undefined;
+          throw new Error(errorData?.error || err.message || `HTTP error! status: ${err.response?.status}`);
+        }
+        throw err;
       }
 
-      if (!response.body) {
-        throw new Error("No response body received from stream");
-      }
-
-      const reader = response.body.getReader();
+      const reader = stream.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
 
@@ -162,36 +172,39 @@ export function useAgent() {
         for (const line of lines) {
           if (!line.trim() || !line.startsWith("data: ")) continue;
           const jsonStr = line.slice(6).trim();
+          let event: StreamEvent;
           try {
-            const event = JSON.parse(jsonStr);
-            if (event.type === "thread") {
-              setThreadId(event.threadId);
-            } else if (event.type === "node_start") {
-              setReasoningSteps((prev) => {
-                if (prev.some((s) => s.title === event.title)) return prev;
-                return [...prev, { title: event.title, output: "" }];
-              });
-            } else if (event.type === "token" || event.type === "thinking") {
-              setReasoningSteps((prev) => {
-                const stepIdx = prev.findIndex((s) => s.title === event.node);
-                if (stepIdx === -1) {
-                  return [...prev, { title: event.node, output: event.text }];
-                }
-                const next = [...prev];
-                next[stepIdx] = {
-                  ...next[stepIdx],
-                  output: next[stepIdx].output + event.text,
-                };
-                return next;
-              });
-            } else if (event.type === "final") {
-              setStreamingText(event.draft);
-              setReasoningSteps(event.reasoningSteps || []);
-            } else if (event.type === "error") {
-              throw new Error(event.message);
-            }
+            event = JSON.parse(jsonStr);
           } catch (e) {
-            console.error("Failed to parse event:", e);
+            console.warn("Skipping unparseable SSE chunk:", jsonStr, e);
+            continue;
+          }
+
+          if (event.type === "thread") {
+            setThreadId(event.threadId);
+          } else if (event.type === "node_start") {
+            setReasoningSteps((prev) => {
+              if (prev.some((s) => s.title === event.title)) return prev;
+              return [...prev, { title: event.title, output: "" }];
+            });
+          } else if (event.type === "token" || event.type === "thinking") {
+            setReasoningSteps((prev) => {
+              const stepIdx = prev.findIndex((s) => s.title === event.node);
+              if (stepIdx === -1) {
+                return [...prev, { title: event.node, output: event.text }];
+              }
+              const next = [...prev];
+              next[stepIdx] = {
+                ...next[stepIdx],
+                output: next[stepIdx].output + event.text,
+              };
+              return next;
+            });
+          } else if (event.type === "final") {
+            setStreamingText(event.draft);
+            setReasoningSteps(event.reasoningSteps || []);
+          } else if (event.type === "error") {
+            throw new Error(event.message || "Draft generation failed");
           }
         }
       }

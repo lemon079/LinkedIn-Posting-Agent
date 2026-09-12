@@ -1,8 +1,8 @@
 import { HumanMessage } from "@langchain/core/messages";
 import { createCriticLLM } from "../llm/factory";
 import { CritiqueResult } from "../core/schemas";
-import type { CritiqueResultType } from "../core/schemas";
 import type { State } from "../core/state";
+
 import { DOMAINS } from "../core/domains";
 import { getCritiquePrompt } from "../core/prompts";
 import { invokeWithRetryAndTimeout, CRITIC_TIMEOUT_MS } from "../llm/timeout";
@@ -66,7 +66,8 @@ export async function critiqueDraft(state: State, config?: RunnableConfig): Prom
           });
         },
       }
-    )) as CritiqueResultType;
+    )) as CritiqueResult;
+
 
     // Track best draft across iterations
     const prevBestScore = state.bestScore ?? 0;

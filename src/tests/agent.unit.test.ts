@@ -49,7 +49,10 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
     mediaFiles: null,
     userId: "",
     failedNode: null,
+    lastFailedNode: null,
     errorRecoveryCount: 0,
+    nodeRecoveryCounts: {},
+    deadlineTimestamp: null,
     rawLlmResponse: null,
   };
 
@@ -154,8 +157,9 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
       const mockFallbackLlm = new FakeListChatModel({ responses: [fallbackDraftText] });
       
       let callCount = 0;
-      jest.spyOn(llmService, "createLLM").mockImplementation((opts) => {
+      jest.spyOn(llmService, "createLLM").mockImplementation(() => {
         callCount++;
+
         if (callCount === 1) {
           // Primary attempt with reasoning throws timeout error
           return {
@@ -593,25 +597,12 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
       );
 
       const executedNodes: string[] = [];
-      let streamError: string | undefined = undefined;
       for await (const event of eventStream) {
         if (event.event === "on_chain_start" && ["analyzeIntake", "generateDraft", "critiqueDraft", "refineDraft", "promoteBestDraft", "runGuardrails"].includes(event.name)) {
           executedNodes.push(event.name);
         }
-
-        const chunk = event.data?.chunk as Record<string, unknown> | undefined;
-        const out = event.data?.output as Record<string, unknown> | undefined;
-        if (chunk?.error) streamError = String(chunk.error);
-        if (out?.error) streamError = String(out.error);
-        if (chunk && typeof chunk === "object") {
-          const gen = chunk.generateDraft as Record<string, unknown> | undefined;
-          if (gen?.error) streamError = String(gen.error);
-        }
-        if (out && typeof out === "object") {
-          const gen = out.generateDraft as Record<string, unknown> | undefined;
-          if (gen?.error) streamError = String(gen.error);
-        }
       }
+
 
       expect(executedNodes).toContain("generateDraft");
       // CRITICAL: critiqueDraft must NOT have been executed

@@ -2,17 +2,10 @@
 
 import React from "react";
 import { AssistantComposer } from "./assistant-ui/composer";
+import type { BaseComposerProps } from "@/types/ui";
 
-export interface ControlPanelProps {
-  customTopic: string;
-  context: string;
-  domain?: string;
-  isGenerating: boolean;
-  setCustomTopic: (val: string) => void;
-  setContext: (val: string) => void;
-  setDomain?: (val: string) => void;
-  onGenerate: () => void;
-}
+export type ControlPanelProps = BaseComposerProps;
+
 
 export const ControlPanel: React.FC<ControlPanelProps> = ({
   customTopic,

@@ -1,30 +1,8 @@
 import { redactSecrets } from "./utils";
+import type { ApiErrorType, LlmProviderType, ParsedApiError } from "@/types/errors";
 
-export type ApiErrorType =
-  | "rate_limit"
-  | "quota_exhausted"
-  | "linkedin_rate_limit"
-  | "model_overloaded"
-  | "auth"
-  | "model_not_found"
-  | "network"
-  | "generic";
+export type { ApiErrorType, LlmProviderType, ParsedApiError };
 
-export type LlmProviderType = "gemini" | "openai" | "anthropic" | "ollama" | "linkedin";
-
-export interface ParsedApiError {
-  type: ApiErrorType;
-  title: string;
-  message: string;
-  advice?: string;
-  provider?: LlmProviderType;
-  isRateLimit: boolean;
-  isQuota: boolean;
-  isAuth: boolean;
-  isRetryable: boolean;
-  suggestSettings: boolean;
-  rawError: string;
-}
 
 /**
  * Parses raw error strings or Error instances into structured, user-friendly
@@ -46,6 +24,15 @@ export function parseApiError(rawInput: unknown): ParsedApiError {
 
   const safeError = redactSecrets(rawText);
   const err = safeError.toLowerCase();
+
+  const retryMatch = safeError.match(/(?:retry|wait|try again)\s+(?:in|after)\s+~?([0-9.]+)\s*s(?:econds?)?/i);
+  let retryAfterSeconds: number | undefined = undefined;
+  if (retryMatch && retryMatch[1]) {
+    const parsedSec = parseFloat(retryMatch[1]);
+    if (!isNaN(parsedSec) && parsedSec > 0) {
+      retryAfterSeconds = Math.ceil(parsedSec);
+    }
+  }
 
   // 1. Detect Provider Context
   let provider: LlmProviderType | undefined = undefined;
@@ -84,6 +71,7 @@ export function parseApiError(rawInput: unknown): ParsedApiError {
       isRetryable: true,
       suggestSettings: false,
       rawError: safeError,
+      retryAfterSeconds,
     };
   }
 
@@ -99,12 +87,16 @@ export function parseApiError(rawInput: unknown): ParsedApiError {
     (err.includes("429") && !err.includes("resource_exhausted") && !err.includes("insufficient_quota") && !err.includes("billing"))
   ) {
     const providerName = provider === "gemini" ? "Google Gemini" : provider === "openai" ? "OpenAI" : provider === "anthropic" ? "Anthropic" : "LLM Provider";
+    const cooldownText = retryAfterSeconds ? ` (Retry in ~${retryAfterSeconds}s)` : "";
     return {
       type: "rate_limit",
-      title: `${providerName} Rate Limit Reached`,
-      message: `The ${providerName} API is currently receiving too many requests for the current rate tier (RPM/TPM limit).`,
-      advice:
-        "Wait a few moments and click 'Try Again', or switch to a faster lightweight model (like Gemini 2.5 Flash) in Settings.",
+      title: `${providerName} Rate Limit Reached${cooldownText}`,
+      message: retryAfterSeconds
+        ? `The ${providerName} API rate limit was reached. Please retry in ~${retryAfterSeconds}s, or switch to a faster lightweight model in Settings.`
+        : `The ${providerName} API is currently receiving too many requests for the current rate tier (RPM/TPM limit).`,
+      advice: retryAfterSeconds
+        ? `Wait ~${retryAfterSeconds}s and click 'Try Again', or switch to a faster model in Settings.`
+        : "Wait a few moments and click 'Try Again', or switch to a faster lightweight model (like Gemini 2.5 Flash) in Settings.",
       provider,
       isRateLimit: true,
       isQuota: false,
@@ -112,6 +104,7 @@ export function parseApiError(rawInput: unknown): ParsedApiError {
       isRetryable: true,
       suggestSettings: true,
       rawError: safeError,
+      retryAfterSeconds,
     };
   }
 
@@ -127,6 +120,22 @@ export function parseApiError(rawInput: unknown): ParsedApiError {
     (err.includes("quota") && (err.includes("check your plan") || err.includes("exhausted")))
   ) {
     const providerName = provider === "gemini" ? "Google Gemini" : provider === "openai" ? "OpenAI" : provider === "anthropic" ? "Anthropic" : "LLM Provider";
+    if (retryAfterSeconds) {
+      return {
+        type: "rate_limit",
+        title: `${providerName} Rate Limit Reached (Retry in ~${retryAfterSeconds}s)`,
+        message: `The ${providerName} API request limit was reached. Please retry in ~${retryAfterSeconds}s, or switch models in Settings.`,
+        advice: `Wait ~${retryAfterSeconds}s and click 'Try Again', or switch to another provider in Settings.`,
+        provider,
+        isRateLimit: true,
+        isQuota: false,
+        isAuth: false,
+        isRetryable: true,
+        suggestSettings: true,
+        rawError: safeError,
+        retryAfterSeconds,
+      };
+    }
     return {
       type: "quota_exhausted",
       title: `${providerName} Usage Quota Exceeded`,
@@ -140,6 +149,7 @@ export function parseApiError(rawInput: unknown): ParsedApiError {
       isRetryable: false,
       suggestSettings: true,
       rawError: safeError,
+      retryAfterSeconds,
     };
   }
 
@@ -164,6 +174,7 @@ export function parseApiError(rawInput: unknown): ParsedApiError {
       isRetryable: true,
       suggestSettings: true,
       rawError: safeError,
+      retryAfterSeconds,
     };
   }
 
@@ -189,6 +200,7 @@ export function parseApiError(rawInput: unknown): ParsedApiError {
       isRetryable: false,
       suggestSettings: true,
       rawError: safeError,
+      retryAfterSeconds,
     };
   }
 
@@ -214,6 +226,7 @@ export function parseApiError(rawInput: unknown): ParsedApiError {
       isRetryable: false,
       suggestSettings: true,
       rawError: safeError,
+      retryAfterSeconds,
     };
   }
 
@@ -243,6 +256,7 @@ export function parseApiError(rawInput: unknown): ParsedApiError {
       isRetryable: true,
       suggestSettings: provider === "ollama",
       rawError: safeError,
+      retryAfterSeconds,
     };
   }
 
@@ -259,6 +273,7 @@ export function parseApiError(rawInput: unknown): ParsedApiError {
     isRetryable: true,
     suggestSettings: false,
     rawError: safeError,
+    retryAfterSeconds,
   };
 }
 

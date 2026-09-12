@@ -14,19 +14,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import type { BaseComposerProps } from "@/types/ui";
 
-export interface AssistantComposerProps {
-  customTopic: string;
-  context: string;
-  domain?: string;
-  isGenerating: boolean;
-  setCustomTopic: (val: string) => void;
-  setContext: (val: string) => void;
-  setDomain?: (val: string) => void;
-  onGenerate: () => void;
+export interface AssistantComposerProps extends BaseComposerProps {
   onCancel?: () => void;
   className?: string;
 }
+
 
 export const AssistantComposer: React.FC<AssistantComposerProps> = ({
   customTopic,

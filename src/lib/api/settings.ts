@@ -1,33 +1,46 @@
 import type { UserSettings } from "@/types";
-import { apiFetch } from "./client";
+import { apiRequest } from "./client";
 
 export async function fetchUserSettings(token: string): Promise<UserSettings> {
-  return apiFetch<UserSettings>("/api/user/settings", {
-    headers: { Authorization: `Bearer ${token}` },
-  }, "Failed to load user settings");
+  return apiRequest<UserSettings>(
+    {
+      url: "/api/user/settings",
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to load user settings"
+  );
 }
 
 export async function saveUserSettings(
   settings: UserSettings,
   token: string
 ): Promise<{ ok: boolean }> {
-  return apiFetch<{ ok: boolean }>("/api/user/settings", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  return apiRequest<{ ok: boolean }>(
+    {
+      url: "/api/user/settings",
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      data: settings,
     },
-    body: JSON.stringify(settings),
-  }, "Failed to save settings");
+    "Failed to save settings"
+  );
 }
 
 export async function disconnectLinkedIn(
   token: string
 ): Promise<{ ok: boolean }> {
-  return apiFetch<{ ok: boolean }>("/api/user/settings/linkedin", {
-    method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`,
+  return apiRequest<{ ok: boolean }>(
+    {
+      url: "/api/user/settings/linkedin",
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     },
-  }, "Failed to disconnect LinkedIn account");
+    "Failed to disconnect LinkedIn account"
+  );
 }
+

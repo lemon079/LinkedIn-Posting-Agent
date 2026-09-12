@@ -2,7 +2,7 @@ import { createLLM, isMaskedOrInvalid } from "./factory";
 import { HumanMessage } from "@langchain/core/messages";
 import { DEFAULT_OLLAMA_URL } from "@/lib/constants";
 import { validateSafeUrl } from "@/lib/security/urlValidation";
-import type { HealthResult } from "@/types/health";
+import type { HealthResponse } from "@/types/health";
 import axios from "axios";
 
 export const checkConnection = async (
@@ -10,7 +10,8 @@ export const checkConnection = async (
   apiKey?: string,
   model?: string,
   ollamaBaseUrl?: string
-): Promise<HealthResult> => {
+): Promise<HealthResponse> => {
+
   try {
     if (provider === "ollama") {
       const rawBase = ollamaBaseUrl || DEFAULT_OLLAMA_URL;

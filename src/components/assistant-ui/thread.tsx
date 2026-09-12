@@ -7,32 +7,18 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { LinkedInFeed } from "@/components/LinkedInFeed";
 import { AssistantReasoning } from "./reasoning";
-import { AssistantAttachments, type AssistantAttachmentItem } from "./attachment";
+import { AssistantAttachments } from "./attachment";
+
 import { AssistantErrorState } from "./error-state";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import type { BaseThreadEditorProps } from "@/types/ui";
 
-export interface AssistantThreadProps {
-  draftText: string | null;
-  streamingText: string | null;
-  isGenerating: boolean;
-  onStreamingComplete?: () => void;
-  isPublishing: boolean;
-  selectedFiles: AssistantAttachmentItem[];
-  setSelectedFiles: React.Dispatch<React.SetStateAction<AssistantAttachmentItem[]>>;
-  isUploading: boolean;
-  onUploadFile: (file: File) => void;
-  onChange: (value: string) => void;
-  onPublish: () => void;
-  onDiscard?: () => void;
-  onRetry?: () => void;
-  onOpenSettings?: () => void;
-  error?: string | Error | null;
-  onDismissError?: () => void;
-  reasoningSteps?: Array<{ title: string; output: string }>;
+export interface AssistantThreadProps extends BaseThreadEditorProps {
   defaultMode?: "preview" | "edit";
   className?: string;
 }
+
 
 export const AssistantThread: React.FC<AssistantThreadProps> = ({
   draftText,

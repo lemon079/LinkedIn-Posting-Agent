@@ -2,8 +2,10 @@ import { ChatGoogle } from "@langchain/google";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatOllama } from "@langchain/ollama";
+import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { config } from "@/config/env";
 import type { LLMOptions } from "../types";
+
 
 const ANTHROPIC_MIN_THINKING_BUDGET = 1024;
 
@@ -234,7 +236,7 @@ export const createCriticLLM = (opts: LLMOptions = {}) => {
     maxReasoningTokens: 0,
   });
 
-  const criticFallbacks: any[] = [];
+  const criticFallbacks: BaseChatModel[] = [];
   if (provider === "gemini") {
     if (criticModel !== "gemini-2.0-flash") {
       criticFallbacks.push(
@@ -275,22 +277,27 @@ export const createCriticLLM = (opts: LLMOptions = {}) => {
   }
 
   // Preserve BaseChatModel interface and enhance withStructuredOutput to support fallbacks
-  const critic = baseCritic as any;
+  const critic = baseCritic;
   if (criticFallbacks.length > 0) {
     const originalWithStructuredOutput = critic.withStructuredOutput?.bind(critic);
     if (originalWithStructuredOutput) {
-      critic.withStructuredOutput = (schema: any, options?: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      critic.withStructuredOutput = ((schema: any, options?: any) => {
         const primaryStructured = originalWithStructuredOutput(schema, options);
         const fallbackStructured = criticFallbacks
           .filter((f) => typeof f.withStructuredOutput === "function")
-          .map((f) => f.withStructuredOutput(schema, options));
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((f) => (f as any).withStructuredOutput(schema, options));
         if (fallbackStructured.length > 0) {
           return primaryStructured.withFallbacks(fallbackStructured);
         }
         return primaryStructured;
-      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      }) as any;
     }
   }
 
   return critic;
 };
+
+

@@ -38,7 +38,10 @@ describe("handleAgentError (Error Agent Node)", () => {
     ollamaBaseUrl: null,
     mediaFiles: null,
     failedNode: null,
+    lastFailedNode: null,
     errorRecoveryCount: 0,
+    nodeRecoveryCounts: {},
+    deadlineTimestamp: null,
     rawLlmResponse: null,
   };
 

@@ -75,6 +75,7 @@ export default function Home() {
       parsed.type === "linkedin_rate_limit" ||
       parsed.type === "model_overloaded"
     ) {
+      const toastDuration = parsed.retryAfterSeconds ? Math.max(parsed.retryAfterSeconds * 1000, 8000) : 7000;
       toast.warning(parsed.title, {
         description: parsed.message,
         action: {
@@ -87,7 +88,7 @@ export default function Home() {
             }
           },
         },
-        duration: 7000,
+        duration: toastDuration,
       });
     } else if (parsed.type === "auth") {
       toast.error(parsed.title, {

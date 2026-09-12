@@ -1,8 +1,8 @@
 import { HumanMessage } from "@langchain/core/messages";
 import { createCriticLLM } from "../llm/factory";
 import { IntakeAnalysis } from "../core/schemas";
-import type { IntakeAnalysisType } from "../core/schemas";
 import type { State } from "../core/state";
+
 import { inferDomain, inferAngle } from "../core/domains";
 import { getIntakePrompt } from "../core/prompts";
 import { invokeWithRetryAndTimeout, INTAKE_TIMEOUT_MS } from "../llm/timeout";
@@ -57,7 +57,7 @@ export async function analyzeIntake(state: State, config?: RunnableConfig): Prom
           });
         },
       }
-    )) as IntakeAnalysisType;
+    )) as IntakeAnalysis;
 
     // If the user specified an explicit domain preference (other than 'auto'), respect it over model inference
     const resolvedDomain =
@@ -65,10 +65,11 @@ export async function analyzeIntake(state: State, config?: RunnableConfig): Prom
         ? userDomain
         : intake.domain || inferDomain(topic, context);
 
-    const finalIntake: IntakeAnalysisType = {
+    const finalIntake: IntakeAnalysis = {
       ...intake,
-      domain: resolvedDomain as IntakeAnalysisType["domain"],
+      domain: resolvedDomain as IntakeAnalysis["domain"],
     };
+
 
     const durationMs = Date.now() - startTime;
     log.info(`Intake analysis completed`, {
@@ -103,13 +104,14 @@ export async function analyzeIntake(state: State, config?: RunnableConfig): Prom
       reason: msg,
     });
 
-    const fallbackIntake: IntakeAnalysisType = {
+    const fallbackIntake: IntakeAnalysis = {
       topic,
       context,
-      domain: fallbackDomain as IntakeAnalysisType["domain"],
+      domain: fallbackDomain as IntakeAnalysis["domain"],
       angle: fallbackAngle,
       tone: "conversational",
     };
+
 
     return {
       intake: fallbackIntake,

@@ -299,9 +299,11 @@ export class SupabaseCheckpointer extends BaseCheckpointSaver {
       // Graceful backwards-compatibility if user_id column not yet migrated in remote database
       if (error && error.message?.includes("user_id")) {
         const fallbackRows = rows.map((r) => {
-          const { user_id: _, ...rest } = r;
+          const rest = { ...r };
+          delete (rest as { user_id?: string }).user_id;
           return rest;
         });
+
         const retry = await supabase.from("agent_checkpoint_writes").upsert(
           fallbackRows as unknown as Database["public"]["Tables"]["agent_checkpoint_writes"]["Insert"][],
           { onConflict: "thread_id,checkpoint_id,task_id,idx" }

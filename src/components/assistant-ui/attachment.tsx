@@ -12,14 +12,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import type { MediaFileMetadata } from "@/types/media";
 
-export interface AssistantAttachmentItem {
-  name: string;
-  type: string;
-  storagePath?: string;
-  readUrl?: string;
-  base64?: string;
-}
+export type AssistantAttachmentItem = MediaFileMetadata;
 
 export interface AssistantAttachmentsProps {
   files: AssistantAttachmentItem[];

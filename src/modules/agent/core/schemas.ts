@@ -62,5 +62,6 @@ export const CritiqueResult = z.object({
     .describe("Specific rewrite instructions for the refinement step"),
 });
 
-export type IntakeAnalysisType = z.infer<typeof IntakeAnalysis>;
-export type CritiqueResultType = z.infer<typeof CritiqueResult>;
+export type IntakeAnalysis = z.infer<typeof IntakeAnalysis>;
+export type CritiqueResult = z.infer<typeof CritiqueResult>;
+

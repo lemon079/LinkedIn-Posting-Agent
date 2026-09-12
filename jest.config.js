@@ -17,6 +17,8 @@ const config = {
         "<rootDir>/src/tests/errorHandler.test.ts",
         "<rootDir>/src/tests/security.test.ts",
       ],
+
+
       moduleNameMapper: {
         "^@/(.*)$": "<rootDir>/src/$1",
         "^(\\.\\.?/.*)\\.js$": "$1",
@@ -34,7 +36,7 @@ const config = {
       displayName: "frontend-ui",
       testEnvironment: "jsdom",
       setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
-      testMatch: ["<rootDir>/src/tests/ui.test.tsx"],
+      testMatch: ["<rootDir>/src/tests/ui.test.tsx", "<rootDir>/src/tests/streamError.test.ts"],
       moduleNameMapper: {
         "^@/(.*)$": "<rootDir>/src/$1",
         "^(\\.\\.?/.*)\\.js$": "$1",

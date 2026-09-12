@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
+import axios from "axios";
 import { useLocalRuntime, type ChatModelAdapter, type ChatModelRunResult } from "@assistant-ui/react";
 import { getApiBaseUrl } from "@/lib/api/config";
 import { cleanErrorMessage } from "@/lib/utils";
+import type { StreamEvent } from "@/types";
 
 export interface AgentRuntimeOptions {
   customTopic: string;
@@ -36,16 +38,23 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
     onError,
   } = options;
 
-  const adapter = useMemo<ChatModelAdapter>(() => {
+  const adapter: ChatModelAdapter = useMemo(() => {
     return {
       async *run({ messages, abortSignal }) {
-        // Extract prompt from latest user message or fallback to customTopic
-        const latestUserMessage = messages.filter((m) => m.role === "user").pop();
+        // Extract the user prompt from the latest user message
         let promptTopic = customTopic;
-        if (latestUserMessage && Array.isArray(latestUserMessage.content)) {
-          const textPart = latestUserMessage.content.find((p) => p.type === "text");
-          if (textPart && "text" in textPart && typeof textPart.text === "string" && textPart.text.trim()) {
-            promptTopic = textPart.text.trim();
+        if (messages.length > 0) {
+          const lastMsg = messages[messages.length - 1];
+          if (lastMsg.role === "user") {
+            const content = lastMsg.content;
+            if (typeof content === "string") {
+              promptTopic = content;
+            } else if (Array.isArray(content)) {
+              promptTopic = content
+                .filter((p) => p.type === "text")
+                .map((p) => ("text" in p ? p.text : ""))
+                .join("\n");
+            }
           }
         }
 
@@ -55,29 +64,48 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
         if (provider) headers["x-llm-provider"] = provider;
         if (apiKey) headers["x-llm-api-key"] = apiKey;
         if (modelName) headers["x-llm-model"] = modelName;
-        if (ollamaBaseUrl) headers["x-ollama-url"] = ollamaBaseUrl;
+        if (ollamaBaseUrl) {
+          headers["x-ollama-url"] = ollamaBaseUrl;
+          headers["x-ollama-base-url"] = ollamaBaseUrl;
+        }
         if (liToken) headers["x-linkedin-token"] = liToken;
         if (liUrn) headers["x-linkedin-urn"] = liUrn;
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
         try {
-          const response = await fetch(`${getApiBaseUrl()}/api/draft`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({
-              topic: promptTopic,
-              context,
-              domain: domain === "auto" ? null : domain,
-            }),
-            signal: abortSignal,
-          });
+          let stream: ReadableStream<Uint8Array>;
+          try {
+            const response = await axios.post<ReadableStream<Uint8Array>>(
+              `${getApiBaseUrl()}/api/draft`,
+              {
+                topic: promptTopic,
+                context,
+                domain: domain === "auto" ? null : domain,
+              },
+              {
+                headers,
+                signal: abortSignal,
+                adapter: "fetch",
+                responseType: "stream",
+              }
+            );
 
-          if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(cleanErrorMessage(errorText));
+            if (!response.data) {
+              throw new Error("ReadableStream not supported or empty response.");
+            }
+            stream = response.data;
+          } catch (err: unknown) {
+            if (axios.isAxiosError(err)) {
+              const errorText =
+                (err.response?.data && typeof err.response.data === "object" && "error" in err.response.data
+                  ? (err.response.data as { error?: string }).error
+                  : undefined) || err.message;
+              throw new Error(cleanErrorMessage(errorText));
+            }
+            throw err;
           }
 
-          const reader = response.body?.getReader();
+          const reader = stream.getReader();
           if (!reader) throw new Error("ReadableStream not supported in this browser.");
 
           const decoder = new TextDecoder();
@@ -99,69 +127,68 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
               if (!line.trim() || !line.startsWith("data: ")) continue;
               const jsonStr = line.slice(6).trim();
 
+              let event: StreamEvent;
               try {
-                const event = JSON.parse(jsonStr);
-
-                if (event.type === "thread") {
-                  currentThreadId = event.threadId;
-                } else if (event.type === "node_start") {
-                  if (!reasoningSteps.some((s) => s.title === event.title)) {
-                    reasoningSteps.push({ title: event.title, output: "" });
-                  }
-                } else if (event.type === "token" || event.type === "thinking") {
-                  const nodeTitle = event.type === "thinking" ? "Model Thinking" : event.node || "Reasoning";
-                  let step = reasoningSteps.find((s) => s.title === nodeTitle);
-                  if (!step) {
-                    step = { title: nodeTitle, output: "" };
-                    reasoningSteps.push(step);
-                  }
-                  step.output += event.text;
-                  accumulatedReasoning += event.text;
-
-                  // Yield reasoning update to assistant-ui
-                  const result: ChatModelRunResult = {
-                    content: [
-                      {
-                        type: "reasoning",
-                        text: accumulatedReasoning,
-                      },
-                    ],
-                  };
-                  yield result;
-                } else if (event.type === "final") {
-                  accumulatedDraft = event.draft;
-                  if (event.reasoningSteps) {
-                    reasoningSteps.length = 0;
-                    reasoningSteps.push(...event.reasoningSteps);
-                  }
-                  if (event.threadId) {
-                    currentThreadId = event.threadId;
-                  }
-
-                  onDraftReceived?.(accumulatedDraft, reasoningSteps, currentThreadId);
-
-                  // Yield final response text
-                  const finalResult: ChatModelRunResult = {
-                    content: [
-                      {
-                        type: "reasoning",
-                        text: accumulatedReasoning,
-                      },
-                      {
-                        type: "text",
-                        text: accumulatedDraft,
-                      },
-                    ],
-                  };
-                  yield finalResult;
-                } else if (event.type === "error") {
-                  throw new Error(cleanErrorMessage(event.message));
-                }
+                event = JSON.parse(jsonStr);
               } catch (e) {
-                if (e instanceof Error && e.message.includes("cleanErrorMessage")) {
-                  throw e;
+                console.warn("Skipping unparseable assistant stream event:", jsonStr, e);
+                continue;
+              }
+
+              if (event.type === "thread") {
+                currentThreadId = event.threadId;
+              } else if (event.type === "node_start") {
+                if (!reasoningSteps.some((s) => s.title === event.title)) {
+                  reasoningSteps.push({ title: event.title, output: "" });
                 }
-                console.error("Failed to parse assistant stream event:", e);
+              } else if (event.type === "token" || event.type === "thinking") {
+                const nodeTitle = event.type === "thinking" ? "Model Thinking" : event.node || "Reasoning";
+                let step = reasoningSteps.find((s) => s.title === nodeTitle);
+                if (!step) {
+                  step = { title: nodeTitle, output: "" };
+                  reasoningSteps.push(step);
+                }
+                step.output += event.text;
+                accumulatedReasoning += event.text;
+
+                // Yield reasoning update to assistant-ui
+                const result: ChatModelRunResult = {
+                  content: [
+                    {
+                      type: "reasoning",
+                      text: accumulatedReasoning,
+                    },
+                  ],
+                };
+                yield result;
+              } else if (event.type === "final") {
+                accumulatedDraft = event.draft;
+                if (event.reasoningSteps) {
+                  reasoningSteps.length = 0;
+                  reasoningSteps.push(...event.reasoningSteps);
+                }
+                if (event.threadId) {
+                  currentThreadId = event.threadId;
+                }
+
+                onDraftReceived?.(accumulatedDraft, reasoningSteps, currentThreadId);
+
+                // Yield final response text
+                const finalResult: ChatModelRunResult = {
+                  content: [
+                    {
+                      type: "reasoning",
+                      text: accumulatedReasoning,
+                    },
+                    {
+                      type: "text",
+                      text: accumulatedDraft,
+                    },
+                  ],
+                };
+                yield finalResult;
+              } else if (event.type === "error") {
+                throw new Error(cleanErrorMessage(event.message));
               }
             }
           }

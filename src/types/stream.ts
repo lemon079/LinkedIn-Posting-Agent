@@ -35,9 +35,21 @@ export interface FinalStreamEvent {
   critiqueScores?: number[];
 }
 
+export type StreamErrorCode =
+  | "QUOTA_EXCEEDED"
+  | "RATE_LIMIT"
+  | "MODEL_OVERLOADED"
+  | "AUTH_ERROR"
+  | "TIMEOUT"
+  | "UNKNOWN";
+
 export interface ErrorStreamEvent {
   type: "error";
   message: string;
+  code?: StreamErrorCode;
+  retryAfterSeconds?: number;
+  retryAfterMs?: number;
+  failedNode?: string;
 }
 
 export type StreamEvent =

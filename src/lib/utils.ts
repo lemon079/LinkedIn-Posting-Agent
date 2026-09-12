@@ -169,6 +169,11 @@ export function cleanErrorMessage(rawError: string): string {
     err.includes("exhausted") ||
     err.includes("billing")
   ) {
+    const retryMatch = safeError.match(/(?:retry|wait|try again)\s+(?:in|after)\s+~?([0-9.]+)\s*s(?:econds?)?/i);
+    if (retryMatch && retryMatch[1]) {
+      const sec = Math.ceil(parseFloat(retryMatch[1]));
+      return `API rate limit reached — please retry in ~${sec}s, or switch providers in Settings.`;
+    }
     return "API rate limit or usage quota exceeded. Please check your billing profile, try again later, or switch providers in Settings.";
   }
 

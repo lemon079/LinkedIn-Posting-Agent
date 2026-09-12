@@ -6,7 +6,7 @@ import { resolveAgentCredentials } from "@/modules/user";
 import { redactSecrets } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import type { DraftRequest } from "@/modules/agent/types";
-import type { StreamEvent } from "@/types";
+import type { StreamEvent, StreamErrorCode } from "@/types";
 
 // ── Node name → user-facing step title mapping ──────────────────────────
 const NODE_TITLES: Record<string, string> = {
@@ -20,6 +20,41 @@ const NODE_TITLES: Record<string, string> = {
 const STREAMABLE_NODES = new Set(Object.keys(NODE_TITLES));
 
 import { checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
+
+function parseErrorInfo(rawError: string): {
+  code: StreamErrorCode;
+  retryAfterSeconds?: number;
+  retryAfterMs?: number;
+} {
+  const err = rawError.toLowerCase();
+  let code: StreamErrorCode = "UNKNOWN";
+
+  if (err.includes("quota exceeded") || err.includes("resource_exhausted") || err.includes("insufficient_quota")) {
+    code = "QUOTA_EXCEEDED";
+  } else if (err.includes("rate limit") || err.includes("429") || err.includes("too many requests")) {
+    code = "RATE_LIMIT";
+  } else if (err.includes("overloaded") || err.includes("503") || err.includes("529") || err.includes("high demand")) {
+    code = "MODEL_OVERLOADED";
+  } else if (err.includes("timed out") || err.includes("timeout")) {
+    code = "TIMEOUT";
+  } else if (err.includes("unauthorized") || err.includes("401") || err.includes("api_key") || err.includes("forbidden")) {
+    code = "AUTH_ERROR";
+  }
+
+  const retryMatch = rawError.match(/(?:retry|wait|try again)\s+(?:in|after)\s+([0-9.]+)\s*s(?:econds?)?/i);
+  let retryAfterSeconds: number | undefined;
+  let retryAfterMs: number | undefined;
+
+  if (retryMatch && retryMatch[1]) {
+    const parsedSec = parseFloat(retryMatch[1]);
+    if (!isNaN(parsedSec) && parsedSec > 0) {
+      retryAfterSeconds = Math.ceil(parsedSec);
+      retryAfterMs = Math.round(parsedSec * 1000);
+    }
+  }
+
+  return { code, retryAfterSeconds, retryAfterMs };
+}
 
 export async function POST(request: Request) {
   const startTime = Date.now();
@@ -171,11 +206,23 @@ export async function POST(request: Request) {
 
           if (state.values.error) {
             log.error(`Agent completed with error`, { error: state.values.error, durationMs });
-            sendEvent({ type: "error", message: redactSecrets(state.values.error) });
+            const errorInfo = parseErrorInfo(state.values.error);
+            sendEvent({
+              type: "error",
+              message: redactSecrets(state.values.error),
+              code: errorInfo.code,
+              retryAfterSeconds: errorInfo.retryAfterSeconds,
+              retryAfterMs: errorInfo.retryAfterMs,
+              failedNode: state.values.failedNode || state.values.lastFailedNode,
+            });
           } else if (state.next?.[0] !== "publishPost") {
             const nextNode = state.next?.[0];
             log.error(`Agent stopped unexpectedly`, { nextNode, durationMs });
-            sendEvent({ type: "error", message: `Agent stopped unexpectedly. Next: ${nextNode}` });
+            sendEvent({
+              type: "error",
+              message: `Agent stopped unexpectedly. Next: ${nextNode}`,
+              code: "UNKNOWN",
+            });
           } else {
             log.info(`Agent completed successfully`, {
               durationMs,
@@ -196,7 +243,14 @@ export async function POST(request: Request) {
           const durationMs = Date.now() - startTime;
           const msg = err instanceof Error ? err.message : "Unknown error";
           log.error(`Stream execution error`, { error: msg, durationMs });
-          sendEvent({ type: "error", message: redactSecrets(msg) });
+          const errorInfo = parseErrorInfo(msg);
+          sendEvent({
+            type: "error",
+            message: redactSecrets(msg),
+            code: errorInfo.code,
+            retryAfterSeconds: errorInfo.retryAfterSeconds,
+            retryAfterMs: errorInfo.retryAfterMs,
+          });
         } finally {
           controller.close();
         }

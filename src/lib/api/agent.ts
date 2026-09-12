@@ -1,17 +1,21 @@
 import type { DraftResponse, PublishResponse, CustomKeys } from "@/types";
 import { buildApiHeaders } from "./headers";
-import { apiFetch } from "./client";
+import { apiRequest } from "./client";
 
 export async function generateDraft(
   topic: string,
   context: string,
   keys?: CustomKeys
 ): Promise<DraftResponse> {
-  return apiFetch<DraftResponse>("/api/draft", {
-    method: "POST",
-    headers: buildApiHeaders(keys),
-    body: JSON.stringify({ topic, context }),
-  }, "Failed to generate draft");
+  return apiRequest<DraftResponse>(
+    {
+      url: "/api/draft",
+      method: "POST",
+      headers: buildApiHeaders(keys),
+      data: { topic, context },
+    },
+    "Failed to generate draft"
+  );
 }
 
 export async function publishPost(
@@ -20,9 +24,14 @@ export async function publishPost(
   keys?: CustomKeys,
   files?: Array<{ name: string; type: string; storagePath?: string; readUrl?: string; base64?: string; }>
 ): Promise<PublishResponse> {
-  return apiFetch<PublishResponse>("/api/publish", {
-    method: "POST",
-    headers: buildApiHeaders(keys),
-    body: JSON.stringify({ threadId, draft, files }),
-  }, "Failed to publish");
+  return apiRequest<PublishResponse>(
+    {
+      url: "/api/publish",
+      method: "POST",
+      headers: buildApiHeaders(keys),
+      data: { threadId, draft, files },
+    },
+    "Failed to publish"
+  );
 }
+

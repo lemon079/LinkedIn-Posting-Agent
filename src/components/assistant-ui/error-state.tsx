@@ -66,6 +66,9 @@ export const AssistantErrorState: React.FC<AssistantErrorStateProps> = ({
 
   // Badge label for category
   const renderBadge = () => {
+    if (parsed.retryAfterSeconds) {
+      return `Retry in ~${parsed.retryAfterSeconds}s`;
+    }
     switch (parsed.type) {
       case "rate_limit":
         return "API Rate Limit";

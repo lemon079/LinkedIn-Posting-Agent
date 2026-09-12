@@ -1,3 +1,4 @@
+import axios from "axios";
 import type { HealthResponse } from "@/types";
 import { getApiBaseUrl } from "./config";
 
@@ -14,10 +15,18 @@ export async function healthCheck(
     headers["Authorization"] = `Bearer ${authToken}`;
   }
 
-  const res = await fetch(`${getApiBaseUrl()}/api/health-check`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ provider, apiKey, model, ollamaBaseUrl, useSavedKey }),
-  });
-  return res.json();
+  try {
+    const res = await axios.post<HealthResponse>(
+      `${getApiBaseUrl()}/api/health-check`,
+      { provider, apiKey, model, ollamaBaseUrl, useSavedKey },
+      { headers }
+    );
+    return res.data;
+  } catch (err: unknown) {
+    if (axios.isAxiosError(err) && err.response?.data) {
+      return err.response.data as HealthResponse;
+    }
+    const msg = err instanceof Error ? err.message : "Health check failed";
+    return { ok: false, error: msg };
+  }
 }

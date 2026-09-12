@@ -1,10 +1,7 @@
-export interface DomainConfig {
-  id: string;
-  label: string;
-  specificityDescription: string;
-  groundingDescription: string;
-  examples: string[];
-}
+import type { DomainConfig } from "@/types/agent";
+
+export type { DomainConfig };
+
 
 export const ENGINEERING_DOMAIN: DomainConfig = {
   id: "engineering",
