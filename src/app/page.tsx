@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
+
 import { useAgent } from "@/hooks/useAgent";
 import { useAgentRuntime } from "@/hooks/useAgentRuntime";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
@@ -9,10 +10,8 @@ import { ControlPanel } from "@/components/ControlPanel";
 import { EditorPanel } from "@/components/EditorPanel";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { Button } from "@/components/ui/button";
-import { AssistantErrorState } from "@/components/assistant-ui";
 import { FileText, CheckCircle2, ExternalLink, Plus, Sparkles, Loader2 } from "lucide-react";
-import { toast } from "sonner";
-import { parseApiError } from "@/lib/errors";
+
 
 const SHOWCASE_TOPIC = "Why we migrated from synchronous REST to event-driven Kafka in production";
 const SHOWCASE_CONTEXT = "Reduced p99 latency by 68% and handled a 10x traffic spike without node degradation. Key lessons on idempotent workers and dead-letter queues.";
@@ -67,49 +66,6 @@ export default function Home() {
     window.location.href = "/api/auth/linkedin?state=login";
   }, []);
 
-  const handleShowErrorToast = useCallback((err: string | Error) => {
-    const parsed = parseApiError(err);
-    if (
-      parsed.isRateLimit ||
-      parsed.isQuota ||
-      parsed.type === "linkedin_rate_limit" ||
-      parsed.type === "model_overloaded"
-    ) {
-      const toastDuration = parsed.retryAfterSeconds ? Math.max(parsed.retryAfterSeconds * 1000, 8000) : 7000;
-      toast.warning(parsed.title, {
-        description: parsed.message,
-        action: {
-          label: isAuthenticated ? "Settings" : "Sign in",
-          onClick: () => {
-            if (isAuthenticated) {
-              setIsSettingsOpen(true);
-            } else {
-              handleInitiateLinkedInLogin();
-            }
-          },
-        },
-        duration: toastDuration,
-      });
-    } else if (parsed.type === "auth") {
-      toast.error(parsed.title, {
-        description: parsed.message,
-        action: {
-          label: isAuthenticated ? "Settings" : "Sign in",
-          onClick: () => {
-            if (isAuthenticated) {
-              setIsSettingsOpen(true);
-            } else {
-              handleInitiateLinkedInLogin();
-            }
-          },
-        },
-        duration: 6000,
-      });
-    } else {
-      toast.error(parsed.message);
-    }
-  }, [isAuthenticated, handleInitiateLinkedInLogin, setIsSettingsOpen]);
-
   const runtime = useAgentRuntime({
     customTopic,
     context,
@@ -124,16 +80,8 @@ export default function Home() {
       setDraftText(draft);
       if (tId) localStorage.setItem("praxis_thread_id", tId);
     },
-    onError: (err) => {
-      handleShowErrorToast(err);
-    },
   });
 
-  useEffect(() => {
-    if (error) {
-      handleShowErrorToast(error);
-    }
-  }, [error, handleShowErrorToast]);
 
   const effectiveTopic = !isAuthenticated && !customTopic ? SHOWCASE_TOPIC : customTopic;
   const effectiveContext = !isAuthenticated && !context ? SHOWCASE_CONTEXT : context;
@@ -238,18 +186,8 @@ export default function Home() {
               </div>
             )}
 
-            {error && !isGenerating && draftText === null && (
-              <div className="mb-4">
-                <AssistantErrorState
-                  error={error}
-                  onRetry={onGenerateClick}
-                  onOpenSettings={isAuthenticated ? () => setIsSettingsOpen(true) : handleInitiateLinkedInLogin}
-                  onDismiss={handleDismissError}
-                />
-              </div>
-            )}
+            {isGenerating || streamingText !== null || effectiveDraft !== null || Boolean(error) ? (
 
-            {isGenerating || streamingText !== null || effectiveDraft !== null ? (
               <div className="space-y-4 animate-fade-in-up">
                 <EditorPanel
                   draftText={effectiveDraft}
