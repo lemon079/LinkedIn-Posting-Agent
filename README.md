@@ -7,10 +7,16 @@
 ## ✨ Key Features
 
 - **Autonomous Multi-Step LangGraph Agent**:
-  - **Intake Analysis & Tone Tuning**: Inferred or user-specified domain targeting (Engineering, HR, Marketing, Sales, General).
-  - **Iterative Self-Critique & Refinement Loop**: Evaluates hooks, value clarity, and structure with automated scoring (up to 3 refinement passes).
+  - **Authentic Practitioner Persona**: Banned AI slop and sterile textbook monologues; writes with senior practitioner credibility ("Last month we migrated...", "Here is what broke...").
+  - **5 Post Archetypes**: Incident Teardown, Contrarian Take, Playbook / Framework, Gotcha / Deep Dive, and Decision Matrix.
+  - **Tone & Voice Tuning**: Conversational, Authoritative, Provocative, and Reflective controls.
+  - **Feed Truncation Hook Engineering**: Optimizes opening lines for the 2-3 line (140-210 char) preview boundary before "...see more".
+  - **Hook Lab (A/B Testing)**: Concurrently generates 3 contrasting hook angles (Metric, Contrarian, Incident) with a 1-click swapper above the fold.
+  - **Conversational Draft Refinement**: Natural-language follow-ups in the composer ("make it punchier", "shorter", "focus on outcome") with scoped edits and hook preservation.
+  - **Anti-Fabrication Guardrail**: Refuses ungrounded metric requests without real data, prompting conversationally instead of hallucinating benchmarks.
+  - **Multi-Level Version History Stack**: 1-click Undo/Redo and version dropdown (`v1 · Initial Draft`, `v2...`) in the editor toolbar.
+  - **Iterative Self-Critique & Refinement Loop**: Evaluates hooks, value clarity, and structure with automated scoring (threshold 7, capped at 2 refinement passes).
   - **Safety & Guardrails**: Enforces LinkedIn content safety and character limits before publication.
-  - **Human-in-the-Loop Interruption**: Pauses execution at draft completion for user review, custom edits, and image attachments.
 - **Multi-Provider LLM Engine**:
   - Native support for **Google Gemini** (Gemini 2.5 Flash / 3.7 Flash with reasoning budget controls), **OpenAI** (GPT-4o), **Anthropic** (Claude 3.5 / 3.7 Sonnet), and local **Ollama** models.
 - **Real-Time Streaming Dashboard**:
@@ -126,11 +132,23 @@ npm start
 ## 🧪 Testing & Code Quality
 
 ```bash
-# Run ESLint validation
+# 1. TypeScript compilation check (0 errors)
+npx tsc --noEmit
+
+# 2. Run ESLint validation (0 errors, 0 warnings)
 npm run lint
 
-# Run all test suites (Unit, Integration, Evals, API, and UI)
-npm run test
+# 3. Run all unit & UI test suites (11 suites, 115 tests)
+npx jest --testPathIgnorePatterns="integration"
+
+# 4. Run integration tests (requires Supabase / live service configuration)
+npx jest src/tests/integration.test.ts
+
+# 5. Run full test suite with coverage
+npm test -- --coverage
+
+# 6. Verify production build
+npm run build
 ```
 
 ---
