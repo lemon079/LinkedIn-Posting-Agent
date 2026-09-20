@@ -267,7 +267,6 @@ describe("Frontend Dashboard UI", () => {
     undoButton.click();
     expect(handleUndo).toHaveBeenCalled();
   });
-  });
 });
 
 
