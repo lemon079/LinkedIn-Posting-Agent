@@ -1,5 +1,6 @@
 import type React from "react";
 import type { MediaFileMetadata } from "./media";
+import type { DraftVersion } from "./agent";
 
 /**
  * Shared base props for topic composition across ControlPanel and AssistantComposer.
@@ -46,4 +47,9 @@ export interface BaseThreadEditorProps {
     rationale: string;
   }>;
   onApplyHook?: (newHook: string) => void;
+  draftVersions?: DraftVersion[];
+  activeVersionIndex?: number;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  onSelectVersion?: (index: number) => void;
 }

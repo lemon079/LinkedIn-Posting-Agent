@@ -62,6 +62,20 @@ export const AgentState = Annotation.Root({
     default: () => "conversational",
   }),
 
+  // ── Conversational Refinement ─────────────────────────────────────────
+  userFeedback: Annotation<string | null>({
+    reducer: (_x, y) => y,
+    default: () => null,
+  }),
+  changeNote: Annotation<string | null>({
+    reducer: (_x, y) => y,
+    default: () => null,
+  }),
+  refinementPasses: Annotation<number>({
+    reducer: (_x, y) => (y !== undefined ? y : _x || 0),
+    default: () => 0,
+  }),
+
   // ── Critique loop ─────────────────────────────────────────────────────
   critique: Annotation<CritiqueResult | null>({
 

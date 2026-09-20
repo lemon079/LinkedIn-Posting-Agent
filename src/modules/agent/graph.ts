@@ -40,8 +40,8 @@ const routeCritique = (state: State) => {
   const score = state.critique?.score ?? 10;
   const count = state.critiqueCount ?? 0;
 
-  // Exit: score passes threshold OR we've used both critique slots
-  if (score >= 7 || count >= 2) return "promoteBestDraft";
+  // Exit: score passes threshold OR we've used both critique slots OR reached max 2 refinement passes
+  if (score >= 7 || count >= 2 || (state.refinementPasses ?? 0) >= 2) return "promoteBestDraft";
   return "refineDraft";
 };
 

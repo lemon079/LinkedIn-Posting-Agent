@@ -111,6 +111,12 @@ describe("Frontend Dashboard UI", () => {
     handleClearDraft: jest.fn(),
     alternativeHooks: [],
     handleApplyHook: jest.fn(),
+    draftVersions: [],
+    activeVersionIndex: 0,
+    handleUndo: jest.fn(),
+    handleRedo: jest.fn(),
+    handleSelectVersion: jest.fn(),
+    addDraftVersion: jest.fn(),
   };
 
   beforeEach(() => {
@@ -212,6 +218,55 @@ describe("Frontend Dashboard UI", () => {
 
     expect(screen.getByText("Post Archetype")).toBeInTheDocument();
     expect(screen.getByText("Tone & Voice")).toBeInTheDocument();
+  });
+
+  test("renders version history dropdown and undo/redo buttons when multiple versions exist", () => {
+    const handleUndo = jest.fn();
+    const handleRedo = jest.fn();
+    const handleSelectVersion = jest.fn();
+
+    (useAgent as jest.Mock).mockReturnValue({
+      ...mockDefaultState,
+      draftText: "Draft v2 text",
+      activeTab: "edit",
+      threadId: "test-thread-123",
+      draftVersions: [
+        {
+          id: "v1-123",
+          versionNumber: 1,
+          draft: "Initial draft content",
+          label: "v1",
+          changeNote: "Initial Draft",
+          timestamp: 1000,
+        },
+        {
+          id: "v2-456",
+          versionNumber: 2,
+          draft: "Draft v2 text",
+          label: "v2",
+          changeNote: "Made punchier",
+          timestamp: 2000,
+        },
+      ],
+      activeVersionIndex: 1,
+      handleUndo,
+      handleRedo,
+      handleSelectVersion,
+    });
+
+    render(<Home />);
+
+    const selectEl = screen.getByLabelText("Draft version history");
+    expect(selectEl).toBeInTheDocument();
+    expect(screen.getByText(/v1 · Initial Draft/i)).toBeInTheDocument();
+    expect(screen.getByText(/v2 · Made punchier/i)).toBeInTheDocument();
+
+    const undoButton = screen.getByRole("button", { name: "Undo edit" });
+    expect(undoButton).toBeInTheDocument();
+    expect(undoButton).not.toBeDisabled();
+    undoButton.click();
+    expect(handleUndo).toHaveBeenCalled();
+  });
   });
 });
 

@@ -34,6 +34,8 @@ export interface FinalStreamEvent {
   } | null;
   critiqueScores?: number[];
   alternativeHooks?: HookOption[];
+  changeNote?: string;
+  intent?: "refine" | "new_post" | "question" | "missing_metric";
 }
 
 export interface HookOption {
@@ -45,6 +47,16 @@ export interface HookOption {
 export interface AlternativeHooksStreamEvent {
   type: "alternative_hooks";
   hooks: HookOption[];
+}
+
+export interface ChangeNoteStreamEvent {
+  type: "change_note";
+  note: string;
+}
+
+export interface ChatMessageStreamEvent {
+  type: "chat_message";
+  text: string;
 }
 
 export type StreamErrorCode =
@@ -71,6 +83,8 @@ export type StreamEvent =
   | NodeEndStreamEvent
   | FinalStreamEvent
   | AlternativeHooksStreamEvent
+  | ChangeNoteStreamEvent
+  | ChatMessageStreamEvent
   | ErrorStreamEvent;
 
 export interface ErrorWithResponsePayload {

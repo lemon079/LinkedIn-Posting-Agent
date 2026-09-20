@@ -1,3 +1,12 @@
+export interface DraftVersion {
+  id: string;
+  versionNumber: number;
+  draft: string;
+  label: string;
+  changeNote: string;
+  timestamp: number;
+}
+
 export interface DraftRequest {
   topic?: string;
   customTopic?: string;
@@ -5,6 +14,10 @@ export interface DraftRequest {
   domain?: string | null;
   archetype?: string | null;
   tone?: string | null;
+  threadId?: string | null;
+  currentDraft?: string | null;
+  followUpMessage?: string | null;
+  messages?: Array<{ role: "user" | "assistant"; content: string }>;
   keys?: {
     provider?: string;
     apiKey?: string;

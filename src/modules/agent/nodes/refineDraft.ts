@@ -2,7 +2,7 @@ import { HumanMessage } from "@langchain/core/messages";
 import { createLLM } from "../llm/factory";
 import type { State } from "../core/state";
 import { DOMAINS } from "../core/domains";
-import { getRefinePrompt } from "../core/prompts";
+import { getRefinePrompt, getConversationalRefinePrompt } from "../core/prompts";
 import { getRecentHooks, addHook } from "@/modules/user/history";
 import { invokeWithTimeout, REFINE_TIMEOUT_MS, getRemainingTimeoutMs } from "../llm/timeout";
 import { logger } from "@/lib/logger";
@@ -23,15 +23,21 @@ const getLLMOpts = (state: State, config?: RunnableConfig) => ({
 /**
  * Refine node.
  *
- * Takes the current draft + critic's rewrite instructions and produces
- * an improved version. Uses the user's selected model (creative quality
- * matters here).
+ * Takes the current draft + user feedback (conversational refinement) OR
+ * critic's rewrite instructions, producing an improved scoped version.
+ * Enforces strict anti-fabrication rules and preserves the opening hook
+ * unless the user specifically asked to change it.
  *
- * Failure path: if refinement fails, keeps state.draft unchanged so
- * a working draft is never discarded because the refiner errored.
+ * Capped at a maximum of 2 refinement passes.
  */
 export async function refineDraft(state: State, config?: RunnableConfig): Promise<Partial<State>> {
   if (state.error) return {};
+
+  // Respect maximum 2 refinement passes
+  if ((state.refinementPasses ?? 0) >= 2) {
+    log.info("Refinement pass limit reached (2), returning best draft without further edits");
+    return { postContent: state.bestDraft || state.draft };
+  }
 
   const startTime = Date.now();
   const currentDraft = state.draft || "";
@@ -39,16 +45,40 @@ export async function refineDraft(state: State, config?: RunnableConfig): Promis
 
   const domainKey = state.activeDomain || state.intake?.domain || "general";
   const domainConfig = DOMAINS[domainKey] || DOMAINS.general;
-  const critiqueInstructions = state.critique?.instructions || "";
   const recentHooks = await getRecentHooks(state.userId, domainKey);
 
-  log.info(`Refining draft based on critique instructions`, {
-    domain: domainKey,
-    hasInstructions: Boolean(critiqueInstructions),
-    currentDraftLengthChars: currentDraft.length,
-  });
+  let prompt = "";
+  const isConversational = Boolean(state.userFeedback && state.userFeedback.trim().length > 0);
 
-  const prompt = getRefinePrompt(domainConfig, currentDraft, critiqueInstructions, recentHooks);
+  if (isConversational) {
+    const feedback = state.userFeedback!.trim();
+    const asksToChangeHook = /\b(?:hook|opening|first\s+line|first\s+sentence|opener)\b/i.test(feedback);
+    const preservedHook = asksToChangeHook ? undefined : currentDraft.split(/\n\s*\n/)[0]?.trim();
+
+    log.info(`Refining draft based on direct user conversation`, {
+      domain: domainKey,
+      feedbackLengthChars: feedback.length,
+      preservedHook: Boolean(preservedHook),
+      currentDraftLengthChars: currentDraft.length,
+    });
+
+    prompt = getConversationalRefinePrompt({
+      domainConfig,
+      draft: currentDraft,
+      userInstruction: feedback,
+      context: state.context,
+      recentHooks,
+      preservedHook,
+    });
+  } else {
+    const critiqueInstructions = state.critique?.instructions || "";
+    log.info(`Refining draft based on critique instructions`, {
+      domain: domainKey,
+      hasInstructions: Boolean(critiqueInstructions),
+      currentDraftLengthChars: currentDraft.length,
+    });
+    prompt = getRefinePrompt(domainConfig, currentDraft, critiqueInstructions, recentHooks);
+  }
 
   try {
     const llm = createLLM(getLLMOpts(state, config));
@@ -73,11 +103,23 @@ export async function refineDraft(state: State, config?: RunnableConfig): Promis
               .join("\n")
           : "";
 
-    // Extract draft from tags
-    const match =
+    // Extract [NOTE]...[/NOTE] or [NOTE] change summary if present
+    const noteMatch =
+      output.match(/\[NOTE\]([\s\S]*?)\[\/\s*NOTE\s*\]/i) ||
+      output.match(/\[NOTE\]:?\s*([^\n\r]+)/i);
+    const changeNote = noteMatch
+      ? noteMatch[1].trim()
+      : isConversational
+        ? `Refined draft based on: "${state.userFeedback?.slice(0, 60)}"`
+        : "Addressed critique review notes";
+
+    // Extract [DRAFT]...[/DRAFT] from tags
+    const draftMatch =
       output.match(/\[DRAFT\]([\s\S]*?)\[\/\s*DRAFT\s*\]/i) || output.match(/\[DRAFT\]([\s\S]*)/i);
-    let refinedDraft = match ? match[1].trim() : output;
+    let refinedDraft = draftMatch ? draftMatch[1].trim() : output;
     refinedDraft = refinedDraft
+      .replace(/\[\/?NOTE\][\s\S]*?\[\/\s*NOTE\s*\]/gi, "")
+      .replace(/\[NOTE\]:?[^\n\r]*/gi, "")
       .replace(/\[\/?DRAFT\]/gi, "")
       .replace(/\[\/?DRAFT\s*\n*\]/gi, "")
       .trim();
@@ -91,17 +133,34 @@ export async function refineDraft(state: State, config?: RunnableConfig): Promis
     }
 
     const durationMs = Date.now() - startTime;
+    const currentPasses = (state.refinementPasses || 0) + 1;
+
     log.info(`Draft refined successfully`, {
       refinedDraftLengthChars: finalDraft.length,
+      refinementPasses: currentPasses,
+      changeNote,
       durationMs,
     });
 
-    return { draft: finalDraft, postContent: finalDraft };
+    return {
+      draft: finalDraft,
+      postContent: finalDraft,
+      changeNote,
+      refinementPasses: currentPasses,
+      userFeedback: null,
+    };
   } catch (error: unknown) {
     const durationMs = Date.now() - startTime;
     const msg = error instanceof Error ? error.message : "Unknown error";
     log.warn(`Refinement failed, keeping current draft`, { error: msg, durationMs });
-    // Fail-safe: keep the current draft unchanged
+    if (isConversational) {
+      return {
+        refinementPasses: (state.refinementPasses || 0) + 1,
+        userFeedback: null,
+      };
+    }
+    // Fail-safe: keep the current draft unchanged for critique-driven loop
     return {};
   }
 }
+

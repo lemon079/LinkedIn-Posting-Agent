@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { publishPost } from "@/lib/api";
 import { getApiBaseUrl } from "@/lib/api/config";
 import { cleanErrorMessage } from "@/lib/utils";
-import type { CustomKeys, StreamEvent, HookOption } from "@/types";
+import type { CustomKeys, StreamEvent, HookOption, DraftVersion } from "@/types";
 import { useAgentSettings } from "./useAgentSettings";
 import { useAgentMedia } from "./useAgentMedia";
 
@@ -20,6 +20,8 @@ export function useAgent() {
   const [activeTab, setActiveTab] = useState<"preview" | "edit">("preview");
   const [reasoningSteps, setReasoningSteps] = useState<Array<{ title: string; output: string }>>([]);
   const [alternativeHooks, setAlternativeHooks] = useState<HookOption[]>([]);
+  const [draftVersions, setDraftVersions] = useState<DraftVersion[]>([]);
+  const [activeVersionIndex, setActiveVersionIndex] = useState<number>(0);
   const [status, setStatus] = useState({ gen: false, pub: false, err: null as string | null });
 
   // Sub-hooks
@@ -63,6 +65,17 @@ export function useAgent() {
       if (savedHooks) {
         try {
           setAlternativeHooks(JSON.parse(savedHooks));
+        } catch {}
+      }
+
+      const savedVersions = localStorage.getItem("praxis_draft_versions");
+      if (savedVersions) {
+        try {
+          const parsed = JSON.parse(savedVersions);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setDraftVersions(parsed);
+            setActiveVersionIndex(parsed.length - 1);
+          }
         } catch {}
       }
     });
@@ -129,6 +142,59 @@ export function useAgent() {
       localStorage.removeItem("praxis_alternative_hooks");
     }
   }, [alternativeHooks, settings.isHydrated]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !settings.isHydrated.current) return;
+    if (draftVersions.length > 0) {
+      localStorage.setItem("praxis_draft_versions", JSON.stringify(draftVersions));
+    } else {
+      localStorage.removeItem("praxis_draft_versions");
+    }
+  }, [draftVersions, settings.isHydrated]);
+
+  const addDraftVersion = useCallback((text: string, changeNote?: string) => {
+    setDraftVersions((prev) => {
+      if (prev.length > 0 && prev[prev.length - 1].draft.trim() === text.trim()) {
+        return prev;
+      }
+      const nextVersionNumber = prev.length + 1;
+      const newVersion: DraftVersion = {
+        id: `v${nextVersionNumber}-${Date.now()}`,
+        versionNumber: nextVersionNumber,
+        draft: text,
+        label: `v${nextVersionNumber}`,
+        changeNote: changeNote || (nextVersionNumber === 1 ? "Initial Draft" : "Refined Draft"),
+        timestamp: Date.now(),
+      };
+      const next = [...prev, newVersion];
+      setActiveVersionIndex(next.length - 1);
+      return next;
+    });
+    setDraftText(text);
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    if (activeVersionIndex > 0 && draftVersions[activeVersionIndex - 1]) {
+      const nextIdx = activeVersionIndex - 1;
+      setActiveVersionIndex(nextIdx);
+      setDraftText(draftVersions[nextIdx].draft);
+    }
+  }, [activeVersionIndex, draftVersions]);
+
+  const handleRedo = useCallback(() => {
+    if (activeVersionIndex < draftVersions.length - 1 && draftVersions[activeVersionIndex + 1]) {
+      const nextIdx = activeVersionIndex + 1;
+      setActiveVersionIndex(nextIdx);
+      setDraftText(draftVersions[nextIdx].draft);
+    }
+  }, [activeVersionIndex, draftVersions]);
+
+  const handleSelectVersion = useCallback((index: number) => {
+    if (index >= 0 && index < draftVersions.length && draftVersions[index]) {
+      setActiveVersionIndex(index);
+      setDraftText(draftVersions[index].draft);
+    }
+  }, [draftVersions]);
 
   const handleGenerate = async (customInstruction?: string) => {
     setStatus({ gen: true, pub: false, err: null });
@@ -244,6 +310,7 @@ export function useAgent() {
             if (event.alternativeHooks && event.alternativeHooks.length > 0) {
               setAlternativeHooks(event.alternativeHooks);
             }
+            addDraftVersion(event.draft, event.changeNote);
           } else if (event.type === "alternative_hooks") {
             setAlternativeHooks(event.hooks);
           } else if (event.type === "error") {
@@ -321,12 +388,15 @@ export function useAgent() {
     setThreadId(null);
     setReasoningSteps([]);
     setAlternativeHooks([]);
+    setDraftVersions([]);
+    setActiveVersionIndex(0);
     media.clearFiles();
     if (typeof window !== "undefined") {
       localStorage.removeItem("praxis_draft_text");
       localStorage.removeItem("praxis_thread_id");
       localStorage.removeItem("praxis_reasoning_steps");
       localStorage.removeItem("praxis_alternative_hooks");
+      localStorage.removeItem("praxis_draft_versions");
     }
   };
 
@@ -337,6 +407,8 @@ export function useAgent() {
     setThreadId(null);
     setReasoningSteps([]);
     setAlternativeHooks([]);
+    setDraftVersions([]);
+    setActiveVersionIndex(0);
     media.clearFiles();
     setCustomTopic("");
     setContext("");
@@ -347,6 +419,7 @@ export function useAgent() {
       localStorage.removeItem("praxis_alternative_hooks");
       localStorage.removeItem("praxis_custom_topic");
       localStorage.removeItem("praxis_context");
+      localStorage.removeItem("praxis_draft_versions");
     }
   };
 
@@ -370,6 +443,7 @@ export function useAgent() {
     if (streamingText !== null) {
       setStreamingText(null);
     }
+    addDraftVersion(updated, "Swapped Hook via Hook Lab");
   };
 
   const handleDismissError = () => {
@@ -406,8 +480,14 @@ export function useAgent() {
     isUploading: media.isUploading,
     reasoningSteps,
     alternativeHooks,
+    draftVersions,
+    activeVersionIndex,
     setAlternativeHooks,
     handleApplyHook,
+    addDraftVersion,
+    handleUndo,
+    handleRedo,
+    handleSelectVersion,
     setCustomTopic,
     setContext,
     setDomain,

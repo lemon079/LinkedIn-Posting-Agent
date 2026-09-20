@@ -6,7 +6,10 @@ import { resolveAgentCredentials } from "@/modules/user";
 import { redactSecrets } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import type { DraftRequest } from "@/modules/agent/types";
-import type { StreamEvent, StreamErrorCode } from "@/types";
+import type { StreamEvent, StreamErrorCode, HookOption } from "@/types";
+import { classifyIntent } from "@/modules/agent/core/intent";
+import { refineDraft, critiqueDraft } from "@/modules/agent/nodes";
+import type { State } from "@/modules/agent/core/state";
 
 // ── Node name → user-facing step title mapping ──────────────────────────
 const NODE_TITLES: Record<string, string> = {
@@ -41,11 +44,11 @@ function parseErrorInfo(rawError: string): {
     code = "AUTH_ERROR";
   }
 
-  const retryMatch = rawError.match(/(?:retry|wait|try again)\s+(?:in|after)\s+([0-9.]+)\s*s(?:econds?)?/i);
   let retryAfterSeconds: number | undefined;
   let retryAfterMs: number | undefined;
 
-  if (retryMatch && retryMatch[1]) {
+  const retryMatch = rawError.match(/retry in ([\d\.]+)s/i) || rawError.match(/retry after ([\d\.]+)s/i);
+  if (retryMatch) {
     const parsedSec = parseFloat(retryMatch[1]);
     if (!isNaN(parsedSec) && parsedSec > 0) {
       retryAfterSeconds = Math.ceil(parsedSec);
@@ -75,9 +78,31 @@ export async function POST(request: Request) {
 
   try {
     const body: DraftRequest = await request.json();
-    const { customTopic, context: userContext, domain, archetype, tone, keys } = body;
+    const {
+      customTopic,
+      context: userContext,
+      domain,
+      archetype,
+      tone,
+      keys,
+      currentDraft,
+      threadId: incomingThreadId,
+      followUpMessage,
+      messages,
+    } = body;
 
-    const topic = (customTopic && customTopic.trim()) || (body.topic && body.topic.trim()) || "";
+    let latestUserMessage = followUpMessage || "";
+    if (!latestUserMessage && messages && messages.length > 0) {
+      const last = messages[messages.length - 1];
+      if (last.role === "user") {
+        latestUserMessage = last.content;
+      }
+    }
+    if (!latestUserMessage) {
+      latestUserMessage = (customTopic && customTopic.trim()) || (body.topic && body.topic.trim()) || "";
+    }
+
+    const topic = (customTopic && customTopic.trim()) || (body.topic && body.topic.trim()) || latestUserMessage || "";
     log.info(`Request parameters resolved`, {
       topic,
       hasContext: Boolean(userContext),
@@ -85,6 +110,21 @@ export async function POST(request: Request) {
       domain: domain || "auto",
       archetype: archetype || "auto",
       tone: tone || "conversational",
+      hasCurrentDraft: Boolean(currentDraft),
+    });
+
+    // Intent routing
+    const classification = classifyIntent({
+      message: latestUserMessage,
+      currentDraft,
+      topic,
+      context: userContext,
+    });
+
+    log.info(`Intent classified`, {
+      intent: classification.intent,
+      scope: classification.targetScope,
+      reason: classification.reason,
     });
 
     const { client, user, authError } = await getRequestAuth(request);
@@ -121,20 +161,7 @@ export async function POST(request: Request) {
 
     const deadlineTimestamp = startTime + 35_000; // 35s hard latency budget ceiling
 
-    const initialState = {
-      topic,
-      context: userContext || "",
-      domain: domain || null,
-      archetype: archetype || null,
-      tone: tone || null,
-      userId: user?.id || null,
-      llmProvider: provider,
-      llmModel: model,
-      ollamaBaseUrl,
-      deadlineTimestamp,
-    };
-
-    const threadId = Date.now().toString();
+    const threadId = incomingThreadId || Date.now().toString();
     const threadConfig = {
       configurable: {
         thread_id: threadId,
@@ -157,6 +184,180 @@ export async function POST(request: Request) {
         try {
           // Send initial thread ID
           sendEvent({ type: "thread", threadId });
+
+          // ── Case 1: Question or Missing Metric without numbers → Route to chat bubble ──
+          if (classification.intent === "question" || classification.intent === "missing_metric") {
+            log.info(`Answering user conversationally without modifying draft`, { intent: classification.intent });
+            sendEvent({
+              type: "chat_message",
+              text: classification.conversationalReply || "",
+            });
+            sendEvent({
+              type: "final",
+              threadId,
+              draft: currentDraft || "",
+              intent: classification.intent,
+            });
+            return;
+          }
+
+          // ── Case 2: Scoped Conversational Refinement of existing draft ──
+          if (classification.intent === "refine" && currentDraft) {
+            log.info(`Executing scoped conversational draft refinement`, {
+              scope: classification.targetScope,
+              changeNote: classification.changeNote,
+            });
+            sendEvent({ type: "node_start", node: "refineDraft", title: "Refining Draft" });
+
+            let existingHooks: HookOption[] = [];
+            try {
+              const priorState = await agent.getState(threadConfig);
+              if (priorState?.values?.alternativeHooks && priorState.values.alternativeHooks.length > 0) {
+                existingHooks = priorState.values.alternativeHooks;
+              }
+            } catch {
+              // in-memory or new
+            }
+
+            const refineState: State = {
+              topic,
+              context: userContext || "",
+              domain: domain || null,
+              draft: currentDraft,
+              postContent: currentDraft,
+              alternativeHooks: existingHooks,
+              userFeedback: latestUserMessage,
+              changeNote: null,
+              refinementPasses: 0,
+              userId: user?.id || null,
+              activeDomain: domain || "general",
+              intake: null,
+              plan: "",
+              searchContext: "",
+              critique: null,
+              critiqueCount: 0,
+              critiqueScores: [],
+              bestDraft: currentDraft,
+              bestScore: 7,
+              postUrl: null,
+              retries: 0,
+              error: null,
+              reasoningSteps: [],
+              linkedinToken: creds.liToken || null,
+              linkedinUrn: creds.liUrn || null,
+              llmProvider: provider || null,
+              llmApiKey: apiKey || null,
+              llmModel: model || null,
+              ollamaBaseUrl: ollamaBaseUrl || null,
+              mediaFiles: null,
+              failedNode: null,
+              lastFailedNode: null,
+              errorRecoveryCount: 0,
+              nodeRecoveryCounts: {},
+              deadlineTimestamp,
+              rawLlmResponse: null,
+            };
+
+            const refineResult = await refineDraft(refineState, threadConfig);
+            const refinedText = refineResult.draft || currentDraft;
+            const changeNote = refineResult.changeNote || classification.changeNote || "Refined draft based on feedback";
+
+            sendEvent({ type: "token", node: "Refining Draft", text: refinedText });
+            sendEvent({ type: "node_end", node: "refineDraft", title: "Refining Draft" });
+            sendEvent({ type: "change_note", note: changeNote });
+
+            // Evaluate quality with critic (pass threshold 7, max 2 passes)
+            sendEvent({ type: "node_start", node: "critiqueDraft", title: "Evaluating Refined Quality" });
+            const critiqueState: State = {
+              ...refineState,
+              draft: refinedText,
+              postContent: refinedText,
+            };
+            const critiqueResult = await critiqueDraft(critiqueState, threadConfig);
+            sendEvent({ type: "node_end", node: "critiqueDraft", title: "Evaluating Refined Quality" });
+
+            let finalPost = refinedText;
+            let finalChangeNote = changeNote;
+
+            // If critic score < 7, perform 1 more polish pass (respecting max 2 passes cap)
+            if ((critiqueResult.critique?.score ?? 10) < 7) {
+              sendEvent({ type: "node_start", node: "refineDraft", title: "Polishing Refinement" });
+              const pass2State: State = {
+                ...critiqueState,
+                critique: critiqueResult.critique || null,
+                refinementPasses: 1,
+              };
+              const pass2Result = await refineDraft(pass2State, threadConfig);
+              if (pass2Result.draft) {
+                finalPost = pass2Result.draft;
+                if (pass2Result.changeNote) finalChangeNote = pass2Result.changeNote;
+              }
+              sendEvent({ type: "node_end", node: "refineDraft", title: "Polishing Refinement" });
+            }
+
+            try {
+              await agent.updateState(threadConfig, {
+                draft: finalPost,
+                postContent: finalPost,
+                alternativeHooks: existingHooks,
+                error: null,
+              });
+            } catch (e) {
+              log.warn("Could not checkpoint refined state", { error: (e as Error).message });
+            }
+
+            sendEvent({
+              type: "final",
+              threadId,
+              draft: finalPost,
+              changeNote: finalChangeNote,
+              intent: "refine",
+              alternativeHooks: existingHooks,
+            });
+            return;
+          }
+
+          // ── Case 3: Initial Draft or New Post Generation from Scratch ──
+          const initialState: State = {
+            topic,
+            context: userContext || "",
+            domain: domain || null,
+            archetype: archetype || null,
+            tone: tone || null,
+            userId: user?.id || null,
+            llmProvider: provider || null,
+            llmModel: model || null,
+            ollamaBaseUrl: ollamaBaseUrl || null,
+            deadlineTimestamp,
+            activeDomain: domain || "general",
+            intake: null,
+            plan: "",
+            searchContext: "",
+            draft: "",
+            alternativeHooks: [],
+            userFeedback: null,
+            changeNote: null,
+            refinementPasses: 0,
+            critique: null,
+            critiqueCount: 0,
+            critiqueScores: [],
+            bestDraft: "",
+            bestScore: 0,
+            postContent: null,
+            postUrl: null,
+            retries: 0,
+            error: null,
+            reasoningSteps: [],
+            linkedinToken: creds.liToken || null,
+            linkedinUrn: creds.liUrn || null,
+            llmApiKey: apiKey || null,
+            mediaFiles: null,
+            failedNode: null,
+            lastFailedNode: null,
+            errorRecoveryCount: 0,
+            nodeRecoveryCounts: {},
+            rawLlmResponse: null,
+          };
 
           const eventStream = agent.streamEvents(initialState, {
             version: "v2",
