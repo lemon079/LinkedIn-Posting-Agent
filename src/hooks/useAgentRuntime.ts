@@ -11,6 +11,8 @@ export interface AgentRuntimeOptions {
   customTopic: string;
   context: string;
   domain: string;
+  archetype?: string;
+  tone?: string;
   provider: string;
   apiKey: string;
   modelName: string;
@@ -27,6 +29,8 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
     customTopic,
     context,
     domain,
+    archetype = "auto",
+    tone = "conversational",
     provider,
     apiKey,
     modelName,
@@ -81,6 +85,8 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
                 topic: promptTopic,
                 context,
                 domain: domain === "auto" ? null : domain,
+                archetype: archetype === "auto" ? null : archetype,
+                tone: tone || "conversational",
               },
               {
                 headers,
@@ -204,6 +210,8 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
     customTopic,
     context,
     domain,
+    archetype,
+    tone,
     provider,
     apiKey,
     modelName,

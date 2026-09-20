@@ -3,6 +3,8 @@ export interface DraftRequest {
   customTopic?: string;
   context?: string;
   domain?: string | null;
+  archetype?: string | null;
+  tone?: string | null;
   keys?: {
     provider?: string;
     apiKey?: string;

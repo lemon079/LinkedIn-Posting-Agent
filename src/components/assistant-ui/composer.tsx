@@ -25,10 +25,14 @@ export interface AssistantComposerProps extends BaseComposerProps {
 export const AssistantComposer: React.FC<AssistantComposerProps> = ({
   customTopic,
   domain = "auto",
+  archetype = "auto",
+  tone = "conversational",
   isGenerating,
   setCustomTopic,
   setContext,
   setDomain,
+  setArchetype,
+  setTone,
   onGenerate,
   className,
 }) => {
@@ -95,32 +99,88 @@ export const AssistantComposer: React.FC<AssistantComposerProps> = ({
       >
         <div className="overflow-hidden">
           <div className="p-5 space-y-4">
-            {setDomain && (
-              <div className="space-y-1.5">
-                <Label
-                  htmlFor="domain-select"
-                  className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
-                >
-                  Domain / Persona
-                </Label>
-                <Select value={domain} onValueChange={setDomain} disabled={isGenerating}>
-                  <SelectTrigger
-                    id="domain-select"
-                    className="w-full bg-card border-border h-10 text-sm rounded-xl"
+            <div className="space-y-3">
+              {setDomain && (
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="domain-select"
+                    className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
                   >
-                    <SelectValue placeholder="Select domain..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="auto">Auto-detect</SelectItem>
-                    <SelectItem value="engineering">Engineering & CS</SelectItem>
-                    <SelectItem value="hr">HR / People</SelectItem>
-                    <SelectItem value="sales">Sales</SelectItem>
-                    <SelectItem value="marketing">Marketing</SelectItem>
-                    <SelectItem value="general">General / Personal</SelectItem>
-                  </SelectContent>
-                </Select>
+                    Domain / Persona
+                  </Label>
+                  <Select value={domain} onValueChange={setDomain} disabled={isGenerating}>
+                    <SelectTrigger
+                      id="domain-select"
+                      className="w-full bg-card border-border h-10 text-sm rounded-xl"
+                    >
+                      <SelectValue placeholder="Select domain..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">Auto-detect</SelectItem>
+                      <SelectItem value="engineering">Engineering & CS</SelectItem>
+                      <SelectItem value="hr">HR / People</SelectItem>
+                      <SelectItem value="sales">Sales</SelectItem>
+                      <SelectItem value="marketing">Marketing</SelectItem>
+                      <SelectItem value="general">General / Personal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {setArchetype && (
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="archetype-select"
+                      className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
+                    >
+                      Post Archetype
+                    </Label>
+                    <Select value={archetype} onValueChange={setArchetype} disabled={isGenerating}>
+                      <SelectTrigger
+                        id="archetype-select"
+                        className="w-full bg-card border-border h-10 text-sm rounded-xl"
+                      >
+                        <SelectValue placeholder="Select archetype..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto">Auto (AI-Selected)</SelectItem>
+                        <SelectItem value="teardown">Incident Teardown</SelectItem>
+                        <SelectItem value="contrarian">Contrarian Take</SelectItem>
+                        <SelectItem value="framework">Playbook / Framework</SelectItem>
+                        <SelectItem value="breakdown">Gotcha / Deep Dive</SelectItem>
+                        <SelectItem value="comparison">Decision Matrix / Comparison</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {setTone && (
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="tone-select"
+                      className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
+                    >
+                      Tone & Voice
+                    </Label>
+                    <Select value={tone} onValueChange={setTone} disabled={isGenerating}>
+                      <SelectTrigger
+                        id="tone-select"
+                        className="w-full bg-card border-border h-10 text-sm rounded-xl"
+                      >
+                        <SelectValue placeholder="Select tone..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="conversational">Conversational (Peer)</SelectItem>
+                        <SelectItem value="authoritative">Authoritative (Expert)</SelectItem>
+                        <SelectItem value="provocative">Provocative (Bold)</SelectItem>
+                        <SelectItem value="reflective">Reflective (Lessons)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
             <div className="space-y-1.5">
               <Label

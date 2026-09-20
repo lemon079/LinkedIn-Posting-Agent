@@ -63,6 +63,8 @@ describe("Frontend Dashboard UI", () => {
     customTopic: "",
     context: "",
     domain: "auto",
+    archetype: "auto",
+    tone: "conversational",
     draftText: null,
     streamingText: null,
     threadId: null,
@@ -87,6 +89,8 @@ describe("Frontend Dashboard UI", () => {
     setCustomTopic: jest.fn(),
     setContext: jest.fn(),
     setDomain: jest.fn(),
+    setArchetype: jest.fn(),
+    setTone: jest.fn(),
     setDraftText: jest.fn(),
     setStreamingText: jest.fn(),
     setActiveTab: jest.fn(),
@@ -172,6 +176,15 @@ describe("Frontend Dashboard UI", () => {
     expect(
       screen.getByRole("button", { name: /Change Model \/ Settings/i })
     ).toBeInTheDocument();
+  });
+
+  test("renders post archetype and tone selectors in generation controls", () => {
+    (useAgent as jest.Mock).mockReturnValue(mockDefaultState);
+
+    render(<Home />);
+
+    expect(screen.getByText("Post Archetype")).toBeInTheDocument();
+    expect(screen.getByText("Tone & Voice")).toBeInTheDocument();
   });
 });
 

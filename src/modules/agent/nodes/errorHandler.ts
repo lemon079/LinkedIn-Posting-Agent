@@ -1,7 +1,7 @@
 import { HumanMessage } from "@langchain/core/messages";
 import { createLLM } from "../llm/factory";
 import type { State } from "../core/state";
-import { DOMAIN_OPTIONS } from "../core/schemas";
+import { DOMAIN_OPTIONS, ARCHETYPE_OPTIONS, TONE_OPTIONS } from "../core/schemas";
 import { inferDomain, inferAngle } from "../core/domains";
 import { logger } from "@/lib/logger";
 import type { RunnableConfig } from "@langchain/core/runnables";
@@ -93,6 +93,16 @@ export async function handleAgentError(
 
     const angle = inferAngle(state.topic || "", state.context || "", domain);
 
+    const archetype =
+      state.archetype && state.archetype !== "auto"
+        ? state.archetype
+        : "auto";
+
+    const tone =
+      state.tone && state.tone.trim()
+        ? state.tone
+        : "authoritative";
+
     return {
       error: null,
       failedNode: null,
@@ -106,9 +116,16 @@ export async function handleAgentError(
           ? (domain as (typeof DOMAIN_OPTIONS)[number])
           : "general",
         angle,
-        tone: "authoritative",
+        archetype: (ARCHETYPE_OPTIONS as readonly string[]).includes(archetype)
+          ? (archetype as (typeof ARCHETYPE_OPTIONS)[number])
+          : "auto",
+        tone: (TONE_OPTIONS as readonly string[]).includes(tone)
+          ? (tone as (typeof TONE_OPTIONS)[number])
+          : "authoritative",
       },
       activeDomain: domain,
+      activeArchetype: archetype,
+      activeTone: tone,
     };
   }
 

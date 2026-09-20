@@ -43,7 +43,7 @@ const SHOWCASE_STEPS = [
 export default function Home() {
   const agentState = useAgent();
   const {
-    customTopic, context, domain,
+    customTopic, context, domain, archetype, tone,
     draftText, streamingText, postUrl, isGenerating, isPublishing, error,
     provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, liTokenExpiresAt, isSettingsOpen,
     user,
@@ -51,7 +51,7 @@ export default function Home() {
     isAuthenticated,
     selectedFiles, isUploading,
     reasoningSteps,
-    setCustomTopic, setContext, setDomain, setDraftText, setStreamingText,
+    setCustomTopic, setContext, setDomain, setArchetype, setTone, setDraftText, setStreamingText,
     handleGenerate, handlePublish, handleClearDraft, handleNewPost, handleDismissError,
     setProvider, setApiKey, setModelName, setOllamaBaseUrl,
     setLiToken, setLiUrn, setIsSettingsOpen,
@@ -70,6 +70,8 @@ export default function Home() {
     customTopic,
     context,
     domain,
+    archetype,
+    tone,
     provider,
     apiKey,
     modelName,
@@ -137,10 +139,14 @@ export default function Home() {
               customTopic={effectiveTopic}
               context={effectiveContext}
               domain={domain}
+              archetype={archetype}
+              tone={tone}
               isGenerating={isGenerating}
               setCustomTopic={isAuthenticated ? setCustomTopic : () => {}}
               setContext={isAuthenticated ? setContext : () => {}}
               setDomain={isAuthenticated ? setDomain : () => {}}
+              setArchetype={isAuthenticated ? setArchetype : () => {}}
+              setTone={isAuthenticated ? setTone : () => {}}
               onGenerate={onGenerateClick}
             />
           </aside>

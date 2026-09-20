@@ -35,8 +35,15 @@ export async function analyzeIntake(state: State, config?: RunnableConfig): Prom
   const topic = state.topic || "";
   const context = state.context || "";
   const userDomain = state.domain;
+  const userArchetype = state.archetype;
+  const userTone = state.tone;
 
-  log.info(`Starting intake analysis`, { topic, userDomain: userDomain || "auto" });
+  log.info(`Starting intake analysis`, {
+    topic,
+    userDomain: userDomain || "auto",
+    userArchetype: userArchetype || "auto",
+    userTone: userTone || "conversational",
+  });
 
   try {
     const llm = createCriticLLM(getLLMOpts(state, config));
@@ -65,22 +72,39 @@ export async function analyzeIntake(state: State, config?: RunnableConfig): Prom
         ? userDomain
         : intake.domain || inferDomain(topic, context);
 
+    // If the user specified an explicit archetype preference (other than 'auto'), respect it over model inference
+    const resolvedArchetype =
+      userArchetype && userArchetype !== "auto"
+        ? userArchetype
+        : intake.archetype || "auto";
+
+    // If the user specified an explicit tone preference, respect it over model inference
+    const resolvedTone =
+      userTone && userTone.trim()
+        ? userTone
+        : intake.tone || "conversational";
+
     const finalIntake: IntakeAnalysis = {
       ...intake,
       domain: resolvedDomain as IntakeAnalysis["domain"],
+      archetype: resolvedArchetype as IntakeAnalysis["archetype"],
+      tone: resolvedTone as IntakeAnalysis["tone"],
     };
 
 
     const durationMs = Date.now() - startTime;
     log.info(`Intake analysis completed`, {
       domain: resolvedDomain,
-      tone: finalIntake.tone,
+      archetype: resolvedArchetype,
+      tone: resolvedTone,
       durationMs,
     });
 
     return {
       intake: finalIntake,
       activeDomain: resolvedDomain,
+      activeArchetype: resolvedArchetype,
+      activeTone: resolvedTone,
     };
   } catch (error: unknown) {
     const durationMs = Date.now() - startTime;
@@ -90,7 +114,7 @@ export async function analyzeIntake(state: State, config?: RunnableConfig): Prom
       durationMs,
     });
 
-    // Complete fallback — all 5 IntakeAnalysis fields get safe defaults
+    // Complete fallback — all IntakeAnalysis fields get safe defaults
     const fallbackDomain =
       userDomain && userDomain !== "auto"
         ? userDomain
@@ -98,9 +122,21 @@ export async function analyzeIntake(state: State, config?: RunnableConfig): Prom
 
     const fallbackAngle = inferAngle(topic, context, fallbackDomain);
 
+    const fallbackArchetype =
+      userArchetype && userArchetype !== "auto"
+        ? userArchetype
+        : "auto";
+
+    const fallbackTone =
+      userTone && userTone.trim()
+        ? userTone
+        : "conversational";
+
     log.info(`Intake fallback activated: Heuristic angle generated due to LLM unavailability`, {
       domain: fallbackDomain,
       angle: fallbackAngle,
+      archetype: fallbackArchetype,
+      tone: fallbackTone,
       reason: msg,
     });
 
@@ -109,13 +145,16 @@ export async function analyzeIntake(state: State, config?: RunnableConfig): Prom
       context,
       domain: fallbackDomain as IntakeAnalysis["domain"],
       angle: fallbackAngle,
-      tone: "conversational",
+      archetype: fallbackArchetype as IntakeAnalysis["archetype"],
+      tone: fallbackTone as IntakeAnalysis["tone"],
     };
 
 
     return {
       intake: fallbackIntake,
       activeDomain: fallbackDomain,
+      activeArchetype: fallbackArchetype,
+      activeTone: fallbackTone,
     };
   }
 }
