@@ -36,4 +36,10 @@ export interface BaseThreadEditorProps {
   error?: string | Error | null;
   onDismissError?: () => void;
   reasoningSteps?: Array<{ title: string; output: string }>;
+  alternativeHooks?: Array<{
+    type: "metric" | "contrarian" | "incident" | "curiosity" | "question";
+    hook: string;
+    rationale: string;
+  }>;
+  onApplyHook?: (newHook: string) => void;
 }

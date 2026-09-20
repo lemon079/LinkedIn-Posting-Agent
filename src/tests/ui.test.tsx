@@ -105,6 +105,8 @@ describe("Frontend Dashboard UI", () => {
     setSelectedFiles: jest.fn(),
     handleUploadFile: jest.fn(),
     handleClearDraft: jest.fn(),
+    alternativeHooks: [],
+    handleApplyHook: jest.fn(),
   };
 
   beforeEach(() => {
@@ -159,6 +161,31 @@ describe("Frontend Dashboard UI", () => {
     ).toBeInTheDocument();
   });
 
+  test("renders HookLab and allows previewing alternative hooks", () => {
+    const handleApplyHook = jest.fn();
+    (useAgent as jest.Mock).mockReturnValue({
+      ...mockDefaultState,
+      draftText: "Initial hook text\n\nRest of the body text",
+      activeTab: "edit",
+      threadId: "test-thread-123",
+      alternativeHooks: [
+        {
+          type: "contrarian",
+          hook: "Stop writing boilerplate microservices.",
+          rationale: "Challenges common practice",
+        },
+      ],
+      handleApplyHook,
+    });
+
+    render(<Home />);
+
+    expect(screen.getByText("Hook Lab: Alternative Openings")).toBeInTheDocument();
+    expect(screen.getByText("Contrarian Challenge")).toBeInTheDocument();
+    expect(screen.getByText(/Stop writing boilerplate microservices\./i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Apply to Draft/i })).toBeInTheDocument();
+  });
+
   test("renders rate limit warning with settings action button when error occurs", () => {
     (useAgent as jest.Mock).mockReturnValue({
       ...mockDefaultState,
@@ -174,4 +201,5 @@ describe("Frontend Dashboard UI", () => {
     ).toBeInTheDocument();
   });
 });
+
 

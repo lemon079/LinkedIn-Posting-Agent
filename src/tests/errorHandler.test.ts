@@ -19,6 +19,7 @@ describe("handleAgentError (Error Agent Node)", () => {
     plan: "",
     searchContext: "",
     draft: "",
+    alternativeHooks: [],
     activeDomain: "engineering",
     critique: null,
     critiqueCount: 0,

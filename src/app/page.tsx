@@ -51,6 +51,8 @@ export default function Home() {
     isAuthenticated,
     selectedFiles, isUploading,
     reasoningSteps,
+    alternativeHooks,
+    handleApplyHook,
     setCustomTopic, setContext, setDomain, setDraftText, setStreamingText,
     handleGenerate, handlePublish, handleClearDraft, handleNewPost, handleDismissError,
     setProvider, setApiKey, setModelName, setOllamaBaseUrl,
@@ -210,6 +212,8 @@ export default function Home() {
                   error={error}
                   onDismissError={handleDismissError}
                   reasoningSteps={effectiveSteps}
+                  alternativeHooks={alternativeHooks}
+                  onApplyHook={handleApplyHook}
                 />
               </div>
             ) : (

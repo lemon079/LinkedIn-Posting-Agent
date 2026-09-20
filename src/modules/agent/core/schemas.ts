@@ -62,6 +62,24 @@ export const CritiqueResult = z.object({
     .describe("Specific rewrite instructions for the refinement step"),
 });
 
+export const HookOptionSchema = z.object({
+  type: z
+    .enum(["metric", "contrarian", "incident", "curiosity", "question"])
+    .describe("The archetype or psychological angle of the hook"),
+  hook: z
+    .string()
+    .describe("The opening 1-2 lines (under 25 words) before the first paragraph break"),
+  rationale: z
+    .string()
+    .describe("Short 1-sentence explanation of why this hook drives feed click-through"),
+});
+
+export const AlternativeHooksResult = z.object({
+  hooks: z.array(HookOptionSchema).describe("List of high-impact alternative hooks"),
+});
+
 export type IntakeAnalysis = z.infer<typeof IntakeAnalysis>;
 export type CritiqueResult = z.infer<typeof CritiqueResult>;
+export type HookOption = z.infer<typeof HookOptionSchema>;
+export type AlternativeHooksResult = z.infer<typeof AlternativeHooksResult>;
 
