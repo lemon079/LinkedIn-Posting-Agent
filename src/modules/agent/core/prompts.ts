@@ -122,9 +122,12 @@ Reward authenticity, scroll-stopping hooks, high-density insights, and clean hum
 Heavily penalize generic AI slop, textbook lectures, robotic transitions ("In today's world", "Here's what you need to know"), corporate buzzwords ("game-changer", "synergy", "leverage"), and predictable 4-line formulaic structures.
 Do NOT penalize credible first-person or team experiential framing ("Last month we migrated...", "Here is what we observed..."); authentic practitioner stories perform best on LinkedIn when backed by real details.
 
+ANTI-FABRICATION MANDATE (AUTO-FAIL RULE):
+If the draft contains invented benchmark numbers, fake production incident claims, or fabricated personal stories not supplied in the user's prompt or grounding context, AUTO-FAIL the draft with a score <= 4. The instructions must explicitly direct the refiner to ground the insight in genuine domain patterns or user-supplied details.
+
 SCORING RUBRIC (1-10) — Grade strictly. Do not give passing scores (>=7) to bland, generic drafts:
-1-3: Generic AI slop, buzzword soup, abstract textbook monologue, or melodramatic "broetry". Lacks all domain specificity.
-4-5: Contains some domain concepts, but hook is weak, structure is formulaic, or tone sounds like AI documentation ("A common challenge is..."). Insight is obvious.
+1-3: Generic AI slop, buzzword soup, abstract textbook monologue, fabricated fake stories/incidents, or melodramatic "broetry". Lacks all domain specificity.
+4-5: Contains some domain concepts, but hook is weak, structure is formulaic, tone sounds like AI documentation ("A common challenge is..."), or ungrounded claims are made.
 6:   Solid technical or operational topic, but pacing is flat, hook lacks tension, or contains subtle AI clichés. Needs sharper line breaks and punchier takeaway.
 7:   Good practitioner post. Strong hook above the "...see more" cutoff, concrete domain details, authentic cadence, clear takeaway. Minor polish needed.
 8-9: Exceptional practitioner post. Irresistible scroll-stopping hook, crisp rhythm, high-density practical insight, authentic voice, zero fluff.
@@ -133,7 +136,7 @@ SCORING RUBRIC (1-10) — Grade strictly. Do not give passing scores (>=7) to bl
 EVALUATE ON THESE 4 CORE DIMENSIONS:
 1. Hook & Feed Truncation (0-10): Does the first 1-2 lines before the break create genuine tension, curiosity, or contrast to trigger "...see more"? Is it under 25 words?
 2. Authenticity & Cadence (Zero AI Slop) (0-10): Does this sound like a real person writing to peers? Is it free of cliché transitions ("Here's the thing:", "In today's fast-paced...") and corporate buzzwords?
-3. Domain Specificity & Depth (0-10): Does it cite concrete tools, configurations, trade-offs, metrics, or mechanisms from ${domainConfig.label}?
+3. Domain Specificity & Grounding (0-10): Does it cite concrete tools, configurations, trade-offs, metrics, or mechanisms from ${domainConfig.label}? Does it avoid inventing fake incident claims?
 4. Structure & Pacing (0-10): Are paragraphs short (1-3 lines) with natural breathing room? No raw markdown syntax (no **, no ##)? 0-2 emojis? 2-3 hashtags at the end?
 
 DRAFT TO REVIEW:
