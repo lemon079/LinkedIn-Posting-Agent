@@ -1,5 +1,5 @@
 import { Annotation } from "@langchain/langgraph";
-import type { IntakeAnalysis, CritiqueResult } from "./schemas";
+import type { IntakeAnalysis, CritiqueResult, HookOption } from "./schemas";
 import type { MediaFileMetadata } from "@/types/media";
 
 export const AgentState = Annotation.Root({
@@ -44,6 +44,10 @@ export const AgentState = Annotation.Root({
   draft: Annotation<string>({
     reducer: (_x, y) => y,
     default: () => "",
+  }),
+  alternativeHooks: Annotation<HookOption[]>({
+    reducer: (x, y) => (y && y.length > 0 ? y : x || []),
+    default: () => [],
   }),
   activeDomain: Annotation<string>({
     reducer: (_x, y) => y,

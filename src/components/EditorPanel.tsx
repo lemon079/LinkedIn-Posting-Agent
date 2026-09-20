@@ -27,6 +27,8 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   error,
   onDismissError,
   reasoningSteps,
+  alternativeHooks,
+  onApplyHook,
 }) => {
   return (
     <AssistantThread
@@ -47,6 +49,8 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
       error={error}
       onDismissError={onDismissError}
       reasoningSteps={reasoningSteps}
+      alternativeHooks={alternativeHooks}
+      onApplyHook={onApplyHook}
     />
   );
 };

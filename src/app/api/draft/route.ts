@@ -233,7 +233,14 @@ export async function POST(request: Request) {
               draftLengthChars: state.values.postContent?.length || 0,
               finalScore: state.values.critique?.score,
               critiqueCount: state.values.critiqueCount,
+              alternativeHooksCount: state.values.alternativeHooks?.length || 0,
             });
+            if (state.values.alternativeHooks && state.values.alternativeHooks.length > 0) {
+              sendEvent({
+                type: "alternative_hooks",
+                hooks: state.values.alternativeHooks,
+              });
+            }
             sendEvent({
               type: "final",
               threadId,
@@ -241,6 +248,7 @@ export async function POST(request: Request) {
               reasoningSteps: state.values.reasoningSteps,
               critique: state.values.critique,
               critiqueScores: state.values.critiqueScores,
+              alternativeHooks: state.values.alternativeHooks,
             });
           }
         } catch (err: unknown) {

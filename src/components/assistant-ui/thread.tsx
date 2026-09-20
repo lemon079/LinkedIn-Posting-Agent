@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { LinkedInFeed } from "@/components/LinkedInFeed";
 import { AssistantReasoning } from "./reasoning";
 import { AssistantAttachments } from "./attachment";
+import { HookLab } from "./hook-lab";
 
 import { AssistantErrorState } from "./error-state";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,8 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
   error,
   onDismissError,
   reasoningSteps,
+  alternativeHooks,
+  onApplyHook,
   defaultMode = "preview",
   className,
 }) => {
@@ -241,6 +244,15 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
         <AssistantReasoning
           reasoningSteps={reasoningSteps}
           isStreaming={isGenerating && (!draftText && !streamingText)}
+        />
+      )}
+
+      {/* Hook Lab: Alternative Openings */}
+      {alternativeHooks && alternativeHooks.length > 0 && currentText && !isGenerating && (
+        <HookLab
+          hooks={alternativeHooks}
+          currentDraft={currentText}
+          onApplyHook={onApplyHook}
         />
       )}
 

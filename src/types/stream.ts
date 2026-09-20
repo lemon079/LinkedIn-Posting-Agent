@@ -33,6 +33,18 @@ export interface FinalStreamEvent {
     instructions: string;
   } | null;
   critiqueScores?: number[];
+  alternativeHooks?: HookOption[];
+}
+
+export interface HookOption {
+  type: "metric" | "contrarian" | "incident" | "curiosity" | "question";
+  hook: string;
+  rationale: string;
+}
+
+export interface AlternativeHooksStreamEvent {
+  type: "alternative_hooks";
+  hooks: HookOption[];
 }
 
 export type StreamErrorCode =
@@ -58,6 +70,7 @@ export type StreamEvent =
   | TokenStreamEvent
   | NodeEndStreamEvent
   | FinalStreamEvent
+  | AlternativeHooksStreamEvent
   | ErrorStreamEvent;
 
 export interface ErrorWithResponsePayload {

@@ -3,7 +3,7 @@ import axios from "axios";
 import { publishPost } from "@/lib/api";
 import { getApiBaseUrl } from "@/lib/api/config";
 import { cleanErrorMessage } from "@/lib/utils";
-import type { CustomKeys, StreamEvent } from "@/types";
+import type { CustomKeys, StreamEvent, HookOption } from "@/types";
 import { useAgentSettings } from "./useAgentSettings";
 import { useAgentMedia } from "./useAgentMedia";
 
@@ -19,6 +19,7 @@ export function useAgent() {
   const [postUrl, setPostUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"preview" | "edit">("preview");
   const [reasoningSteps, setReasoningSteps] = useState<Array<{ title: string; output: string }>>([]);
+  const [alternativeHooks, setAlternativeHooks] = useState<HookOption[]>([]);
   const [status, setStatus] = useState({ gen: false, pub: false, err: null as string | null });
 
   // Sub-hooks
@@ -55,6 +56,13 @@ export function useAgent() {
       if (savedSteps) {
         try {
           setReasoningSteps(JSON.parse(savedSteps));
+        } catch {}
+      }
+
+      const savedHooks = localStorage.getItem("praxis_alternative_hooks");
+      if (savedHooks) {
+        try {
+          setAlternativeHooks(JSON.parse(savedHooks));
         } catch {}
       }
     });
@@ -113,12 +121,22 @@ export function useAgent() {
     }
   }, [reasoningSteps, settings.isHydrated]);
 
+  useEffect(() => {
+    if (typeof window === "undefined" || !settings.isHydrated.current) return;
+    if (alternativeHooks.length > 0) {
+      localStorage.setItem("praxis_alternative_hooks", JSON.stringify(alternativeHooks));
+    } else {
+      localStorage.removeItem("praxis_alternative_hooks");
+    }
+  }, [alternativeHooks, settings.isHydrated]);
+
   const handleGenerate = async (customInstruction?: string) => {
     setStatus({ gen: true, pub: false, err: null });
     setDraftText(null);
     setStreamingText("");
     setPostUrl(null);
     setReasoningSteps([]);
+    setAlternativeHooks([]);
 
     try {
       const headers: Record<string, string> = {
@@ -223,6 +241,11 @@ export function useAgent() {
           } else if (event.type === "final") {
             setStreamingText(event.draft);
             setReasoningSteps(event.reasoningSteps || []);
+            if (event.alternativeHooks && event.alternativeHooks.length > 0) {
+              setAlternativeHooks(event.alternativeHooks);
+            }
+          } else if (event.type === "alternative_hooks") {
+            setAlternativeHooks(event.hooks);
           } else if (event.type === "error") {
             throw new Error(event.message || "Draft generation failed");
           }
@@ -297,11 +320,13 @@ export function useAgent() {
     setStreamingText(null);
     setThreadId(null);
     setReasoningSteps([]);
+    setAlternativeHooks([]);
     media.clearFiles();
     if (typeof window !== "undefined") {
       localStorage.removeItem("praxis_draft_text");
       localStorage.removeItem("praxis_thread_id");
       localStorage.removeItem("praxis_reasoning_steps");
+      localStorage.removeItem("praxis_alternative_hooks");
     }
   };
 
@@ -311,6 +336,7 @@ export function useAgent() {
     setStreamingText(null);
     setThreadId(null);
     setReasoningSteps([]);
+    setAlternativeHooks([]);
     media.clearFiles();
     setCustomTopic("");
     setContext("");
@@ -318,8 +344,31 @@ export function useAgent() {
       localStorage.removeItem("praxis_draft_text");
       localStorage.removeItem("praxis_thread_id");
       localStorage.removeItem("praxis_reasoning_steps");
+      localStorage.removeItem("praxis_alternative_hooks");
       localStorage.removeItem("praxis_custom_topic");
       localStorage.removeItem("praxis_context");
+    }
+  };
+
+  const handleApplyHook = (newHook: string) => {
+    const current = draftText || streamingText;
+    if (!current) return;
+
+    const doubleBreakIdx = current.indexOf("\n\n");
+    let rest = "";
+    if (doubleBreakIdx !== -1) {
+      rest = current.slice(doubleBreakIdx + 2);
+    } else {
+      const singleBreakIdx = current.indexOf("\n");
+      if (singleBreakIdx !== -1) {
+        rest = current.slice(singleBreakIdx + 1);
+      }
+    }
+
+    const updated = rest ? `${newHook.trim()}\n\n${rest.trimStart()}` : newHook.trim();
+    setDraftText(updated);
+    if (streamingText !== null) {
+      setStreamingText(null);
     }
   };
 
@@ -356,6 +405,9 @@ export function useAgent() {
     selectedFiles: media.selectedFiles,
     isUploading: media.isUploading,
     reasoningSteps,
+    alternativeHooks,
+    setAlternativeHooks,
+    handleApplyHook,
     setCustomTopic,
     setContext,
     setDomain,
