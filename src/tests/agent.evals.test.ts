@@ -40,6 +40,10 @@ const BANNED_BUZZWORDS = [
   "deep dive",
   "unlock",
   "move the needle",
+  "in today's fast-paced",
+  "let that sink in",
+  "here's the thing:",
+  "at the end of the day",
 ];
 
 /**
@@ -183,10 +187,32 @@ Tuning max.poll.records to 50 resolves the issue.
       expect(evalResult.feedback.hookLengthValid).toBe(true);
     });
 
-    it("should penalize posts containing banned corporate buzzwords", () => {
+    it("should give high quality score (1.0) to authentic first-person practitioner incident teardown", () => {
+      const practitionerPost = `We were facing 1.8s p99 latency on our core order-processing service.
+
+Every traffic spike triggered cascading timeouts across three downstream microservices.
+
+Here is the exact architecture change that cut p99 latency by 68%:
+1. Decoupled write-heavy endpoints using Apache Kafka message streaming.
+2. Implemented strict consumer idempotency using Redis SETNX deduplication keys.
+
+The result: zero dropped events during our last 10x traffic spike.
+
+#systemdesign #backend #distributedsystems`;
+
+      const evalResult = judgePostQuality(practitionerPost);
+
+      expect(evalResult.score).toBe(1.0);
+      expect(evalResult.passed).toBe(true);
+      expect(evalResult.feedback.buzzwordsFound).toEqual([]);
+      expect(evalResult.feedback.hasHashtags).toBe(true);
+      expect(evalResult.feedback.hookLengthValid).toBe(true);
+    });
+
+    it("should penalize posts containing banned corporate buzzwords and AI slop clichés", () => {
       const buzzwordPost = `Here is a game-changer insight to leverage your team's synergy today!
 
-We delve into paradigm shifts.
+In today's fast-paced world, we delve into paradigm shifts. Let that sink in.
 
 #buzzwords`;
 
@@ -195,6 +221,8 @@ We delve into paradigm shifts.
       expect(evalResult.feedback.buzzwordsFound).toContain("game-changer");
       expect(evalResult.feedback.buzzwordsFound).toContain("leverage");
       expect(evalResult.feedback.buzzwordsFound).toContain("synergy");
+      expect(evalResult.feedback.buzzwordsFound).toContain("in today's fast-paced");
+      expect(evalResult.feedback.buzzwordsFound).toContain("let that sink in");
       expect(evalResult.score).toBeLessThan(1.0);
     });
   });
