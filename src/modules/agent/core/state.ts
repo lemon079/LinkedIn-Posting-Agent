@@ -9,6 +9,14 @@ export const AgentState = Annotation.Root({
     reducer: (_x, y) => y,
     default: () => null,
   }),
+  archetype: Annotation<string | null>({
+    reducer: (_x, y) => y,
+    default: () => null,
+  }),
+  tone: Annotation<string | null>({
+    reducer: (_x, y) => y,
+    default: () => null,
+  }),
   context: Annotation<string>({
     reducer: (_x, y) => y,
     default: () => "",
@@ -40,6 +48,14 @@ export const AgentState = Annotation.Root({
   activeDomain: Annotation<string>({
     reducer: (_x, y) => y,
     default: () => "general",
+  }),
+  activeArchetype: Annotation<string>({
+    reducer: (_x, y) => y,
+    default: () => "auto",
+  }),
+  activeTone: Annotation<string>({
+    reducer: (_x, y) => y,
+    default: () => "conversational",
   }),
 
   // ── Critique loop ─────────────────────────────────────────────────────

@@ -11,10 +11,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   customTopic,
   context,
   domain = "auto",
+  archetype = "auto",
+  tone = "conversational",
   isGenerating,
   setCustomTopic,
   setContext,
   setDomain,
+  setArchetype,
+  setTone,
   onGenerate,
 }) => {
   return (
@@ -22,10 +26,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       customTopic={customTopic}
       context={context}
       domain={domain}
+      archetype={archetype}
+      tone={tone}
       isGenerating={isGenerating}
       setCustomTopic={setCustomTopic}
       setContext={setContext}
       setDomain={setDomain}
+      setArchetype={setArchetype}
+      setTone={setTone}
       onGenerate={onGenerate}
     />
   );

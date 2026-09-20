@@ -41,6 +41,25 @@ function extractDraftText(content: unknown): string {
 
 const MIN_DRAFT_CHARS = 50;
 
+const ARCHETYPE_INSTRUCTIONS: Record<string, string> = {
+  teardown: `POST ARCHETYPE: Incident / Teardown
+- Deconstruct a specific operational challenge, outage, bottleneck, or failure.
+- Include: Initial situation/symptom, root cause analysis, tactical fix or architectural remedy, and quantifiable outcome/impact.
+- Keep the narrative grounded, honest, and analytical.`,
+  contrarian: `POST ARCHETYPE: Contrarian Take
+- Challenge a widely accepted industry dogma, fashionable best practice, or common advice.
+- Establish the conventional wisdom, explain why it breaks down in real-world scenarios or at scale, and provide a pragmatic, nuanced alternative grounded in operational experience.`,
+  framework: `POST ARCHETYPE: Framework / Playbook
+- Provide a concrete, 3 to 4 step actionable playbook or decision system for tackling a specific domain problem.
+- Every step must be specific and executable with zero fluff or generic platitudes.`,
+  breakdown: `POST ARCHETYPE: Gotcha / Deep Dive
+- Unpack a non-obvious technical, organizational, or operational mechanism, edge case, or hidden pitfall.
+- Explain the under-the-hood reality that most practitioners miss until it bites them.`,
+  comparison: `POST ARCHETYPE: Comparison / Trade-off
+- Directly evaluate two approaches, architectures, strategies, or tools (X vs Y).
+- Frame through clear trade-off dimensions (e.g. latency vs throughput, velocity vs tech debt, flexibility vs governance) and define exact decision criteria for when to choose each.`,
+};
+
 /**
  * Draft Writer node.
  *
@@ -69,24 +88,41 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
   const topicLine = intake?.topic || state.topic || "";
   const contextLine = intake?.context || state.context || "";
   const angleLine = intake?.angle ? `Suggested angle: "${intake.angle}"` : "";
-  const toneLine = intake?.tone ? `Recommended tone: ${intake.tone}` : "";
+
+  const activeArchetype = state.activeArchetype || state.archetype || intake?.archetype || "auto";
+  const activeTone = state.activeTone || state.tone || intake?.tone || "conversational";
+
+  const archetypeInstruction =
+    activeArchetype !== "auto" && ARCHETYPE_INSTRUCTIONS[activeArchetype]
+      ? ARCHETYPE_INSTRUCTIONS[activeArchetype]
+      : "";
+
+  const toneLine = `Tone: ${activeTone}`;
 
   log.info(`Generating initial draft`, {
     domain: domainKey,
     topic: topicLine,
+    archetype: activeArchetype,
+    tone: activeTone,
     hasAngle: Boolean(intake?.angle),
   });
 
-  const prompt = `${systemPrompt}
+  const promptSections = [
+    systemPrompt,
+    "",
+    "Goal: Write an impactful LinkedIn post.",
+    `Topic: "${topicLine}"`,
+    `Context: "${contextLine}"`,
+  ];
 
-Goal: Write an impactful LinkedIn post.
-Topic: "${topicLine}"
-Context: "${contextLine}"
-${angleLine}
-${toneLine}
-Grounding Info: "${state.searchContext || "None"}"
+  if (angleLine) promptSections.push(angleLine);
+  if (archetypeInstruction) promptSections.push(archetypeInstruction);
+  promptSections.push(toneLine);
+  promptSections.push(`Grounding Info: "${state.searchContext || "None"}"`);
+  promptSections.push("");
+  promptSections.push("Generate the complete post inside [DRAFT] ... [/DRAFT] tags.");
 
-Generate the complete post inside [DRAFT] ... [/DRAFT] tags.`;
+  const prompt = promptSections.join("\n");
 
   // ── 1. Primary Attempt (with reasoning budget) ──────────────────────────
   try {

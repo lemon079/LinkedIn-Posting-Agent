@@ -13,6 +13,8 @@ describe("handleAgentError (Error Agent Node)", () => {
   const baseState: State = {
     topic: "Leadership in Tech",
     domain: "engineering",
+    archetype: null,
+    tone: null,
     context: "Managing senior engineering teams",
     userId: "",
     intake: null,
@@ -20,6 +22,8 @@ describe("handleAgentError (Error Agent Node)", () => {
     searchContext: "",
     draft: "",
     activeDomain: "engineering",
+    activeArchetype: "auto",
+    activeTone: "conversational",
     critique: null,
     critiqueCount: 0,
     critiqueScores: [],

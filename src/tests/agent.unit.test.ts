@@ -11,6 +11,7 @@ import {
   publishPost,
 } from "@/modules/agent/nodes";
 import type { State } from "@/modules/agent/core/state";
+import type { IntakeAnalysis } from "@/modules/agent/core/schemas";
 import * as llmService from "@/modules/agent/llm/factory";
 import * as linkedinService from "@/modules/linkedin/api";
 import { invokeWithTimeout } from "@/modules/agent/llm/timeout";
@@ -25,7 +26,11 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
     topic: "Building Resilient Microservices with Kafka",
     context: "Focus on idempotent consumer groups",
     domain: "engineering",
+    archetype: null,
+    tone: null,
     activeDomain: "engineering",
+    activeArchetype: "auto",
+    activeTone: "conversational",
     intake: null,
     plan: "",
     searchContext: "",
@@ -62,11 +67,12 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
 
   describe("1. analyzeIntake Node", () => {
     it("should parse user input into structured IntakeAnalysis on success", async () => {
-      const mockIntake = {
+      const mockIntake: IntakeAnalysis = {
         topic: "Kafka Idempotency",
         context: "Microservices architecture",
         domain: "engineering",
         angle: "War story on message duplication",
+        archetype: "breakdown",
         tone: "authoritative",
       };
 
@@ -105,6 +111,35 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
       expect(result.intake?.angle.length).toBeGreaterThan(10);
       expect(result.activeDomain).toBe("hr");
     });
+
+    it("should prioritize user-specified archetype and tone over model inference", async () => {
+      const mockIntake: IntakeAnalysis = {
+        topic: "Kafka Idempotency",
+        context: "Microservices architecture",
+        domain: "engineering",
+        angle: "War story on message duplication",
+        archetype: "breakdown",
+        tone: "conversational",
+      };
+
+      const mockLlm = {
+        withStructuredOutput: jest.fn().mockReturnValue({
+          invoke: jest.fn().mockResolvedValue(mockIntake),
+        }),
+      };
+      jest.spyOn(llmService, "createCriticLLM").mockReturnValue(mockLlm as unknown as ReturnType<typeof llmService.createCriticLLM>);
+
+      const result = await analyzeIntake({
+        ...baseState,
+        archetype: "teardown",
+        tone: "provocative",
+      });
+
+      expect(result.intake?.archetype).toBe("teardown");
+      expect(result.intake?.tone).toBe("provocative");
+      expect(result.activeArchetype).toBe("teardown");
+      expect(result.activeTone).toBe("provocative");
+    });
   });
 
   describe("2. generateDraft Node", () => {
@@ -120,6 +155,7 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
           context: "max.poll.interval.ms tuning",
           domain: "engineering",
           angle: "Consumer group stop-the-world loop",
+          archetype: "breakdown",
           tone: "conversational",
         },
       };
@@ -129,6 +165,29 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
       expect(result.draft).toContain("Kafka rebalances will ruin throughput");
       expect(result.draft).not.toContain("[DRAFT]");
       expect(result.postContent).toBe(result.draft);
+    });
+
+    it("should include archetype-specific instructions when archetype is set", async () => {
+      const mockDraftText = "[DRAFT]Incident post-mortem: Kafka rebalancing outage teardown.\n\n#kafka #backend[/DRAFT]";
+      let capturedPrompt = "";
+      const mockLlm = {
+        invoke: jest.fn().mockImplementation((messages) => {
+          capturedPrompt = messages[0]?.content || "";
+          return Promise.resolve({ content: mockDraftText });
+        }),
+      };
+      jest.spyOn(llmService, "createLLM").mockReturnValue(mockLlm as unknown as ReturnType<typeof llmService.createLLM>);
+
+      const stateWithArchetype: State = {
+        ...baseState,
+        activeArchetype: "teardown",
+        activeTone: "authoritative",
+      };
+
+      const result = await generateDraft(stateWithArchetype);
+      expect(result.draft).toContain("Incident post-mortem");
+      expect(capturedPrompt).toContain("POST ARCHETYPE: Incident / Teardown");
+      expect(capturedPrompt).toContain("Tone: authoritative");
     });
 
     it("should reject 0-character draft from primary attempt and recover via fast fallback", async () => {

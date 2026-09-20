@@ -75,7 +75,7 @@ export async function POST(request: Request) {
 
   try {
     const body: DraftRequest = await request.json();
-    const { customTopic, context: userContext, domain, keys } = body;
+    const { customTopic, context: userContext, domain, archetype, tone, keys } = body;
 
     const topic = (customTopic && customTopic.trim()) || (body.topic && body.topic.trim()) || "";
     log.info(`Request parameters resolved`, {
@@ -83,6 +83,8 @@ export async function POST(request: Request) {
       hasContext: Boolean(userContext),
       contextLengthChars: userContext?.length || 0,
       domain: domain || "auto",
+      archetype: archetype || "auto",
+      tone: tone || "conversational",
     });
 
     const { client, user, authError } = await getRequestAuth(request);
@@ -123,6 +125,8 @@ export async function POST(request: Request) {
       topic,
       context: userContext || "",
       domain: domain || null,
+      archetype: archetype || null,
+      tone: tone || null,
       userId: user?.id || null,
       llmProvider: provider,
       llmModel: model,

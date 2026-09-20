@@ -11,6 +11,8 @@ export function useAgent() {
   const [customTopic, setCustomTopic] = useState("");
   const [context, setContext] = useState("");
   const [domain, setDomain] = useState("auto");
+  const [archetype, setArchetype] = useState("auto");
+  const [tone, setTone] = useState("conversational");
   const [draftText, setDraftText] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
@@ -36,6 +38,12 @@ export function useAgent() {
 
       const savedDomain = localStorage.getItem("praxis_domain");
       if (savedDomain) setDomain(savedDomain);
+
+      const savedArchetype = localStorage.getItem("praxis_archetype");
+      if (savedArchetype) setArchetype(savedArchetype);
+
+      const savedTone = localStorage.getItem("praxis_tone");
+      if (savedTone) setTone(savedTone);
 
       const savedDraft = localStorage.getItem("praxis_draft_text");
       if (savedDraft) setDraftText(savedDraft);
@@ -67,6 +75,16 @@ export function useAgent() {
     if (typeof window === "undefined" || !settings.isHydrated.current) return;
     localStorage.setItem("praxis_domain", domain);
   }, [domain, settings.isHydrated]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !settings.isHydrated.current) return;
+    localStorage.setItem("praxis_archetype", archetype);
+  }, [archetype, settings.isHydrated]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !settings.isHydrated.current) return;
+    localStorage.setItem("praxis_tone", tone);
+  }, [tone, settings.isHydrated]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !settings.isHydrated.current) return;
@@ -126,6 +144,8 @@ export function useAgent() {
               ? `${context}${customInstruction ? `\n\nInstructions: ${customInstruction}` : ""}`
               : customInstruction || undefined,
             domain: domain === "auto" ? undefined : domain,
+            archetype: archetype === "auto" ? undefined : archetype,
+            tone: tone || undefined,
             keys: {
               provider: settings.provider,
               apiKey: settings.apiKey || undefined,
@@ -311,6 +331,8 @@ export function useAgent() {
     customTopic,
     context,
     domain,
+    archetype,
+    tone,
     draftText,
     streamingText,
     threadId,
@@ -337,6 +359,8 @@ export function useAgent() {
     setCustomTopic,
     setContext,
     setDomain,
+    setArchetype,
+    setTone,
     setDraftText,
     setStreamingText,
     setActiveTab,

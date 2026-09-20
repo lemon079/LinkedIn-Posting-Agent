@@ -16,6 +16,15 @@ export const TONE_OPTIONS = [
   "reflective",
 ] as const;
 
+export const ARCHETYPE_OPTIONS = [
+  "auto",
+  "teardown",
+  "contrarian",
+  "framework",
+  "breakdown",
+  "comparison",
+] as const;
+
 /**
  * Structured output schema for the Intake Analyst node.
  * Standard clean schema fully compatible with Gemini, OpenAI, Anthropic, and Ollama tool-calling.
@@ -31,6 +40,10 @@ export const IntakeAnalysis = z.object({
     .string()
     .default("")
     .describe("A specific angle, hook direction, or narrative framing for the post"),
+  archetype: z
+    .enum(ARCHETYPE_OPTIONS)
+    .default("auto")
+    .describe("Recommended post archetype or structure"),
   tone: z
     .enum(TONE_OPTIONS)
     .default("conversational")

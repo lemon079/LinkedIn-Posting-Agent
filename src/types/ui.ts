@@ -8,10 +8,14 @@ export interface BaseComposerProps {
   customTopic: string;
   context: string;
   domain?: string;
+  archetype?: string;
+  tone?: string;
   isGenerating: boolean;
   setCustomTopic: (val: string) => void;
   setContext: (val: string) => void;
   setDomain?: (val: string) => void;
+  setArchetype?: (val: string) => void;
+  setTone?: (val: string) => void;
   onGenerate: () => void;
 }
 
