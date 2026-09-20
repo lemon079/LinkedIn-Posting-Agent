@@ -52,8 +52,15 @@ export default function Home() {
     selectedFiles, isUploading,
     reasoningSteps,
     alternativeHooks,
+    draftVersions,
+    activeVersionIndex,
+    setAlternativeHooks,
     handleApplyHook,
-    setCustomTopic, setContext, setDomain, setDraftText, setStreamingText,
+    addDraftVersion,
+    handleUndo,
+    handleRedo,
+    handleSelectVersion,
+    setCustomTopic, setContext, setDomain, setDraftText, setStreamingText, threadId,
     handleGenerate, handlePublish, handleClearDraft, handleNewPost, handleDismissError,
     setProvider, setApiKey, setModelName, setOllamaBaseUrl,
     setLiToken, setLiUrn, setIsSettingsOpen,
@@ -78,9 +85,14 @@ export default function Home() {
     ollamaBaseUrl,
     liToken,
     liUrn,
-    onDraftReceived: (draft, _steps, tId) => {
+    currentDraft: draftText || undefined,
+    threadId: threadId || undefined,
+    alternativeHooks,
+    onDraftReceived: (draft, _steps, tId, changeNote, altHooks) => {
       setDraftText(draft);
       if (tId) localStorage.setItem("praxis_thread_id", tId);
+      if (altHooks && altHooks.length > 0) setAlternativeHooks(altHooks);
+      addDraftVersion(draft, changeNote);
     },
   });
 
@@ -214,6 +226,11 @@ export default function Home() {
                   reasoningSteps={effectiveSteps}
                   alternativeHooks={alternativeHooks}
                   onApplyHook={handleApplyHook}
+                  draftVersions={draftVersions}
+                  activeVersionIndex={activeVersionIndex}
+                  onUndo={handleUndo}
+                  onRedo={handleRedo}
+                  onSelectVersion={handleSelectVersion}
                 />
               </div>
             ) : (

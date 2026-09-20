@@ -29,6 +29,11 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   reasoningSteps,
   alternativeHooks,
   onApplyHook,
+  draftVersions,
+  activeVersionIndex,
+  onUndo,
+  onRedo,
+  onSelectVersion,
 }) => {
   return (
     <AssistantThread
@@ -51,6 +56,11 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
       reasoningSteps={reasoningSteps}
       alternativeHooks={alternativeHooks}
       onApplyHook={onApplyHook}
+      draftVersions={draftVersions}
+      activeVersionIndex={activeVersionIndex}
+      onUndo={onUndo}
+      onRedo={onRedo}
+      onSelectVersion={onSelectVersion}
     />
   );
 };

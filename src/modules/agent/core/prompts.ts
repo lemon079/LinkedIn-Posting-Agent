@@ -185,3 +185,66 @@ Return only the refined post text inside [DRAFT] ... [/DRAFT] tags. No preamble,
 
   return prompt;
 };
+
+export interface ConversationalRefineOptions {
+  domainConfig: DomainConfig;
+  draft: string;
+  userInstruction: string;
+  context?: string;
+  recentHooks?: string[];
+  preservedHook?: string;
+}
+
+export const getConversationalRefinePrompt = (options: ConversationalRefineOptions): string => {
+  const { domainConfig, draft, userInstruction, context, recentHooks = [], preservedHook } = options;
+
+  let prompt = `ROLE & TASK:
+You are an expert LinkedIn editor and practitioner ghostwriter executing a direct user refinement on an existing draft post.
+
+DOMAIN: ${domainConfig.label}
+DOMAIN SPECIFICS: ${domainConfig.specificityDescription}
+ORIGINAL CONTEXT: "${context || "None provided"}"
+
+CURRENT DRAFT:
+"""
+${draft}
+"""
+
+USER'S REFINEMENT INSTRUCTION:
+"""
+${userInstruction}
+"""
+
+STRICT ANTI-FABRICATION MANDATE (NON-NEGOTIABLE):
+- You may ONLY sharpen, condense, rephrase, or re-order facts, tools, configurations, and concepts already provided in the draft or context.
+- DO NOT invent numbers (percentages, latencies, dollar amounts), incident post-mortems, company names, or fake personal stories.
+- If the user asks to "add metrics" or "make it more specific" without providing numbers, rephrase the outcome using concrete qualitative indicators (e.g., "eliminated downstream timeouts", "stabilized consumer rebalances") rather than making up synthetic benchmarks.
+
+SCOPED EDITS ONLY:
+- Modify ONLY what the user asked for. Do not rewrite unrelated sections.
+- Keep the 2-3 line "...see more" hook preview optimized above the fold (under 25 words).
+${preservedHook ? `- PRESERVE THIS EXACT OPENING HOOK unless the user specifically asked to rewrite the hook:\n"${preservedHook}"` : ""}
+
+LINKEDIN FORMATTING:
+- Short paragraphs (1-3 sentences) separated by blank lines.
+- No corporate buzzwords ("game-changer", "leverage", "synergy", "deep dive", "unlock").
+- No cliché AI transitions ("In today's fast-paced world", "Here's the thing:", "Let that sink in").
+- Plain text only (NO markdown syntax like **, ##, or backticks).
+- 0-2 purposeful emojis max. Max 3 hashtags on their own line at the end.
+
+OUTPUT FORMAT:
+Provide a concise 1-sentence note summarizing what you changed inside [NOTE] ... [/NOTE] tags.
+Then provide the complete refined post inside [DRAFT] ... [/DRAFT] tags.
+Example:
+[NOTE]Condensed paragraph 2 and tightened the practical takeaway for punchier pacing.[/NOTE]
+[DRAFT]
+(Refined post text here)
+[/DRAFT]`;
+
+  if (recentHooks.length > 0) {
+    prompt += `\n\nAvoid these recent hooks:\n${recentHooks.map((h) => `- "${h}"`).join("\n")}`;
+  }
+
+  return prompt;
+};
+

@@ -5,7 +5,7 @@ import axios from "axios";
 import { useLocalRuntime, type ChatModelAdapter, type ChatModelRunResult } from "@assistant-ui/react";
 import { getApiBaseUrl } from "@/lib/api/config";
 import { cleanErrorMessage } from "@/lib/utils";
-import type { StreamEvent } from "@/types";
+import type { StreamEvent, HookOption } from "@/types";
 
 export interface AgentRuntimeOptions {
   customTopic: string;
@@ -18,7 +18,16 @@ export interface AgentRuntimeOptions {
   liToken: string;
   liUrn: string;
   token?: string | null;
-  onDraftReceived?: (draft: string, reasoningSteps: Array<{ title: string; output: string }>, threadId: string) => void;
+  currentDraft?: string;
+  threadId?: string;
+  alternativeHooks?: HookOption[];
+  onDraftReceived?: (
+    draft: string,
+    reasoningSteps: Array<{ title: string; output: string }>,
+    threadId: string,
+    changeNote?: string,
+    alternativeHooks?: HookOption[]
+  ) => void;
   onError?: (err: string) => void;
 }
 
@@ -34,6 +43,9 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
     liToken,
     liUrn,
     token,
+    currentDraft,
+    threadId,
+    alternativeHooks,
     onDraftReceived,
     onError,
   } = options;
@@ -81,6 +93,22 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
                 topic: promptTopic,
                 context,
                 domain: domain === "auto" ? null : domain,
+                threadId: threadId || undefined,
+                currentDraft: currentDraft || undefined,
+                followUpMessage: promptTopic,
+                alternativeHooks: alternativeHooks || undefined,
+                messages: messages.map((m) => ({
+                  role: m.role,
+                  content:
+                    typeof m.content === "string"
+                      ? m.content
+                      : Array.isArray(m.content)
+                      ? m.content
+                          .filter((p) => p.type === "text")
+                          .map((p) => ("text" in p ? p.text : ""))
+                          .join("\n")
+                      : "",
+                })),
               },
               {
                 headers,
@@ -112,8 +140,10 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
           let buffer = "";
           let accumulatedDraft = "";
           let accumulatedReasoning = "";
+          let latestChangeNote = "";
+          let receivedAlternativeHooks: HookOption[] = [];
           const reasoningSteps: Array<{ title: string; output: string }> = [];
-          let currentThreadId = "";
+          let currentThreadId = threadId || "";
 
           while (true) {
             const { value, done } = await reader.read();
@@ -161,6 +191,21 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
                   ],
                 };
                 yield result;
+              } else if (event.type === "chat_message") {
+                const chatResult: ChatModelRunResult = {
+                  content: [
+                    ...(accumulatedReasoning ? [{ type: "reasoning" as const, text: accumulatedReasoning }] : []),
+                    {
+                      type: "text",
+                      text: event.text,
+                    },
+                  ],
+                };
+                yield chatResult;
+              } else if (event.type === "change_note") {
+                latestChangeNote = event.note;
+              } else if (event.type === "alternative_hooks") {
+                receivedAlternativeHooks = event.hooks;
               } else if (event.type === "final") {
                 accumulatedDraft = event.draft;
                 if (event.reasoningSteps) {
@@ -170,19 +215,25 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
                 if (event.threadId) {
                   currentThreadId = event.threadId;
                 }
+                const finalChangeNote = event.changeNote || latestChangeNote;
+                const finalHooks =
+                  event.alternativeHooks && event.alternativeHooks.length > 0
+                    ? event.alternativeHooks
+                    : receivedAlternativeHooks;
 
-                onDraftReceived?.(accumulatedDraft, reasoningSteps, currentThreadId);
+                onDraftReceived?.(accumulatedDraft, reasoningSteps, currentThreadId, finalChangeNote, finalHooks);
 
-                // Yield final response text
+                // Yield final response text (change note in chat bubble if refined, or draft if initial)
+                const displayText = finalChangeNote
+                  ? `✨ **Draft Updated**\n\n${finalChangeNote}`
+                  : accumulatedDraft;
+
                 const finalResult: ChatModelRunResult = {
                   content: [
-                    {
-                      type: "reasoning",
-                      text: accumulatedReasoning,
-                    },
+                    ...(accumulatedReasoning ? [{ type: "reasoning" as const, text: accumulatedReasoning }] : []),
                     {
                       type: "text",
-                      text: accumulatedDraft,
+                      text: displayText,
                     },
                   ],
                 };
@@ -211,6 +262,9 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
     liToken,
     liUrn,
     token,
+    currentDraft,
+    threadId,
+    alternativeHooks,
     onDraftReceived,
     onError,
   ]);

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Copy, Check, Eye, Send, Edit3, Bot } from "lucide-react";
+import { Copy, Check, Eye, Send, Edit3, Bot, Undo2, Redo2, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,6 +40,11 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
   reasoningSteps,
   alternativeHooks,
   onApplyHook,
+  draftVersions = [],
+  activeVersionIndex = 0,
+  onUndo,
+  onRedo,
+  onSelectVersion,
   defaultMode = "preview",
   className,
 }) => {
@@ -152,6 +157,54 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
               <span>Edit</span>
             </button>
           </div>
+
+          {/* Version History & Undo/Redo */}
+          {draftVersions && draftVersions.length > 0 && (
+            <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/50 text-xs">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={onUndo}
+                disabled={!onUndo || activeVersionIndex <= 0 || isGenerating}
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
+                title="Undo edit (previous version)"
+                aria-label="Undo edit"
+              >
+                <Undo2 className="size-3" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={onRedo}
+                disabled={!onRedo || activeVersionIndex >= draftVersions.length - 1 || isGenerating}
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
+                title="Redo edit (next version)"
+                aria-label="Redo edit"
+              >
+                <Redo2 className="size-3" />
+              </Button>
+              <div className="flex items-center gap-1 pl-1 pr-1.5 border-l border-border/50">
+                <History className="size-3 text-slate-400 shrink-0" />
+                <select
+                  value={activeVersionIndex}
+                  onChange={(e) => onSelectVersion?.(Number(e.target.value))}
+                  className="bg-transparent text-foreground text-xs font-medium outline-none cursor-pointer"
+                  aria-label="Draft version history"
+                >
+                  {draftVersions.map((v, i) => {
+                    const note = v.changeNote || "Draft";
+                    return (
+                      <option key={v.id || i} value={i} className="bg-popover text-popover-foreground">
+                        v{v.versionNumber} · {note.length > 22 ? `${note.slice(0, 22)}...` : note}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">

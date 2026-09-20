@@ -31,6 +31,9 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
     searchContext: "",
     draft: "",
     alternativeHooks: [],
+    userFeedback: null,
+    changeNote: null,
+    refinementPasses: 0,
     critique: null,
     critiqueCount: 0,
     critiqueScores: [],
@@ -721,6 +724,78 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
       // CRITICAL: critiqueDraft MUST have executed to score the emergency draft!
       expect(executedNodes).toContain("critiqueDraft");
       expect(executedNodes).toContain("promoteBestDraft");
+    });
+  });
+
+  describe("Phase 5: refineDraft Conversational Node", () => {
+    const existingHook = "We cut microservice latency by 45% using Kafka consumer groups.";
+    const existingBody = "The secret wasn't scaling pods—it was fixing thread contention.\n\nHere is how we did it.";
+    const existingDraft = `${existingHook}\n\n${existingBody}`;
+
+    it("should preserve the opening hook when userFeedback does not ask to change it", async () => {
+      const mockLlm = {
+        invoke: jest.fn().mockResolvedValue({
+          content: `${existingHook}\n\nHere is punchier advice on thread contention.\n\n[NOTE] Made body punchier and more direct.`,
+        }),
+      };
+      jest.spyOn(llmService, "createLLM").mockReturnValue(mockLlm as unknown as ReturnType<typeof llmService.createLLM>);
+
+      const state: State = {
+        ...baseState,
+        draft: existingDraft,
+        userFeedback: "make the body punchier and shorter",
+        refinementPasses: 0,
+      };
+
+      const result = await refineDraft(state);
+
+      expect(result.draft).toContain(existingHook);
+      expect(result.changeNote).toBe("Made body punchier and more direct.");
+      expect(result.refinementPasses).toBe(1);
+    });
+
+    it("should allow changing the hook when userFeedback explicitly requests a new hook", async () => {
+      const newHook = "Stop tuning JVM garbage collection before checking thread contention.";
+      const mockLlm = {
+        invoke: jest.fn().mockResolvedValue({
+          content: `${newHook}\n\n${existingBody}\n\n[NOTE] Changed hook to contrarian angle.`,
+        }),
+      };
+      jest.spyOn(llmService, "createLLM").mockReturnValue(mockLlm as unknown as ReturnType<typeof llmService.createLLM>);
+
+      const state: State = {
+        ...baseState,
+        draft: existingDraft,
+        userFeedback: "change the hook to something contrarian",
+        refinementPasses: 0,
+      };
+
+      const result = await refineDraft(state);
+
+      expect(result.draft).toContain(newHook);
+      expect(result.changeNote).toBe("Changed hook to contrarian angle.");
+      expect(result.refinementPasses).toBe(1);
+    });
+
+    it("should cap refinement passes at 2", async () => {
+      const mockLlm = {
+        invoke: jest.fn().mockResolvedValue({
+          content: `Refined draft content.\n\n[NOTE] Final refinement.`,
+        }),
+      };
+      jest.spyOn(llmService, "createLLM").mockReturnValue(mockLlm as unknown as ReturnType<typeof llmService.createLLM>);
+
+      const state: State = {
+        ...baseState,
+        draft: existingDraft,
+        userFeedback: "refine further",
+        refinementPasses: 1,
+      };
+
+      const result = await refineDraft(state);
+      expect(result.refinementPasses).toBe(2);
+
+      // On 2 passes, routeCritique will immediately end the refinement loop
     });
   });
 
