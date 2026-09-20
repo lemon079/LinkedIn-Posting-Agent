@@ -170,10 +170,10 @@ export const createLLM = (opts: LLMOptions = {}) => {
 
   if (llmProvider === "gemini") {
     const fallbacks: ChatGoogle[] = [];
-    if (currentModel !== "gemini-2.0-flash") {
+    if (currentModel !== "gemini-2.5-flash") {
       fallbacks.push(
         new ChatGoogle({
-          model: "gemini-2.0-flash",
+          model: "gemini-2.5-flash",
           temperature: 0.9,
           maxRetries: 1,
           apiKey: llmKey,
@@ -201,9 +201,9 @@ export const createLLM = (opts: LLMOptions = {}) => {
 const CRITIC_MODEL_MAP: Record<string, Record<string, string>> = {
   gemini: {
     "gemini-3.7-pro": "gemini-3.7-flash",
-    "gemini-3.7-flash": "gemini-2.0-flash",
-    "gemini-2.0-pro": "gemini-2.0-flash",
-    "gemini-2.0-flash": "gemini-2.0-flash-lite",
+    "gemini-3.7-flash": "gemini-2.5-flash",
+    "gemini-2.5-pro": "gemini-2.5-flash",
+    "gemini-2.5-flash": "gemini-1.5-flash",
     "gemini-1.5-pro": "gemini-1.5-flash",
   },
   openai: {
@@ -238,10 +238,10 @@ export const createCriticLLM = (opts: LLMOptions = {}) => {
 
   const criticFallbacks: BaseChatModel[] = [];
   if (provider === "gemini") {
-    if (criticModel !== "gemini-2.0-flash") {
+    if (criticModel !== "gemini-2.5-flash") {
       criticFallbacks.push(
         new ChatGoogle({
-          model: "gemini-2.0-flash",
+          model: "gemini-2.5-flash",
           temperature: 0.7,
           maxRetries: 1,
           apiKey: llmKey,

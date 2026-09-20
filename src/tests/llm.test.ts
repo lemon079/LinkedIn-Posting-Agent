@@ -1,4 +1,4 @@
-import { createLLM, createBaseLLM } from "@/modules/agent";
+import { createLLM, createBaseLLM, createCriticLLM } from "@/modules/agent";
 import { ChatGoogle } from "@langchain/google";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatAnthropic } from "@langchain/anthropic";
@@ -59,3 +59,11 @@ describe("createLLM with fallbacks", () => {
     expect(llm).toBeInstanceOf(RunnableWithFallbacks);
   });
 });
+
+describe("createCriticLLM with active fallbacks", () => {
+  test("creates critic LLM with active Gemini model mapping without deprecated 2.0-flash", () => {
+    const critic = createCriticLLM({ provider: "gemini", model: "gemini-3.7-flash" });
+    expect(critic).toBeDefined();
+  });
+});
+

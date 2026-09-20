@@ -137,7 +137,9 @@ Response: ${contentToReview}`;
     // 3. Secondary fast model fallback
     try {
       const fallbackModel =
-        state.llmProvider === "gemini" ? "gemini-2.0-flash" : undefined;
+        state.llmProvider === "gemini" || !state.llmProvider
+          ? "gemini-2.5-flash"
+          : undefined;
       const secondaryLlm = createLLM(getLLMOpts(state, config, fallbackModel));
 
       const fallbackRes = await invokeWithRetryAndTimeout(
