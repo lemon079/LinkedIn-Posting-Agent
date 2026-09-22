@@ -7,10 +7,18 @@ import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { cn } from "@/lib/utils";
 import type { MediaFileMetadata } from "@/modules/media/types";
 
-interface LinkedInFeedProps {
+export interface LinkedInFeedUser {
+  name?: string;
+  email?: string;
+  avatarUrl?: string;
+  headline?: string;
+}
+
+export interface LinkedInFeedProps {
   draftText: string | null;
   selectedFiles?: MediaFileMetadata[] | null;
   className?: string;
+  user?: LinkedInFeedUser | null;
 }
 
 /** Responsive image mosaic — mirrors LinkedIn's own grid layout */
@@ -103,21 +111,51 @@ const ImageMosaic: React.FC<{ files: MediaFileMetadata[] }> = ({ files }) => {
   );
 };
 
-export const LinkedInFeed: React.FC<LinkedInFeedProps> = ({ draftText, selectedFiles, className }) => {
+export const LinkedInFeed: React.FC<LinkedInFeedProps> = ({
+  draftText,
+  selectedFiles,
+  className,
+  user,
+}) => {
   if (!draftText) return null;
 
   const hasFiles = selectedFiles && selectedFiles.length > 0;
 
+  const displayName = user?.name || (user?.email ? user.email.split("@")[0] : "Your Name");
+  const displayHeadline = user?.headline || "Your LinkedIn Post Preview";
+  const initials =
+    displayName
+      .split(" ")
+      .map((w) => w[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "YOU";
+
   return (
     <div className={cn("space-y-3.5", className)}>
-      {/* Author row */}
+      {/* Author row — User's Authentic LinkedIn Identity */}
       <div className="flex items-center gap-2.5 border-b border-border/40 pb-3">
-        <div className="size-9 rounded-full bg-brand-blue text-white flex items-center justify-center font-bold text-xs shadow-xs shadow-brand-blue/20 shrink-0">
-          PR
-        </div>
+        {user?.avatarUrl ? (
+          <Image
+            src={user.avatarUrl}
+            alt={displayName}
+            width={36}
+            height={36}
+            className="size-9 rounded-full object-cover shrink-0 ring-1 ring-border/50"
+            unoptimized
+          />
+        ) : (
+          <div className="size-9 rounded-full bg-brand-blue/10 border border-brand-blue/25 text-brand-blue flex items-center justify-center font-bold text-xs shadow-xs shrink-0 select-none">
+            {initials}
+          </div>
+        )}
         <div className="text-xs leading-tight">
-          <h4 className="font-semibold text-foreground">Praxis</h4>
-          <p className="text-[11px] text-muted-foreground">Autonomous AI Technical Ghostwriter • Just now</p>
+          <div className="flex items-center gap-1.5">
+            <h4 className="font-semibold text-foreground">{displayName}</h4>
+            <span className="text-[10px] text-muted-foreground font-normal">• You</span>
+          </div>
+          <p className="text-[11px] text-muted-foreground">{displayHeadline} • Just now</p>
         </div>
       </div>
 

@@ -74,7 +74,19 @@ export function useAgent() {
           const parsed = JSON.parse(savedVersions);
           if (Array.isArray(parsed) && parsed.length > 0) {
             setDraftVersions(parsed);
-            setActiveVersionIndex(parsed.length - 1);
+            const savedIdx = localStorage.getItem("praxis_active_version_index");
+            const parsedIdx = savedIdx !== null ? parseInt(savedIdx, 10) : parsed.length - 1;
+            const validIdx =
+              !isNaN(parsedIdx) && parsedIdx >= 0 && parsedIdx < parsed.length
+                ? parsedIdx
+                : parsed.length - 1;
+            setActiveVersionIndex(validIdx);
+            if (parsed[validIdx]?.draft) {
+              setDraftText(parsed[validIdx].draft);
+            }
+            if (parsed[validIdx]?.alternativeHooks && parsed[validIdx].alternativeHooks.length > 0) {
+              setAlternativeHooks(parsed[validIdx].alternativeHooks);
+            }
           }
         } catch {}
       }
@@ -147,37 +159,67 @@ export function useAgent() {
     if (typeof window === "undefined" || !settings.isHydrated.current) return;
     if (draftVersions.length > 0) {
       localStorage.setItem("praxis_draft_versions", JSON.stringify(draftVersions));
+      localStorage.setItem("praxis_active_version_index", String(activeVersionIndex));
+      if (threadId) {
+        localStorage.setItem(`praxis_draft_versions_${threadId}`, JSON.stringify(draftVersions));
+        localStorage.setItem(`praxis_active_version_index_${threadId}`, String(activeVersionIndex));
+      }
     } else {
       localStorage.removeItem("praxis_draft_versions");
-    }
-  }, [draftVersions, settings.isHydrated]);
-
-  const addDraftVersion = useCallback((text: string, changeNote?: string) => {
-    setDraftVersions((prev) => {
-      if (prev.length > 0 && prev[prev.length - 1].draft.trim() === text.trim()) {
-        return prev;
+      localStorage.removeItem("praxis_active_version_index");
+      if (threadId) {
+        localStorage.removeItem(`praxis_draft_versions_${threadId}`);
+        localStorage.removeItem(`praxis_active_version_index_${threadId}`);
       }
-      const nextVersionNumber = prev.length + 1;
-      const newVersion: DraftVersion = {
-        id: `v${nextVersionNumber}-${Date.now()}`,
-        versionNumber: nextVersionNumber,
-        draft: text,
-        label: `v${nextVersionNumber}`,
-        changeNote: changeNote || (nextVersionNumber === 1 ? "Initial Draft" : "Refined Draft"),
-        timestamp: Date.now(),
-      };
-      const next = [...prev, newVersion];
-      setActiveVersionIndex(next.length - 1);
-      return next;
-    });
-    setDraftText(text);
-  }, []);
+    }
+  }, [draftVersions, activeVersionIndex, threadId, settings.isHydrated]);
+
+  const addDraftVersion = useCallback(
+    (text: string, changeNote?: string, hooks?: HookOption[]) => {
+      setDraftVersions((prev) => {
+        // Linear history model:
+        // If user navigated back to an earlier version (activeVersionIndex < prev.length - 1),
+        // we branch from that active version and truncate all forward history (like Figma / code editors).
+        const validIndex =
+          activeVersionIndex >= 0 && activeVersionIndex < prev.length
+            ? activeVersionIndex
+            : prev.length - 1;
+        const baseHistory = prev.slice(0, validIndex + 1);
+
+        if (baseHistory.length > 0 && baseHistory[baseHistory.length - 1].draft.trim() === text.trim()) {
+          return prev;
+        }
+
+        const nextVersionNumber = baseHistory.length + 1;
+        const newVersion: DraftVersion = {
+          id: `v${nextVersionNumber}-${Date.now()}`,
+          versionNumber: nextVersionNumber,
+          draft: text,
+          label: `v${nextVersionNumber}`,
+          changeNote: changeNote || (nextVersionNumber === 1 ? "Initial Draft" : "Refined Draft"),
+          timestamp: Date.now(),
+          alternativeHooks:
+            hooks ?? (baseHistory.length > 0 ? baseHistory[baseHistory.length - 1].alternativeHooks : undefined),
+        };
+
+        const next = [...baseHistory, newVersion];
+        setActiveVersionIndex(next.length - 1);
+        return next;
+      });
+      setDraftText(text);
+    },
+    [activeVersionIndex]
+  );
 
   const handleUndo = useCallback(() => {
     if (activeVersionIndex > 0 && draftVersions[activeVersionIndex - 1]) {
       const nextIdx = activeVersionIndex - 1;
       setActiveVersionIndex(nextIdx);
-      setDraftText(draftVersions[nextIdx].draft);
+      const target = draftVersions[nextIdx];
+      setDraftText(target.draft);
+      if (target.alternativeHooks && target.alternativeHooks.length > 0) {
+        setAlternativeHooks(target.alternativeHooks);
+      }
     }
   }, [activeVersionIndex, draftVersions]);
 
@@ -185,14 +227,22 @@ export function useAgent() {
     if (activeVersionIndex < draftVersions.length - 1 && draftVersions[activeVersionIndex + 1]) {
       const nextIdx = activeVersionIndex + 1;
       setActiveVersionIndex(nextIdx);
-      setDraftText(draftVersions[nextIdx].draft);
+      const target = draftVersions[nextIdx];
+      setDraftText(target.draft);
+      if (target.alternativeHooks && target.alternativeHooks.length > 0) {
+        setAlternativeHooks(target.alternativeHooks);
+      }
     }
   }, [activeVersionIndex, draftVersions]);
 
   const handleSelectVersion = useCallback((index: number) => {
     if (index >= 0 && index < draftVersions.length && draftVersions[index]) {
       setActiveVersionIndex(index);
-      setDraftText(draftVersions[index].draft);
+      const target = draftVersions[index];
+      setDraftText(target.draft);
+      if (target.alternativeHooks && target.alternativeHooks.length > 0) {
+        setAlternativeHooks(target.alternativeHooks);
+      }
     }
   }, [draftVersions]);
 
@@ -397,6 +447,11 @@ export function useAgent() {
       localStorage.removeItem("praxis_reasoning_steps");
       localStorage.removeItem("praxis_alternative_hooks");
       localStorage.removeItem("praxis_draft_versions");
+      localStorage.removeItem("praxis_active_version_index");
+      if (threadId) {
+        localStorage.removeItem(`praxis_draft_versions_${threadId}`);
+        localStorage.removeItem(`praxis_active_version_index_${threadId}`);
+      }
     }
   };
 
@@ -420,6 +475,11 @@ export function useAgent() {
       localStorage.removeItem("praxis_custom_topic");
       localStorage.removeItem("praxis_context");
       localStorage.removeItem("praxis_draft_versions");
+      localStorage.removeItem("praxis_active_version_index");
+      if (threadId) {
+        localStorage.removeItem(`praxis_draft_versions_${threadId}`);
+        localStorage.removeItem(`praxis_active_version_index_${threadId}`);
+      }
     }
   };
 
@@ -443,7 +503,7 @@ export function useAgent() {
     if (streamingText !== null) {
       setStreamingText(null);
     }
-    addDraftVersion(updated, "Swapped Hook via Hook Lab");
+    addDraftVersion(updated, "Swapped Hook via Hook Lab", alternativeHooks);
   };
 
   const handleDismissError = () => {

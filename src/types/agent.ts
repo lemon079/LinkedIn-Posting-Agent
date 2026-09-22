@@ -1,3 +1,5 @@
+import type { HookOption } from "./stream";
+
 export interface DraftVersion {
   id: string;
   versionNumber: number;
@@ -5,6 +7,7 @@ export interface DraftVersion {
   label: string;
   changeNote: string;
   timestamp: number;
+  alternativeHooks?: HookOption[];
 }
 
 export interface DraftRequest {

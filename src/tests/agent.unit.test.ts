@@ -18,7 +18,11 @@ import { invokeWithTimeout } from "@/modules/agent/llm/timeout";
 import { agent } from "@/modules/agent/graph";
 
 
+process.env.LANGCHAIN_TRACING_V2 = "false";
+
 describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
+  jest.setTimeout(15000);
+
   afterEach(() => {
     jest.restoreAllMocks();
   });

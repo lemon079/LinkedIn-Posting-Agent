@@ -96,7 +96,7 @@ export default function Home() {
       setDraftText(draft);
       if (tId) localStorage.setItem("praxis_thread_id", tId);
       if (altHooks && altHooks.length > 0) setAlternativeHooks(altHooks);
-      addDraftVersion(draft, changeNote);
+      addDraftVersion(draft, changeNote, altHooks);
     },
   });
 
@@ -105,6 +105,20 @@ export default function Home() {
   const effectiveContext = !isAuthenticated && !context ? SHOWCASE_CONTEXT : context;
   const effectiveDraft = !isAuthenticated && !draftText ? SHOWCASE_DRAFT : draftText;
   const effectiveSteps = !isAuthenticated && reasoningSteps.length === 0 ? SHOWCASE_STEPS : reasoningSteps;
+
+  const linkedInUser = user
+    ? {
+        name:
+          (user.user_metadata?.full_name as string) ||
+          (user.user_metadata?.name as string) ||
+          (user.email ? user.email.split("@")[0] : undefined),
+        email: user.email,
+        avatarUrl:
+          (user.user_metadata?.avatar_url as string) ||
+          (user.user_metadata?.picture as string),
+        headline: (user.user_metadata?.headline as string) || "Preview • Posting as yourself",
+      }
+    : null;
 
   const onGenerateClick = () => {
     if (!isAuthenticated) {
@@ -239,6 +253,7 @@ export default function Home() {
                   onUndo={handleUndo}
                   onRedo={handleRedo}
                   onSelectVersion={handleSelectVersion}
+                  user={linkedInUser}
                 />
               </div>
             ) : (

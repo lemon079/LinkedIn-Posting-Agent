@@ -20,6 +20,17 @@ export interface AssistantThreadProps extends BaseThreadEditorProps {
   className?: string;
 }
 
+function getShortVersionLabel(changeNote?: string, versionNumber?: number): string {
+  if (!changeNote) return `Version ${versionNumber ?? 1}`;
+  const lower = changeNote.toLowerCase();
+  if (lower.includes("hook")) return "Hook swap";
+  if (lower.includes("initial")) return "Initial draft";
+  if (lower.includes("refin")) return "Refined draft";
+  if (lower.includes("conversational")) return "Chat edit";
+  if (lower.includes("manual")) return "Manual edit";
+  if (changeNote.length > 14) return `${changeNote.slice(0, 13)}…`;
+  return changeNote;
+}
 
 export const AssistantThread: React.FC<AssistantThreadProps> = ({
   draftText,
@@ -45,6 +56,7 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
   onUndo,
   onRedo,
   onSelectVersion,
+  user,
   defaultMode = "preview",
   className,
 }) => {
@@ -84,15 +96,6 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
 
   const currentText = draftText ? draftText : (streamingText ? streamingText.slice(0, streamedLength) : "");
   const charCount = currentText.length;
-  const pct = Math.min((charCount / 3000) * 100, 100);
-  const strokeDashoffset = 100 - pct;
-
-  const colorClass =
-    charCount > 3000
-      ? "text-red-600 stroke-red-600"
-      : charCount > 2800
-        ? "text-yellow-600 stroke-yellow-600"
-        : "text-brand-blue stroke-brand-blue";
 
   const handleCopy = async () => {
     if (!currentText) return;
@@ -158,7 +161,7 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
             </button>
           </div>
 
-          {/* Version History & Undo/Redo */}
+          {/* Version History & Undo/Redo with Contextual Tooltips */}
           {draftVersions && draftVersions.length > 0 && (
             <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/50 text-xs">
               <Button
@@ -168,7 +171,11 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
                 onClick={onUndo}
                 disabled={!onUndo || activeVersionIndex <= 0 || isGenerating}
                 className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
-                title="Undo edit (previous version)"
+                title={
+                  activeVersionIndex > 0
+                    ? `Undo: Step back to v${draftVersions[activeVersionIndex - 1]?.versionNumber} (${draftVersions[activeVersionIndex - 1]?.changeNote || "Previous draft"})`
+                    : "Undo: At earliest version"
+                }
                 aria-label="Undo edit"
               >
                 <Undo2 className="size-3" />
@@ -180,24 +187,41 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
                 onClick={onRedo}
                 disabled={!onRedo || activeVersionIndex >= draftVersions.length - 1 || isGenerating}
                 className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
-                title="Redo edit (next version)"
+                title={
+                  activeVersionIndex < draftVersions.length - 1
+                    ? `Redo: Step forward to v${draftVersions[activeVersionIndex + 1]?.versionNumber} (${draftVersions[activeVersionIndex + 1]?.changeNote || "Next draft"})`
+                    : "Redo: At latest version"
+                }
                 aria-label="Redo edit"
               >
                 <Redo2 className="size-3" />
               </Button>
-              <div className="flex items-center gap-1 pl-1 pr-1.5 border-l border-border/50">
+              <div
+                className="flex items-center gap-1 pl-1 pr-1.5 border-l border-border/50"
+                title={
+                  draftVersions[activeVersionIndex]
+                    ? `Active: v${draftVersions[activeVersionIndex].versionNumber} · ${draftVersions[activeVersionIndex].changeNote || "Draft"}`
+                    : "Draft version history"
+                }
+              >
                 <History className="size-3 text-slate-400 shrink-0" />
                 <select
                   value={activeVersionIndex}
                   onChange={(e) => onSelectVersion?.(Number(e.target.value))}
-                  className="bg-transparent text-foreground text-xs font-medium outline-none cursor-pointer"
+                  className="bg-transparent text-foreground text-xs font-medium outline-none cursor-pointer max-w-[130px] truncate"
                   aria-label="Draft version history"
                 >
                   {draftVersions.map((v, i) => {
-                    const note = v.changeNote || "Draft";
+                    const fullNote = v.changeNote || "Draft";
+                    const shortLabel = getShortVersionLabel(fullNote, v.versionNumber);
                     return (
-                      <option key={v.id || i} value={i} className="bg-popover text-popover-foreground">
-                        v{v.versionNumber} · {note.length > 22 ? `${note.slice(0, 22)}...` : note}
+                      <option
+                        key={v.id || i}
+                        value={i}
+                        className="bg-popover text-popover-foreground"
+                        title={`v${v.versionNumber} · ${fullNote} (${new Date(v.timestamp).toLocaleTimeString()})`}
+                      >
+                        v{v.versionNumber} · {shortLabel}
                       </option>
                     );
                   })}
@@ -208,40 +232,49 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-          {/* Character counter */}
+          {/* Active Generation State — Separated from character counter */}
+          {isGenerating && (
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-blue/10 border border-brand-blue/20 text-[11px] text-brand-blue font-medium animate-pulse select-none"
+              role="status"
+              aria-live="polite"
+            >
+              <span className="relative flex size-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-blue opacity-75" />
+                <span className="relative inline-flex rounded-full size-1.5 bg-brand-blue" />
+              </span>
+              <span>Generating...</span>
+            </div>
+          )}
+
+          {/* Character counter with LinkedIn limit progress bar */}
           <div
             className="flex items-center gap-2 text-xs"
             aria-live="polite"
             aria-atomic="true"
             aria-label={`Character count: ${charCount} out of 3000`}
+            title={`${charCount.toLocaleString()} of 3,000 characters (${Math.min(100, Math.round((charCount / 3000) * 100))}% of LinkedIn limit)`}
           >
-            <svg className="w-5 h-5 -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
-              <circle
-                className="stroke-outline-variant/40"
-                cx="18"
-                cy="18"
-                r="16"
-                fill="none"
-                strokeWidth="3.5"
+            <div className="w-14 sm:w-16 h-1.5 bg-muted rounded-full overflow-hidden border border-border/40">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-300",
+                  charCount > 3000
+                    ? "bg-red-500"
+                    : charCount > 2500
+                      ? "bg-amber-500"
+                      : "bg-brand-blue"
+                )}
+                style={{ width: `${Math.min(100, (charCount / 3000) * 100)}%` }}
               />
-              <circle
-                className={cn("transition-all duration-300", colorClass)}
-                cx="18"
-                cy="18"
-                r="16"
-                fill="none"
-                strokeWidth="3.5"
-                strokeDasharray="100"
-                strokeDashoffset={strokeDashoffset}
-              />
-            </svg>
+            </div>
             <span
               className={cn(
-                "font-mono font-medium",
-                charCount > 3000 ? "text-red-600" : "text-slate-500"
+                "font-mono text-[11px] font-medium tracking-tight",
+                charCount > 3000 ? "text-red-500 font-bold" : "text-muted-foreground"
               )}
             >
-              {charCount}/3000
+              {charCount.toLocaleString()}/3,000
             </span>
           </div>
 
@@ -317,7 +350,7 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
           aria-label="Formatted Post Preview in Markdown"
         >
           {currentText ? (
-            <LinkedInFeed draftText={currentText} selectedFiles={selectedFiles} />
+            <LinkedInFeed draftText={currentText} selectedFiles={selectedFiles} user={user} />
           ) : (
             <p className="text-sm text-muted-foreground italic">Your AI generated draft will appear here...</p>
           )}

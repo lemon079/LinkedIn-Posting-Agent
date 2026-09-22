@@ -1,7 +1,6 @@
 "use client";
 
-import React from "react";
-import { Check, Loader2, Circle, Sparkles } from "lucide-react";
+import { Check, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface TimelineStep {
@@ -53,11 +52,15 @@ export const ElementsTimeline: React.FC<ElementsTimelineProps> = ({
               />
             )}
 
-            {/* Step Status Icon Node */}
+            {/* Step Status Icon Node — assistant-ui Loading State Beacon */}
             <div className="relative z-10 flex size-6 shrink-0 items-center justify-center rounded-full bg-card">
               {status === "running" ? (
-                <div className="size-5 rounded-full bg-brand-blue/10 flex items-center justify-center text-brand-blue ring-2 ring-brand-blue/20">
-                  <Loader2 className="size-3 animate-spin" />
+                <div
+                  className="relative size-5 rounded-full bg-brand-blue/15 flex items-center justify-center text-brand-blue ring-2 ring-brand-blue/25"
+                  aria-label="Step in progress"
+                >
+                  <span className="absolute size-3.5 rounded-full bg-brand-blue/30 animate-ping opacity-75" />
+                  <span className="relative size-2 rounded-full bg-brand-blue animate-pulse" />
                 </div>
               ) : status === "completed" ? (
                 <div className="size-5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
@@ -76,7 +79,7 @@ export const ElementsTimeline: React.FC<ElementsTimelineProps> = ({
                 className={cn(
                   "font-medium text-xs truncate transition-colors",
                   status === "running"
-                    ? "text-brand-blue font-semibold"
+                    ? "text-brand-blue font-semibold animate-pulse"
                     : status === "completed"
                       ? "text-slate-800 dark:text-slate-200"
                       : "text-slate-500 dark:text-slate-400"
@@ -86,9 +89,17 @@ export const ElementsTimeline: React.FC<ElementsTimelineProps> = ({
               </span>
 
               {status === "running" && (
-                <span className="flex items-center gap-1 text-[10px] text-brand-blue font-medium shrink-0 bg-brand-blue/10 px-2 py-0.5 rounded-full animate-pulse">
-                  <Sparkles className="size-2.5" />
-                  <span>Processing</span>
+                <span className="flex items-center gap-1.5 text-[10px] text-brand-blue font-medium shrink-0 bg-brand-blue/10 px-2 py-0.5 rounded-full border border-brand-blue/20">
+                  <span className="relative flex size-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-blue opacity-75" />
+                    <span className="relative inline-flex rounded-full size-1.5 bg-brand-blue" />
+                  </span>
+                  <span>Thinking</span>
+                  <span className="flex items-center gap-0.5 ml-0.5" aria-hidden="true">
+                    <span className="size-1 rounded-full bg-brand-blue animate-bounce [animation-delay:-0.3s]" />
+                    <span className="size-1 rounded-full bg-brand-blue animate-bounce [animation-delay:-0.15s]" />
+                    <span className="size-1 rounded-full bg-brand-blue animate-bounce" />
+                  </span>
                 </span>
               )}
 

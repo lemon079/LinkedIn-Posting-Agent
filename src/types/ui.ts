@@ -52,4 +52,10 @@ export interface BaseThreadEditorProps {
   onUndo?: () => void;
   onRedo?: () => void;
   onSelectVersion?: (index: number) => void;
+  user?: {
+    name?: string;
+    email?: string;
+    avatarUrl?: string;
+    headline?: string;
+  } | null;
 }

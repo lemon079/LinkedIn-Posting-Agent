@@ -17,6 +17,7 @@ const config = {
         "<rootDir>/src/tests/errorHandler.test.ts",
         "<rootDir>/src/tests/security.test.ts",
         "<rootDir>/src/tests/guardrail.resilience.test.ts",
+        "<rootDir>/src/tests/versionChain.test.ts",
       ],
 
 

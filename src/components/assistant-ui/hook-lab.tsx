@@ -102,7 +102,8 @@ export const HookLab: React.FC<HookLabProps> = ({
               </span>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Swap the opening lines to test different scroll-stopping angles above the fold
+              Swap the opening lines to test different scroll-stopping angles above the fold.{" "}
+              <span className="font-medium text-foreground/85">Applying a hook saves this as a new version.</span>
             </p>
           </div>
         </div>
@@ -128,21 +129,34 @@ export const HookLab: React.FC<HookLabProps> = ({
                 className={cn(
                   "flex flex-col justify-between p-3 rounded-xl border bg-card text-foreground transition-all duration-200 shadow-xs",
                   isCurrentlyApplied
-                    ? "border-brand-blue ring-1 ring-brand-blue/30 bg-brand-blue/[0.02]"
+                    ? "border-brand-blue ring-2 ring-brand-blue/35 bg-brand-blue/[0.04] shadow-sm"
                     : "border-border hover:shadow-sm",
                   config.borderClass
                 )}
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-1.5">
-                    <span
-                      className={cn(
-                        "text-[10px] font-bold px-2 py-0.5 rounded-md border tracking-wide uppercase",
-                        config.badgeClass
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span
+                        className={cn(
+                          "text-[10px] font-bold px-2 py-0.5 rounded-md border tracking-wide uppercase",
+                          config.badgeClass
+                        )}
+                      >
+                        {config.label}
+                      </span>
+                      {isCurrentlyApplied && (
+                        <span
+                          className={cn(
+                            "text-[10px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1 tracking-wide",
+                            config.badgeClass
+                          )}
+                        >
+                          <Check className="size-2.5" />
+                          <span>Applied ✓</span>
+                        </span>
                       )}
-                    >
-                      {config.label}
-                    </span>
+                    </div>
                     <button
                       type="button"
                       onClick={(e) => handleCopy(item.hook, e)}
@@ -167,31 +181,28 @@ export const HookLab: React.FC<HookLabProps> = ({
                 </div>
 
                 <div className="mt-3 pt-2 border-t border-border/50 flex items-center justify-between">
-                  <Button
-                    type="button"
-                    variant={isCurrentlyApplied ? "secondary" : "outline"}
-                    size="sm"
-                    onClick={() => handleApply(item.hook)}
-                    disabled={isCurrentlyApplied}
-                    className={cn(
-                      "w-full h-7 text-[11px] font-semibold gap-1.5 cursor-pointer transition",
-                      isCurrentlyApplied
-                        ? "bg-brand-blue/10 text-brand-blue border-brand-blue/20"
-                        : "hover:bg-brand-blue hover:text-white hover:border-brand-blue"
-                    )}
-                  >
-                    {isCurrentlyApplied ? (
-                      <>
-                        <Check className="size-3 text-brand-blue" />
-                        <span>Active Hook</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="size-3" />
-                        <span>Apply to Draft</span>
-                      </>
-                    )}
-                  </Button>
+                  {isCurrentlyApplied ? (
+                    <div
+                      className={cn(
+                        "w-full h-7 rounded-md text-[11px] font-semibold flex items-center justify-center gap-1.5 border select-none transition-colors",
+                        config.badgeClass
+                      )}
+                    >
+                      <Check className="size-3" />
+                      <span>Active on Draft</span>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleApply(item.hook)}
+                      className="w-full h-7 text-[11px] font-semibold gap-1.5 cursor-pointer transition hover:bg-brand-blue hover:text-white hover:border-brand-blue"
+                    >
+                      <Sparkles className="size-3" />
+                      <span>Apply to Draft</span>
+                    </Button>
+                  )}
                 </div>
               </div>
             );

@@ -1,3 +1,3 @@
 "use client";
 
-export { LinkedInFeed } from "@/modules/linkedin/components/LinkedInFeed";
+export { LinkedInFeed, type LinkedInFeedProps, type LinkedInFeedUser } from "@/modules/linkedin/components/LinkedInFeed";

@@ -34,6 +34,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   onUndo,
   onRedo,
   onSelectVersion,
+  user,
 }) => {
   return (
     <AssistantThread
@@ -61,6 +62,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
       onUndo={onUndo}
       onRedo={onRedo}
       onSelectVersion={onSelectVersion}
+      user={user}
     />
   );
 };
