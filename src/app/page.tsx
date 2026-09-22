@@ -10,7 +10,8 @@ import { ControlPanel } from "@/components/ControlPanel";
 import { EditorPanel } from "@/components/EditorPanel";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { Button } from "@/components/ui/button";
-import { FileText, CheckCircle2, ExternalLink, Plus, Sparkles, Loader2 } from "lucide-react";
+import { FileText, CheckCircle2, ExternalLink, Plus, Sparkles, Loader2, Sliders } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 
 const SHOWCASE_TOPIC = "Why we migrated from synchronous REST to event-driven Kafka in production";
@@ -57,6 +58,7 @@ export default function Home() {
     setAlternativeHooks,
     handleApplyHook,
     addDraftVersion,
+    initDraftVersions,
     handleUndo,
     handleRedo,
     handleSelectVersion,
@@ -71,6 +73,7 @@ export default function Home() {
   } = agentState;
 
   const [isRedirectingToLogin, setIsRedirectingToLogin] = useState(false);
+  const [mobileTab, setMobileTab] = useState<"controls" | "draft">("controls");
 
   const handleInitiateLinkedInLogin = useCallback(() => {
     setIsRedirectingToLogin(true);
@@ -93,35 +96,17 @@ export default function Home() {
     threadId: threadId || undefined,
     alternativeHooks,
     onDraftReceived: (draft, _steps, tId, changeNote, altHooks) => {
-      let finalDraft = draft;
-      let hook1Text: string | undefined;
-      if (altHooks && altHooks.length > 0) {
-        setAlternativeHooks(altHooks);
-        hook1Text = altHooks[0].hook.trim();
-        if (!finalDraft.trim().startsWith(hook1Text)) {
-          const doubleBreakIdx = finalDraft.indexOf("\n\n");
-          let rest = "";
-          if (doubleBreakIdx !== -1) {
-            rest = finalDraft.slice(doubleBreakIdx + 2);
-          } else {
-            const singleBreakIdx = finalDraft.indexOf("\n");
-            if (singleBreakIdx !== -1) {
-              rest = finalDraft.slice(singleBreakIdx + 1);
-            }
-          }
-          finalDraft = rest ? `${hook1Text}\n\n${rest.trimStart()}` : hook1Text;
-        }
-      } else {
-        setAlternativeHooks([]);
-      }
-      setDraftText(finalDraft);
+      setMobileTab("draft");
+      const hooksToUse = altHooks && altHooks.length > 0 ? altHooks : [];
+      setAlternativeHooks(hooksToUse);
       if (tId) localStorage.setItem("praxis_thread_id", tId);
-      addDraftVersion(
-        finalDraft,
-        changeNote || (altHooks?.[0] ? `Initial Draft (${altHooks[0].type})` : "Initial Draft"),
-        altHooks && altHooks.length > 0 ? altHooks : undefined,
-        hook1Text
-      );
+
+      if (changeNote && !changeNote.toLowerCase().includes("initial")) {
+        setDraftText(draft);
+        addDraftVersion(draft, changeNote, hooksToUse);
+      } else {
+        initDraftVersions(draft, hooksToUse, changeNote);
+      }
     },
   });
 
@@ -150,7 +135,13 @@ export default function Home() {
       handleInitiateLinkedInLogin();
       return;
     }
+    setMobileTab("draft");
     handleGenerate();
+  };
+
+  const onNewPostClick = () => {
+    handleNewPost();
+    setMobileTab("controls");
   };
 
   const onPublishClick = () => {
@@ -188,113 +179,150 @@ export default function Home() {
           liToken={liToken}
         />
 
-        <main className="flex-1 p-6 max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-5 gap-3 lg:gap-6 items-start">
-          <aside className="lg:col-span-2">
-            <ControlPanel
-              customTopic={effectiveTopic}
-              context={effectiveContext}
-              domain={domain}
-              archetype={archetype}
-              tone={tone}
-              isGenerating={isGenerating}
-              setCustomTopic={setCustomTopic}
-              setContext={setContext}
-              setDomain={setDomain}
-              setArchetype={setArchetype}
-              setTone={setTone}
-              onGenerate={onGenerateClick}
-            />
-          </aside>
+        <main className="flex-1 px-3.5 py-4 sm:px-5 sm:py-6 max-w-7xl w-full mx-auto">
+          {/* Mobile View Switcher (< 1024px) */}
+          <div className="flex lg:hidden items-center justify-center p-1 bg-muted/60 dark:bg-slate-900/60 rounded-xl border border-border/80 mb-4 w-full select-none shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setMobileTab("controls")}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer",
+                mobileTab === "controls"
+                  ? "bg-card text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Sliders className="size-3.5" />
+              <span>Controls</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab("draft")}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer relative",
+                mobileTab === "draft"
+                  ? "bg-card text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Sparkles className="size-3.5 text-brand-blue" />
+              <span>Draft Workspace</span>
+              {isGenerating && (
+                <span className="relative flex size-2 ml-1">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-blue opacity-75" />
+                  <span className="relative inline-flex rounded-full size-2 bg-brand-blue" />
+                </span>
+              )}
+            </button>
+          </div>
 
-          <section className="lg:col-span-3 space-y-6">
-            {postUrl && (
-              <div className="bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 p-4 rounded-2xl shadow-level-1 animate-fade-in-up flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="size-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                    <CheckCircle2 className="size-5" />
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6 items-start">
+            <aside className={cn("lg:col-span-2", mobileTab === "controls" ? "block" : "hidden lg:block")}>
+              <ControlPanel
+                customTopic={effectiveTopic}
+                context={effectiveContext}
+                domain={domain}
+                archetype={archetype}
+                tone={tone}
+                isGenerating={isGenerating}
+                setCustomTopic={setCustomTopic}
+                setContext={setContext}
+                setDomain={setDomain}
+                setArchetype={setArchetype}
+                setTone={setTone}
+                onGenerate={onGenerateClick}
+              />
+            </aside>
+
+            <section className={cn("lg:col-span-3 space-y-6", mobileTab === "draft" ? "block" : "hidden lg:block")}>
+              {postUrl && (
+                <div className="bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 p-4 rounded-2xl shadow-level-1 animate-fade-in-up flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="size-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="size-5" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm text-emerald-900 dark:text-emerald-100">
+                        Post successfully published to LinkedIn!
+                      </p>
+                      <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                        Your post is now live and public on your feed.
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold text-sm text-emerald-900 dark:text-emerald-100">
-                      Post successfully published to LinkedIn!
-                    </p>
-                    <p className="text-xs text-emerald-700 dark:text-emerald-400">
-                      Your post is now live and public on your feed.
-                    </p>
+
+                  <div className="flex items-center gap-2 self-end sm:self-center">
+                    <a
+                      href={postUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition"
+                    >
+                      <span>View Post</span>
+                      <ExternalLink className="size-3.5" />
+                    </a>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={onNewPostClick}
+                      className="h-8 px-3 text-xs font-semibold gap-1.5 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100/50 dark:hover:bg-emerald-900/40 cursor-pointer"
+                    >
+                      <Plus className="size-3.5" />
+                      <span>New Post</span>
+                    </Button>
                   </div>
                 </div>
+              )}
 
-                <div className="flex items-center gap-2 self-end sm:self-center">
-                  <a
-                    href={postUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition"
-                  >
-                    <span>View Post</span>
-                    <ExternalLink className="size-3.5" />
-                  </a>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleNewPost}
-                    className="h-8 px-3 text-xs font-semibold gap-1.5 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100/50 dark:hover:bg-emerald-900/40 cursor-pointer"
-                  >
-                    <Plus className="size-3.5" />
-                    <span>New Post</span>
-                  </Button>
+              {isGenerating || streamingText !== null || effectiveDraft !== null || Boolean(error) ? (
+                <div className="space-y-4 animate-fade-in-up">
+                  <EditorPanel
+                    draftText={effectiveDraft}
+                    streamingText={streamingText}
+                    isGenerating={isGenerating}
+                    onStreamingComplete={() => {
+                      setDraftText(streamingText);
+                      setStreamingText(null);
+                    }}
+                    isPublishing={isPublishing}
+                    selectedFiles={selectedFiles}
+                    setSelectedFiles={setSelectedFiles}
+                    isUploading={isUploading}
+                    onUploadFile={isAuthenticated ? handleUploadFile : handleInitiateLinkedInLogin}
+                    onChange={isAuthenticated ? setDraftText : () => {}}
+                    onPublish={onPublishClick}
+                    onDiscard={handleClearDraft}
+                    onRetry={onGenerateClick}
+                    onOpenSettings={isAuthenticated ? () => setIsSettingsOpen(true) : handleInitiateLinkedInLogin}
+                    error={error}
+                    onDismissError={handleDismissError}
+                    reasoningSteps={effectiveSteps}
+                    alternativeHooks={alternativeHooks}
+                    onApplyHook={handleApplyHook}
+                    draftVersions={draftVersions}
+                    activeVersionIndex={activeVersionIndex}
+                    onUndo={handleUndo}
+                    onRedo={handleRedo}
+                    onSelectVersion={handleSelectVersion}
+                    user={linkedInUser}
+                  />
                 </div>
-              </div>
-            )}
-
-            {isGenerating || streamingText !== null || effectiveDraft !== null || Boolean(error) ? (
-
-              <div className="space-y-4 animate-fade-in-up">
-                <EditorPanel
-                  draftText={effectiveDraft}
-                  streamingText={streamingText}
-                  isGenerating={isGenerating}
-                  onStreamingComplete={() => {
-                    setDraftText(streamingText);
-                    setStreamingText(null);
-                  }}
-                  isPublishing={isPublishing}
-                  selectedFiles={selectedFiles}
-                  setSelectedFiles={setSelectedFiles}
-                  isUploading={isUploading}
-                  onUploadFile={isAuthenticated ? handleUploadFile : handleInitiateLinkedInLogin}
-                  onChange={isAuthenticated ? setDraftText : () => {}}
-                  onPublish={onPublishClick}
-                  onDiscard={handleClearDraft}
-                  onRetry={onGenerateClick}
-                  onOpenSettings={isAuthenticated ? () => setIsSettingsOpen(true) : handleInitiateLinkedInLogin}
-                  error={error}
-                  onDismissError={handleDismissError}
-                  reasoningSteps={effectiveSteps}
-                  alternativeHooks={alternativeHooks}
-                  onApplyHook={handleApplyHook}
-                  draftVersions={draftVersions}
-                  activeVersionIndex={activeVersionIndex}
-                  onUndo={handleUndo}
-                  onRedo={handleRedo}
-                  onSelectVersion={handleSelectVersion}
-                  user={linkedInUser}
-                />
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-24 border border-dashed border-border rounded-2xl text-muted-foreground space-y-3 bg-card shadow-level-1 animate-fade-in-up hover:border-outline transition duration-300">
-                <FileText className="size-10 text-slate-300 animate-bounce duration-1000" />
-                <p className="text-xs sm:text-sm font-medium text-slate-500 text-center px-4">
-                  Configure parameters and generate a post draft.
-                </p>
-              </div>
-            )}
-          </section>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-20 sm:py-24 border border-dashed border-border rounded-xl sm:rounded-2xl text-muted-foreground space-y-3 bg-card shadow-level-1 animate-fade-in-up hover:border-outline transition duration-300">
+                  <FileText className="size-10 text-slate-300 animate-bounce duration-1000" />
+                  <p className="text-xs sm:text-sm font-medium text-slate-500 text-center px-4">
+                    Configure parameters and generate a post draft.
+                  </p>
+                </div>
+              )}
+            </section>
+          </div>
         </main>
 
         {!isAuthenticated && (
-          <div className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-[2.5px] flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-white/95 dark:bg-slate-900/95 border border-white/20 dark:border-slate-800 shadow-2xl rounded-3xl p-6 sm:p-8 max-w-lg w-full text-center space-y-5 animate-fade-in-up">
+          <div className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-[2.5px] flex items-center justify-center p-3.5 sm:p-4 animate-fade-in">
+            <div className="bg-white/95 dark:bg-slate-900/95 border border-white/20 dark:border-slate-800 shadow-2xl rounded-2xl sm:rounded-3xl p-5 sm:p-8 max-w-lg w-full text-center space-y-4 sm:space-y-5 animate-fade-in-up max-h-[90dvh] overflow-y-auto">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-xs font-semibold">
                 <Sparkles className="size-3.5" />
                 <span>Live Agentic Workspace Preview</span>

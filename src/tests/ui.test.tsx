@@ -117,6 +117,7 @@ describe("Frontend Dashboard UI", () => {
     handleRedo: jest.fn(),
     handleSelectVersion: jest.fn(),
     addDraftVersion: jest.fn(),
+    initDraftVersions: jest.fn(),
   };
 
   beforeEach(() => {
@@ -196,7 +197,7 @@ describe("Frontend Dashboard UI", () => {
     expect(screen.getByRole("button", { name: /Apply to Draft/i })).toBeInTheDocument();
   });
 
-  test("renders rate limit warning with settings action button when error occurs", () => {
+  test("renders rate limit error with Retry button when error occurs", () => {
     (useAgent as jest.Mock).mockReturnValue({
       ...mockDefaultState,
       error: "429 RESOURCE_EXHAUSTED: Google Gemini rate limit reached",
@@ -204,10 +205,11 @@ describe("Frontend Dashboard UI", () => {
 
     render(<Home />);
 
-    expect(screen.getAllByText(/Google Gemini/i)[0]).toBeInTheDocument();
-    expect(screen.getAllByText(/Usage Quota Exceeded/i)[0]).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.getByText("Google Gemini Usage Quota Exceeded")).toBeInTheDocument();
+    expect(screen.getByText(/Your Google Gemini API account has reached its billing or usage quota limit/i)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Change Model \/ Settings/i })
+      screen.getByRole("button", { name: /Retry/i })
     ).toBeInTheDocument();
   });
 
@@ -335,6 +337,42 @@ describe("Frontend Dashboard UI", () => {
 
     // Modal should NOT have been closed
     expect(setIsSettingsOpen).not.toHaveBeenCalled();
+  });
+
+  test("resets AI draft workspace and displays success banner upon successful post publishing", () => {
+    const handleNewPost = jest.fn();
+
+    (useAgent as jest.Mock).mockReturnValue({
+      ...mockDefaultState,
+      isAuthenticated: true,
+      postUrl: "https://www.linkedin.com/feed/update/urn:li:activity:7123456789",
+      draftText: null, // Reset after successful publishing
+      handleNewPost,
+    });
+
+    render(<Home />);
+
+    // Success banner is displayed with the live post link and New Post button
+    expect(
+      screen.getByText("Post successfully published to LinkedIn!")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Your post is now live and public on your feed.")
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /View Post/i })).toHaveAttribute(
+      "href",
+      "https://www.linkedin.com/feed/update/urn:li:activity:7123456789"
+    );
+
+    // AI draft workspace is reset to the empty prompt state
+    expect(
+      screen.getByText("Configure parameters and generate a post draft.")
+    ).toBeInTheDocument();
+
+    // Clicking New Post calls handleNewPost
+    const newPostButton = screen.getByRole("button", { name: /New Post/i });
+    fireEvent.click(newPostButton);
+    expect(handleNewPost).toHaveBeenCalledTimes(1);
   });
 });
 

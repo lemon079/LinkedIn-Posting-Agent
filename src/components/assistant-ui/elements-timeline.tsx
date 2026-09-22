@@ -1,8 +1,9 @@
 "use client";
 
 import React from "react";
-import { Check, Loader2, Circle, Sparkles } from "lucide-react";
+import { Check, Circle, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MatrixLoader } from "./loading-state";
 
 export interface TimelineStep {
   id?: string;
@@ -56,8 +57,11 @@ export const ElementsTimeline: React.FC<ElementsTimelineProps> = ({
             {/* Step Status Icon Node */}
             <div className="relative z-10 flex size-6 shrink-0 items-center justify-center rounded-full bg-card">
               {status === "running" ? (
-                <div className="size-5 rounded-full bg-brand-blue/10 flex items-center justify-center text-brand-blue ring-2 ring-brand-blue/20">
-                  <Loader2 className="size-3 animate-spin" />
+                <div
+                  className="size-5 rounded-md bg-brand-blue/10 flex items-center justify-center text-brand-blue ring-1 ring-brand-blue/20"
+                  aria-label="Step in progress"
+                >
+                  <MatrixLoader variant="dots" size="sm" />
                 </div>
               ) : status === "completed" ? (
                 <div className="size-5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">

@@ -65,55 +65,96 @@ export const AssistantLoadingState: React.FC<AssistantLoadingStateProps> = ({
 
 export type GenerationLoaderVariant = "dots" | "squares" | "rounded";
 
-export interface GenerationLoaderProps
-  extends Omit<React.ComponentProps<"div">, "children"> {
-  label: string;
-  tick: number;
-  variant?: GenerationLoaderVariant;
-}
-
 const CELL_SHAPES: Record<GenerationLoaderVariant, string> = {
   dots: "rounded-full",
   squares: "rounded-[1px]",
   rounded: "rounded-[3px]",
 };
 
+export interface MatrixLoaderProps extends React.ComponentProps<"div"> {
+  tick?: number;
+  variant?: GenerationLoaderVariant;
+  size?: "sm" | "md";
+}
+
+export const MatrixLoader: React.FC<MatrixLoaderProps> = ({
+  tick: externalTick,
+  variant = "dots",
+  size = "md",
+  className,
+  ...props
+}) => {
+  const [internalTick, setInternalTick] = React.useState(0);
+  const tick = externalTick !== undefined ? externalTick : internalTick;
+
+  React.useEffect(() => {
+    if (externalTick !== undefined) return;
+    const interval = setInterval(() => {
+      setInternalTick((t) => t + 1);
+    }, 120);
+    return () => clearInterval(interval);
+  }, [externalTick]);
+
+  const pixelOffset = Math.floor(tick / 3);
+  const isSm = size === "sm";
+
+  return (
+    <div
+      aria-hidden="true"
+      data-slot="matrix-loader"
+      className={cn("grid grid-cols-3", isSm ? "gap-[2px]" : "gap-1", className)}
+      {...props}
+    >
+      {Array.from({ length: 9 }, (_, index) => {
+        const active = (index * 2 + pixelOffset) % 9 < 3;
+
+        return (
+          <span
+            key={index}
+            data-slot="pixel-cell"
+            className={cn(
+              "transition-opacity duration-300 motion-reduce:transition-none",
+              isSm ? "size-1 bg-brand-blue" : "size-2 bg-foreground",
+              CELL_SHAPES[variant],
+              active ? "opacity-90" : "opacity-20"
+            )}
+          />
+        );
+      })}
+    </div>
+  );
+};
+
+export interface GenerationLoaderProps
+  extends Omit<React.ComponentProps<"div">, "children"> {
+  label?: string;
+  tick?: number;
+  variant?: GenerationLoaderVariant;
+  size?: "sm" | "md";
+}
+
 export const GenerationLoader: React.FC<GenerationLoaderProps> = ({
   label,
   tick,
   variant = "dots",
+  size = "md",
   className,
   ...props
 }) => {
-  const pixelOffset = Math.floor(tick / 3);
-
   return (
     <div
       data-slot="generation-loader"
       className={cn("flex flex-col items-center gap-3 select-none", className)}
       {...props}
     >
-      <div aria-hidden="true" className="grid grid-cols-3 gap-1">
-        {Array.from({ length: 9 }, (_, index) => {
-          const active = (index * 2 + pixelOffset) % 9 < 3;
-
-          return (
-            <span
-              key={index}
-              data-slot="pixel-cell"
-              className={cn(
-                "bg-foreground size-2 transition-opacity duration-300 motion-reduce:transition-none",
-                CELL_SHAPES[variant],
-                active ? "opacity-90" : "opacity-15"
-              )}
-            />
-          );
-        })}
-      </div>
-      <span className="text-foreground/70 relative inline-block text-xs font-medium tracking-wide">
-        {label}
-      </span>
+      <MatrixLoader tick={tick} variant={variant} size={size} />
+      {label && (
+        <span className="text-foreground/70 relative inline-block text-xs font-medium tracking-wide">
+          {label}
+        </span>
+      )}
     </div>
   );
 };
+
 

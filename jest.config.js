@@ -43,6 +43,7 @@ const config = {
         "<rootDir>/src/tests/ui.test.tsx",
         "<rootDir>/src/tests/streamError.test.ts",
         "<rootDir>/src/tests/generationLoader.test.tsx",
+        "<rootDir>/src/tests/errorState.test.tsx",
       ],
       moduleNameMapper: {
         "^@/(.*)$": "<rootDir>/src/$1",

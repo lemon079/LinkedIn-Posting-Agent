@@ -19,6 +19,63 @@ const getLLMOpts = (state: State, config?: RunnableConfig) => ({
   ollamaBaseUrl: state.ollamaBaseUrl || undefined,
 });
 
+function parseCritiqueFromText(rawText: string): CritiqueResult | null {
+  if (!rawText || typeof rawText !== "string") return null;
+
+  // 1. Remove reasoning/think tags (e.g. <think>...</think>)
+  let cleaned = rawText.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+  // 2. Remove markdown code fences if present (```json ... ``` or ``` ...)
+  const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fenceMatch && fenceMatch[1]) {
+    cleaned = fenceMatch[1].trim();
+  }
+
+  // 3. Find outer JSON object boundaries { ... }
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (firstBrace === -1 || lastBrace <= firstBrace) {
+    return null;
+  }
+
+  const jsonSubstring = cleaned.slice(firstBrace, lastBrace + 1);
+
+  try {
+    const parsed = JSON.parse(jsonSubstring);
+    if (!parsed || typeof parsed !== "object") return null;
+
+    let score = typeof parsed.score === "number" ? parsed.score : parseFloat(String(parsed.score));
+    if (isNaN(score) || score < 1) score = 7;
+    if (score > 10) score = 10;
+
+    const strengths = Array.isArray(parsed.strengths)
+      ? parsed.strengths.map(String).filter(Boolean)
+      : typeof parsed.strengths === "string" && parsed.strengths
+        ? [parsed.strengths]
+        : ["Clear domain relevance"];
+
+    const weaknesses = Array.isArray(parsed.weaknesses)
+      ? parsed.weaknesses.map(String).filter(Boolean)
+      : typeof parsed.weaknesses === "string" && parsed.weaknesses
+        ? [parsed.weaknesses]
+        : [];
+
+    const instructions =
+      typeof parsed.instructions === "string" && parsed.instructions.trim()
+        ? parsed.instructions.trim()
+        : "Proceed with draft";
+
+    return {
+      score: Math.round(score),
+      strengths: strengths.length > 0 ? strengths : ["Clear domain relevance"],
+      weaknesses: weaknesses.length > 0 ? weaknesses : ["None identified"],
+      instructions,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Critic node.
  *
@@ -49,24 +106,79 @@ export async function critiqueDraft(state: State, config?: RunnableConfig): Prom
 
   try {
     const llm = createCriticLLM(getLLMOpts(state, config));
-    const structuredLLM = llm.withStructuredOutput(CritiqueResult);
+    const structuredLLM =
+      state.llmProvider === "ollama"
+        ? llm.withStructuredOutput(CritiqueResult, { method: "jsonMode" })
+        : llm.withStructuredOutput(CritiqueResult);
 
     const prompt = getCritiquePrompt(domainConfig, currentDraft);
-    const critique = (await invokeWithRetryAndTimeout(
-      (signal) => structuredLLM.invoke([new HumanMessage(prompt)], { signal }),
-      {
-        timeoutMs: CRITIC_TIMEOUT_MS,
-        maxRetries: 1,
-        initialDelayMs: 300,
-        deadlineTimestamp: state.deadlineTimestamp,
-        onRetry: (attempt, err) => {
-          log.warn(`Critique evaluation retry scheduled`, {
-            attempt,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        },
+    let critique: CritiqueResult | null = null;
+
+    try {
+      critique = (await invokeWithRetryAndTimeout(
+        (signal) => structuredLLM.invoke([new HumanMessage(prompt)], { signal }),
+        {
+          timeoutMs: CRITIC_TIMEOUT_MS,
+          maxRetries: 1,
+          initialDelayMs: 300,
+          deadlineTimestamp: state.deadlineTimestamp,
+          onRetry: (attempt, err) => {
+            log.warn(`Critique evaluation retry scheduled`, {
+              attempt,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          },
+        }
+      )) as CritiqueResult;
+    } catch (invokeErr: unknown) {
+      // If structured output failed to parse raw text (common with Ollama / reasoning models):
+      const errText = invokeErr instanceof Error ? invokeErr.message : String(invokeErr);
+      const textMatch = errText.match(/Failed to parse\. Text: "([\s\S]*?)"(?:\. Error:|$)/i);
+      const rawOutput = (invokeErr as { text?: string }).text || (textMatch ? textMatch[1] : errText);
+      const recovered = parseCritiqueFromText(rawOutput);
+
+      if (recovered) {
+        log.info(`Successfully recovered critique JSON from output parser exception`, {
+          iteration: newCount,
+          score: recovered.score,
+        });
+        critique = recovered;
+      } else {
+        // Fallback: direct plain text invocation with JSON enforcement
+        try {
+          const directLlm = createCriticLLM(getLLMOpts(state, config));
+          const directPrompt = `${prompt}\n\nIMPORTANT: Respond with ONLY a valid JSON object matching this schema:\n{"score": 7, "strengths": ["..."], "weaknesses": ["..."], "instructions": "..."}`;
+          const directRes = await invokeWithRetryAndTimeout(
+            (signal) => directLlm.invoke([new HumanMessage(directPrompt)], { signal }),
+            {
+              timeoutMs: Math.min(CRITIC_TIMEOUT_MS, 15000),
+              maxRetries: 1,
+              deadlineTimestamp: state.deadlineTimestamp,
+            }
+          );
+          const textContent =
+            typeof directRes.content === "string"
+              ? directRes.content
+              : Array.isArray(directRes.content)
+                ? (directRes.content as Array<{ text?: string }>).map((c) => c.text || "").join("")
+                : "";
+          const directRecovered = parseCritiqueFromText(textContent);
+          if (directRecovered) {
+            log.info(`Direct prompt critique synthesis succeeded`, {
+              iteration: newCount,
+              score: directRecovered.score,
+            });
+            critique = directRecovered;
+          }
+        } catch {
+          // Fall through to deterministic fallback score
+        }
       }
-    )) as CritiqueResult;
+
+      if (!critique) {
+        throw invokeErr;
+      }
+    }
 
 
     // Track best draft across iterations

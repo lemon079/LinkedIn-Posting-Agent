@@ -61,7 +61,7 @@ export const AssistantComposer: React.FC<AssistantComposerProps> = ({
   return (
     <div
       className={cn(
-        "bg-card border border-border shadow-level-1 rounded-2xl transition duration-300 overflow-hidden",
+        "bg-card border border-border shadow-level-1 rounded-xl sm:rounded-2xl transition duration-300 overflow-hidden",
         className
       )}
     >
@@ -71,7 +71,7 @@ export const AssistantComposer: React.FC<AssistantComposerProps> = ({
             setIsPanelOpen(!isPanelOpen);
           }
         }}
-        className="border-b border-border px-5 py-4 flex flex-row items-center justify-between cursor-pointer lg:cursor-default select-none bg-card"
+        className="border-b border-border px-4 py-3 sm:px-5 sm:py-4 flex flex-row items-center justify-between cursor-pointer lg:cursor-default select-none bg-card"
       >
         <div className="flex items-center gap-2.5">
           <div className="p-1.5 rounded-lg bg-brand-blue/10 text-brand-blue">
@@ -98,7 +98,7 @@ export const AssistantComposer: React.FC<AssistantComposerProps> = ({
         )}
       >
         <div className="overflow-hidden">
-          <div className="p-5 space-y-4">
+          <div className="p-4 sm:p-5 space-y-4">
             <div className="space-y-3">
               {setDomain && (
                 <div className="space-y-1.5">
@@ -116,7 +116,7 @@ export const AssistantComposer: React.FC<AssistantComposerProps> = ({
                       <SelectValue placeholder="Select domain..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="auto">Auto-detect</SelectItem>
+                      <SelectItem value="auto">Auto-Detect</SelectItem>
                       <SelectItem value="engineering">Engineering & CS</SelectItem>
                       <SelectItem value="hr">HR / People</SelectItem>
                       <SelectItem value="sales">Sales</SelectItem>
@@ -144,7 +144,7 @@ export const AssistantComposer: React.FC<AssistantComposerProps> = ({
                         <SelectValue placeholder="Select archetype..." />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="auto">Auto (AI-Selected)</SelectItem>
+                        <SelectItem value="auto">Auto-Select</SelectItem>
                         <SelectItem value="teardown">Incident Teardown</SelectItem>
                         <SelectItem value="contrarian">Contrarian Take</SelectItem>
                         <SelectItem value="framework">Playbook / Framework</SelectItem>
@@ -198,13 +198,13 @@ export const AssistantComposer: React.FC<AssistantComposerProps> = ({
                   onChange={(e) => setCustomTopic(e.target.value)}
                   onKeyDown={handleKeyDown}
                   disabled={isGenerating}
-                  className="pr-10 rounded-xl text-sm"
+                  className="pr-10 rounded-xl text-base sm:text-sm"
                 />
                 {customTopic.trim().length > 0 && !isGenerating && (
                   <button
                     type="button"
                     onClick={onGenerate}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-brand-blue transition p-1 cursor-pointer"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-brand-blue transition p-1.5 cursor-pointer"
                     title="Generate (Enter)"
                   >
                     <CornerDownLeft className="size-4" />
@@ -217,7 +217,7 @@ export const AssistantComposer: React.FC<AssistantComposerProps> = ({
               <button
                 type="button"
                 onClick={() => setIsContextExpanded(!isContextExpanded)}
-                className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors cursor-pointer w-full text-left"
+                className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors cursor-pointer w-full text-left py-1"
               >
                 {isContextExpanded ? (
                   <ChevronDown className="size-4" />
@@ -238,7 +238,7 @@ export const AssistantComposer: React.FC<AssistantComposerProps> = ({
                     <div className="space-y-1.5">
                       <Textarea
                         id="context-happened"
-                        className="w-full bg-card border-border h-20 resize-none rounded-xl focus-visible:ring-2 focus-visible:ring-brand-blue/20 focus-visible:border-brand-blue text-sm placeholder-muted-foreground text-foreground transition-colors duration-200"
+                        className="w-full bg-card border-border h-20 resize-none rounded-xl focus-visible:ring-2 focus-visible:ring-brand-blue/20 focus-visible:border-brand-blue text-base sm:text-sm placeholder-muted-foreground text-foreground transition-colors duration-200"
                         placeholder="What happened? (e.g. Migrated databases with zero downtime, lost a major lead...)"
                         value={happened}
                         onChange={(e) => setHappened(e.target.value)}
@@ -248,7 +248,7 @@ export const AssistantComposer: React.FC<AssistantComposerProps> = ({
                     <div className="space-y-1.5">
                       <Textarea
                         id="context-takeaway"
-                        className="w-full bg-card border-border h-20 resize-none rounded-xl focus-visible:ring-2 focus-visible:ring-brand-blue/20 focus-visible:border-brand-blue text-sm placeholder-muted-foreground text-foreground transition-colors duration-200"
+                        className="w-full bg-card border-border h-20 resize-none rounded-xl focus-visible:ring-2 focus-visible:ring-brand-blue/20 focus-visible:border-brand-blue text-base sm:text-sm placeholder-muted-foreground text-foreground transition-colors duration-200"
                         placeholder="What did you take away or want your audience to learn?"
                         value={takeaway}
                         onChange={(e) => setTakeaway(e.target.value)}

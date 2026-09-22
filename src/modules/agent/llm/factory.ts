@@ -49,10 +49,10 @@ export const createBaseLLM = (opts: LLMOptions = {}) => {
   switch (llmProvider) {
     case "ollama":
       return new ChatOllama({
-        model: normalizedModel || "llama3.1",
+        model: normalizedModel,
         baseUrl: opts.ollamaBaseUrl || "http://localhost:11434",
-        temperature: 0.9,
-        ...(reasoningOff ? { think: false } : {}),
+        temperature: reasoningOff ? 0.2 : 0.8,
+        ...(reasoningOff ? { think: false, format: "json" } : {}),
       });
 
     case "openai":

@@ -47,7 +47,10 @@ export async function analyzeIntake(state: State, config?: RunnableConfig): Prom
 
   try {
     const llm = createCriticLLM(getLLMOpts(state, config));
-    const structuredLLM = llm.withStructuredOutput(IntakeAnalysis);
+    const structuredLLM =
+      state.llmProvider === "ollama"
+        ? llm.withStructuredOutput(IntakeAnalysis, { method: "jsonMode" })
+        : llm.withStructuredOutput(IntakeAnalysis);
 
     const prompt = getIntakePrompt(topic, context, userDomain);
     const intake = (await invokeWithRetryAndTimeout(

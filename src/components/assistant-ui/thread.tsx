@@ -9,23 +9,12 @@ import { LinkedInFeed } from "@/components/LinkedInFeed";
 import { AssistantReasoning } from "./reasoning";
 import { AssistantAttachments } from "./attachment";
 import { HookLab } from "./hook-lab";
-import { GenerationLoader } from "./loading-state";
-import { useAuiState } from "@assistant-ui/react";
 
-import { AssistantErrorState } from "./error-state";
+import { ErrorState } from "./error-state";
+import { parseApiError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { BaseThreadEditorProps } from "@/types/ui";
-
-// Helper to safely read useAuiState even in isolated test harnesses without an AuiProvider
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function useSafeAuiState<T>(selector: (state: any) => T, fallback: T): T {
-  try {
-    return useAuiState(selector);
-  } catch {
-    return fallback;
-  }
-}
 
 
 export interface AssistantThreadProps extends BaseThreadEditorProps {
@@ -62,9 +51,7 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
   onChange,
   onPublish,
   onRetry,
-  onOpenSettings,
   error,
-  onDismissError,
   reasoningSteps,
   alternativeHooks,
   onApplyHook,
@@ -81,6 +68,33 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
   const [copied, setCopied] = useState(false);
   const [streamedLength, setStreamedLength] = useState(0);
   const [prevStreamingText, setPrevStreamingText] = useState<string | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [prevIsGenerating, setPrevIsGenerating] = useState(isGenerating);
+  const [lastErrorParsed, setLastErrorParsed] = useState(() => (error ? parseApiError(error) : null));
+  const [prevError, setPrevError] = useState(error);
+
+  if (prevIsGenerating !== isGenerating) {
+    setPrevIsGenerating(isGenerating);
+    if (!isGenerating && isRetrying) {
+      setIsRetrying(false);
+    }
+  }
+
+  if (prevError !== error) {
+    setPrevError(error);
+    if (error) {
+      setLastErrorParsed(parseApiError(error));
+    }
+  }
+
+  const parsedError = error ? parseApiError(error) : null;
+  const activeError = parsedError || lastErrorParsed;
+
+  const handleRetry = () => {
+    if (isRetrying || isGenerating) return;
+    setIsRetrying(true);
+    onRetry?.();
+  };
 
   const isStreaming = streamingText !== null;
 
@@ -114,37 +128,6 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
   const currentText = draftText ? draftText : (streamingText ? streamingText.slice(0, streamedLength) : "");
   const charCount = currentText.length;
 
-  // assistant-ui runtime loading state: run is active and newest assistant message has no parts yet
-  const isAwaitingFirstToken = useSafeAuiState((s) => {
-    const isRunning = s.thread?.isRunning === true;
-    const messages = s.thread?.messages;
-    const latestMessage = messages && messages.length > 0 ? messages[messages.length - 1] : undefined;
-    return Boolean(
-      isRunning &&
-      latestMessage?.role === "assistant" &&
-      Array.isArray(latestMessage?.parts) &&
-      latestMessage.parts.length === 0
-    );
-  }, false);
-
-  const showLoader = isAwaitingFirstToken || Boolean(isGenerating && !currentText && (!reasoningSteps || reasoningSteps.length === 0));
-
-  // Client-side tick animation incremented approximately every 120ms while loader is visible
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    if (!showLoader) return;
-
-    const interval = setInterval(() => {
-      setTick((t) => t + 1);
-    }, 120);
-
-    return () => {
-      clearInterval(interval);
-      setTick(0);
-    };
-  }, [showLoader]);
-
 
   const handleCopy = async () => {
     if (!currentText) return;
@@ -165,26 +148,42 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
   const isControlsDisabled = isPublishing || isUploading || isGenerating;
 
   return (
-    <div className={cn("space-y-4 bg-card border border-border p-5 rounded-2xl shadow-level-1", className)}>
-      {/* Header Bar */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="size-7 rounded-lg bg-brand-blue/10 text-brand-blue flex items-center justify-center">
-            <Bot className="size-4" />
-          </div>
-          <div>
-            <Label htmlFor="draft-editor" className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+    <div className={cn("space-y-4 bg-card border border-border p-3.5 sm:p-5 rounded-xl sm:rounded-2xl shadow-level-1", className)}>
+      {/* Workspace Header & Action Bar */}
+      <div className="flex flex-col gap-2.5 pb-2.5 border-b border-border/50">
+        {/* Row 1: Workspace Title & Preview / Edit Switcher */}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            <div className="size-6 sm:size-7 rounded-lg bg-brand-blue/10 text-brand-blue flex items-center justify-center shrink-0">
+              <Bot className="size-3.5 sm:size-4" />
+            </div>
+            <Label htmlFor="draft-editor" className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
               AI Draft Workspace
             </Label>
+
+            {/* Active Generation State badge */}
+            {isGenerating && (
+              <div
+                className="flex items-center gap-1.5 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-brand-blue/10 border border-brand-blue/20 text-[10px] sm:text-[11px] text-brand-blue font-medium animate-pulse select-none shrink-0"
+                role="status"
+                aria-live="polite"
+              >
+                <span className="relative flex size-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-blue opacity-75" />
+                  <span className="relative inline-flex rounded-full size-1.5 bg-brand-blue" />
+                </span>
+                <span>Generating...</span>
+              </div>
+            )}
           </div>
 
           {/* Mode Switcher Tabs */}
-          <div className="flex items-center bg-muted/60 p-0.5 rounded-lg border border-border/50 text-xs">
+          <div className="flex items-center bg-muted/60 p-0.5 rounded-lg border border-border/50 text-xs shrink-0">
             <button
               type="button"
               onClick={() => setViewMode("preview")}
               className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1 rounded-md font-medium transition cursor-pointer",
+                "flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-md font-medium transition cursor-pointer text-xs",
                 viewMode === "preview"
                   ? "bg-card text-foreground shadow-xs font-semibold"
                   : "text-muted-foreground hover:text-foreground"
@@ -198,7 +197,7 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
               type="button"
               onClick={() => setViewMode("edit")}
               className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1 rounded-md font-medium transition cursor-pointer",
+                "flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-md font-medium transition cursor-pointer text-xs",
                 viewMode === "edit"
                   ? "bg-card text-foreground shadow-xs font-semibold"
                   : "text-muted-foreground hover:text-foreground"
@@ -209,17 +208,20 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
               <span>Edit</span>
             </button>
           </div>
+        </div>
 
-          {/* Version History & Undo/Redo with Contextual Tooltips */}
-          {draftVersions && draftVersions.length > 0 && (
-            <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/50 text-xs">
+        {/* Row 2: Version History & Actions Toolbar */}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          {/* Version History Toolbar */}
+          {draftVersions && draftVersions.length > 0 ? (
+            <div className="flex items-center gap-0.5 sm:gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/50 text-xs shrink-0 max-w-full">
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
                 onClick={onUndo}
                 disabled={!onUndo || activeVersionIndex <= 0 || isGenerating}
-                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
+                className="size-6 p-0 text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-30 disabled:pointer-events-none shrink-0"
                 title={
                   activeVersionIndex > 0
                     ? `Undo: Step back to v${draftVersions[activeVersionIndex - 1]?.versionNumber} (${draftVersions[activeVersionIndex - 1]?.changeNote || "Previous draft"})`
@@ -235,7 +237,7 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
                 size="icon"
                 onClick={onRedo}
                 disabled={!onRedo || activeVersionIndex >= draftVersions.length - 1 || isGenerating}
-                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
+                className="size-6 p-0 text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-30 disabled:pointer-events-none shrink-0"
                 title={
                   activeVersionIndex < draftVersions.length - 1
                     ? `Redo: Step forward to v${draftVersions[activeVersionIndex + 1]?.versionNumber} (${draftVersions[activeVersionIndex + 1]?.changeNote || "Next draft"})`
@@ -246,7 +248,7 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
                 <Redo2 className="size-3" />
               </Button>
               <div
-                className="flex items-center gap-1 pl-1 pr-1.5 border-l border-border/50"
+                className="flex items-center gap-1 pl-1 pr-1 border-l border-border/50 min-w-0"
                 title={
                   draftVersions[activeVersionIndex]
                     ? `Active: v${draftVersions[activeVersionIndex].versionNumber} · ${draftVersions[activeVersionIndex].changeNote || "Draft"}`
@@ -257,7 +259,7 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
                 <select
                   value={activeVersionIndex}
                   onChange={(e) => onSelectVersion?.(Number(e.target.value))}
-                  className="bg-transparent text-foreground text-xs font-medium outline-none cursor-pointer max-w-[130px] truncate"
+                  className="bg-transparent text-foreground text-xs font-medium outline-none cursor-pointer max-w-[105px] sm:max-w-[140px] truncate"
                   aria-label="Draft version history"
                 >
                   {draftVersions.map((v, i) => {
@@ -277,100 +279,90 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
                 </select>
               </div>
             </div>
-          )}
-        </div>
+          ) : <div />}
 
-        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-          {/* Active Generation State — Separated from character counter */}
-          {isGenerating && (
+          {/* Action Tools & Progress */}
+          <div className="flex items-center gap-2 sm:gap-2.5 ml-auto flex-wrap justify-end">
+            {/* Character counter with LinkedIn limit progress bar */}
             <div
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-blue/10 border border-brand-blue/20 text-[11px] text-brand-blue font-medium animate-pulse select-none"
-              role="status"
+              className="flex items-center gap-1.5 sm:gap-2 text-xs"
               aria-live="polite"
+              aria-atomic="true"
+              aria-label={`Character count: ${charCount} out of 3000`}
+              title={`${charCount.toLocaleString()} of 3,000 characters (${Math.min(100, Math.round((charCount / 3000) * 100))}% of LinkedIn limit)`}
             >
-              <span className="relative flex size-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-blue opacity-75" />
-                <span className="relative inline-flex rounded-full size-1.5 bg-brand-blue" />
-              </span>
-              <span>Generating...</span>
-            </div>
-          )}
-
-          {/* Character counter with LinkedIn limit progress bar */}
-          <div
-            className="flex items-center gap-2 text-xs"
-            aria-live="polite"
-            aria-atomic="true"
-            aria-label={`Character count: ${charCount} out of 3000`}
-            title={`${charCount.toLocaleString()} of 3,000 characters (${Math.min(100, Math.round((charCount / 3000) * 100))}% of LinkedIn limit)`}
-          >
-            <div className="w-14 sm:w-16 h-1.5 bg-muted rounded-full overflow-hidden border border-border/40">
-              <div
+              <div className="w-10 sm:w-16 h-1.5 bg-muted rounded-full overflow-hidden border border-border/40">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all duration-300",
+                    charCount > 3000
+                      ? "bg-red-500"
+                      : charCount > 2500
+                        ? "bg-amber-500"
+                        : "bg-brand-blue"
+                  )}
+                  style={{ width: `${Math.min(100, (charCount / 3000) * 100)}%` }}
+                />
+              </div>
+              <span
                 className={cn(
-                  "h-full rounded-full transition-all duration-300",
-                  charCount > 3000
-                    ? "bg-red-500"
-                    : charCount > 2500
-                      ? "bg-amber-500"
-                      : "bg-brand-blue"
+                  "font-mono text-[10px] sm:text-[11px] font-medium tracking-tight",
+                  charCount > 3000 ? "text-red-500 font-bold" : "text-muted-foreground"
                 )}
-                style={{ width: `${Math.min(100, (charCount / 3000) * 100)}%` }}
-              />
+              >
+                {charCount.toLocaleString()}/3k
+              </span>
             </div>
-            <span
-              className={cn(
-                "font-mono text-[11px] font-medium tracking-tight",
-                charCount > 3000 ? "text-red-500 font-bold" : "text-muted-foreground"
-              )}
+
+            <div className="h-4 w-px bg-border/60 hidden sm:block" />
+
+            {/* Copy Button */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 sm:h-9 px-2.5 sm:px-3 text-xs font-semibold border-outline-variant hover:bg-surface-container gap-1.5 cursor-pointer shrink-0"
+              onClick={handleCopy}
+              disabled={charCount === 0 || isGenerating}
+              title="Copy draft to clipboard"
             >
-              {charCount.toLocaleString()}/3,000
-            </span>
+              {copied ? <Check className="size-3.5 text-emerald-600" /> : <Copy className="size-3.5" />}
+              <span className="hidden sm:inline">{copied ? "Copied" : "Copy"}</span>
+            </Button>
+
+            {/* LinkedIn Publish Button */}
+            <Button
+              size="sm"
+              className="h-8 sm:h-9 px-3 sm:px-4 text-xs font-semibold bg-brand-blue hover:bg-brand-blue-hover text-white gap-1.5 shadow-sm duration-200 cursor-pointer disabled:opacity-50 shrink-0"
+              onClick={onPublish}
+              disabled={isControlsDisabled || charCount > 3000 || charCount === 0}
+              aria-busy={isPublishing ? "true" : "false"}
+            >
+              {isPublishing ? (
+                <>Publishing...</>
+              ) : isUploading ? (
+                <>Uploading...</>
+              ) : (
+                <>
+                  <Send className="size-3.5" /> Publish
+                </>
+              )}
+            </Button>
           </div>
-
-          <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block" />
-
-          {/* Copy Button */}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 px-3 text-xs font-semibold border-outline-variant hover:bg-surface-container gap-1.5 cursor-pointer"
-            onClick={handleCopy}
-            disabled={charCount === 0 || isGenerating}
-            title="Copy draft to clipboard"
-          >
-            {copied ? <Check className="size-3.5 text-emerald-600" /> : <Copy className="size-3.5" />}
-            <span className="hidden sm:inline">{copied ? "Copied" : "Copy"}</span>
-          </Button>
-
-          {/* LinkedIn Publish Button */}
-          <Button
-            size="sm"
-            className="h-9 px-4 text-xs font-semibold bg-brand-blue hover:bg-brand-blue-hover text-white gap-1.5 shadow-sm duration-200 cursor-pointer disabled:opacity-50"
-            onClick={onPublish}
-            disabled={isControlsDisabled || charCount > 3000 || charCount === 0}
-            aria-busy={isPublishing ? "true" : "false"}
-          >
-            {isPublishing ? (
-              <>Publishing...</>
-            ) : isUploading ? (
-              <>Uploading...</>
-            ) : (
-              <>
-                <Send className="size-3.5" /> Publish
-              </>
-            )}
-          </Button>
         </div>
       </div>
 
       {/* Assistant UI Error State */}
-      {error && (
-        <AssistantErrorState
-          error={error}
-          onRetry={onRetry}
-          onOpenSettings={onOpenSettings}
-          onDismiss={onDismissError}
+      {(error || (isRetrying && isGenerating)) && (
+        <ErrorState
+          title={activeError?.title || "Something went wrong"}
+          detail={
+            activeError?.message ||
+            "An unexpected error occurred while generating the post. Please try again."
+          }
+          retrying={isRetrying && Boolean(isGenerating)}
+          onRetry={handleRetry}
+          className="w-full"
         />
       )}
 
@@ -391,50 +383,30 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
         />
       )}
 
-      {/* Workspace Content: Clean Preview or Edit with GenerationLoader */}
+      {/* Workspace Content: Clean Preview or Edit (no skeleton loading card) */}
       {viewMode === "preview" ? (
         <div
-          className="w-full bg-card border border-border min-h-65 max-h-96 overflow-y-auto rounded-xl p-4 transition-colors duration-200 focus-within:ring-2 focus-within:ring-brand-blue/20"
+          className="w-full bg-card border border-border min-h-[200px] max-h-[380px] sm:max-h-[460px] overflow-y-auto rounded-xl p-3 sm:p-4 transition-colors duration-200 focus-within:ring-2 focus-within:ring-brand-blue/20"
           tabIndex={0}
           aria-label="Formatted Post Preview in Markdown"
         >
-          {showLoader ? (
-            <div
-              className="flex flex-col items-center justify-center py-16 min-h-48"
-              role="status"
-              aria-live="polite"
-            >
-              <GenerationLoader label="Generating" tick={tick} variant="dots" />
-            </div>
-          ) : currentText ? (
+          {currentText ? (
             <LinkedInFeed draftText={currentText} selectedFiles={selectedFiles} user={user} />
           ) : (
             <p className="text-sm text-muted-foreground italic">Your AI generated draft will appear here...</p>
           )}
         </div>
       ) : (
-        <div className="relative">
-          {showLoader ? (
-            <div
-              className="w-full bg-card border border-border h-65 rounded-xl flex flex-col items-center justify-center p-4"
-              role="status"
-              aria-live="polite"
-            >
-              <GenerationLoader label="Generating" tick={tick} variant="dots" />
-            </div>
-          ) : (
-            <Textarea
-              id="draft-editor"
-              className="w-full bg-card border-border h-65 max-h-65 overflow-y-auto resize-none rounded-xl focus-visible:ring-2 focus-visible:ring-brand-blue/20 focus-visible:border-brand-blue text-base md:text-sm leading-relaxed text-slate-900 dark:text-slate-100 transition-colors duration-200"
-              value={currentText}
-              onChange={(e) => onChange(e.target.value)}
-              disabled={isPublishing}
-              placeholder="Your AI generated draft will appear here..."
-              aria-label="Interactive Draft Editor"
-              aria-invalid={charCount > 3000 ? "true" : "false"}
-            />
-          )}
-        </div>
+        <Textarea
+          id="draft-editor"
+          className="w-full bg-card border-border min-h-[200px] h-[260px] sm:h-[300px] overflow-y-auto resize-none rounded-xl focus-visible:ring-2 focus-visible:ring-brand-blue/20 focus-visible:border-brand-blue text-base sm:text-sm leading-relaxed text-slate-900 dark:text-slate-100 transition-colors duration-200 p-3 sm:p-4"
+          value={currentText}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={isPublishing}
+          placeholder="Your AI generated draft will appear here..."
+          aria-label="Interactive Draft Editor"
+          aria-invalid={charCount > 3000 ? "true" : "false"}
+        />
       )}
 
       {/* Assistant UI Attachments Controls */}

@@ -184,7 +184,56 @@ export function useAgent() {
     }
   }, [draftVersions, activeVersionIndex, threadId, settings.isHydrated]);
 
-  const MAX_DRAFTS = 3;
+  const MAX_DRAFTS = 10;
+
+  const initDraftVersions = useCallback((draft: string, hooks?: HookOption[], changeNote?: string) => {
+    const rawDraft = draft.trim();
+    if (!rawDraft) return;
+
+    const doubleBreakIdx = rawDraft.indexOf("\n\n");
+    let body = "";
+    if (doubleBreakIdx !== -1) {
+      body = rawDraft.slice(doubleBreakIdx + 2).trimStart();
+    } else {
+      const singleBreakIdx = rawDraft.indexOf("\n");
+      if (singleBreakIdx !== -1) {
+        body = rawDraft.slice(singleBreakIdx + 1).trimStart();
+      }
+    }
+
+    const now = Date.now();
+    const initialVersion: DraftVersion = {
+      id: `v1-${now}`,
+      versionNumber: 1,
+      draft: rawDraft,
+      label: "v1",
+      changeNote: changeNote || "Initial Draft",
+      timestamp: now,
+      alternativeHooks: hooks && hooks.length > 0 ? hooks : undefined,
+    };
+
+    const hooksToUse = hooks && hooks.length > 0 ? hooks : [];
+    const hookVersions: DraftVersion[] = hooksToUse.map((h, idx) => {
+      const num = idx + 2;
+      const trimmedHook = h.hook.trim();
+      const hookDraft = body ? `${trimmedHook}\n\n${body}` : trimmedHook;
+      return {
+        id: `v${num}-${now + idx + 1}`,
+        versionNumber: num,
+        draft: hookDraft,
+        label: `v${num}`,
+        changeNote: `Hook: ${h.type}`,
+        timestamp: now + idx + 1,
+        alternativeHooks: hooksToUse,
+        hookText: trimmedHook,
+      };
+    });
+
+    const allVersions = [initialVersion, ...hookVersions];
+    setDraftVersions(allVersions);
+    setActiveVersionIndex(0);
+    setDraftText(rawDraft);
+  }, []);
 
   const addDraftVersion = useCallback(
     (text: string, changeNote?: string, hooks?: HookOption[], hookText?: string) => {
@@ -226,7 +275,7 @@ export function useAgent() {
             : prev.length - 1;
         let baseHistory = prev.slice(0, validIndex + 1);
 
-        // Strict cap of MAX_DRAFTS (3):
+        // Cap of MAX_DRAFTS (10):
         if (baseHistory.length >= MAX_DRAFTS) {
           baseHistory = baseHistory.slice(0, MAX_DRAFTS - 1);
         }
@@ -301,6 +350,8 @@ export function useAgent() {
     setPostUrl(null);
     setReasoningSteps([]);
     setAlternativeHooks([]);
+    setDraftVersions([]);
+    setActiveVersionIndex(0);
     if (typeof window !== "undefined") {
       localStorage.removeItem("praxis_alternative_hooks");
       if (threadId) {
@@ -409,40 +460,25 @@ export function useAgent() {
               return next;
             });
           } else if (event.type === "final") {
-            let effectiveDraft = event.draft;
-            let hook1Text: string | undefined;
+            const effectiveDraft = event.draft;
             const hooksToUse =
               event.alternativeHooks && event.alternativeHooks.length > 0
                 ? event.alternativeHooks
                 : [];
             if (hooksToUse.length > 0) {
               setAlternativeHooks(hooksToUse);
-              hook1Text = hooksToUse[0].hook.trim();
-              if (!effectiveDraft.trim().startsWith(hook1Text)) {
-                const doubleBreakIdx = effectiveDraft.indexOf("\n\n");
-                let rest = "";
-                if (doubleBreakIdx !== -1) {
-                  rest = effectiveDraft.slice(doubleBreakIdx + 2);
-                } else {
-                  const singleBreakIdx = effectiveDraft.indexOf("\n");
-                  if (singleBreakIdx !== -1) {
-                    rest = effectiveDraft.slice(singleBreakIdx + 1);
-                  }
-                }
-                effectiveDraft = rest ? `${hook1Text}\n\n${rest.trimStart()}` : hook1Text;
-              }
             } else {
               setAlternativeHooks([]);
             }
             setStreamingText(effectiveDraft);
             setDraftText(effectiveDraft);
             setReasoningSteps(event.reasoningSteps || []);
-            addDraftVersion(
-              effectiveDraft,
-              event.changeNote || (hooksToUse?.[0] ? `Initial Draft (${hooksToUse[0].type})` : undefined),
-              hooksToUse.length > 0 ? hooksToUse : undefined,
-              hook1Text
-            );
+
+            if (event.changeNote && !event.changeNote.toLowerCase().includes("initial")) {
+              addDraftVersion(effectiveDraft, event.changeNote, hooksToUse);
+            } else {
+              initDraftVersions(effectiveDraft, hooksToUse, event.changeNote);
+            }
           } else if (event.type === "alternative_hooks") {
             setAlternativeHooks(event.hooks);
           } else if (event.type === "error") {
@@ -490,7 +526,27 @@ export function useAgent() {
         setStatus((p) => ({ ...p, err: res.error || "Publishing failed." }));
       } else if (res.postUrl) {
         setPostUrl(res.postUrl);
+        setDraftText(null);
+        setStreamingText(null);
+        setReasoningSteps([]);
+        setAlternativeHooks([]);
+        setDraftVersions([]);
+        setActiveVersionIndex(0);
         media.clearFiles();
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("praxis_draft_text");
+          localStorage.removeItem("praxis_thread_id");
+          localStorage.removeItem("praxis_reasoning_steps");
+          localStorage.removeItem("praxis_alternative_hooks");
+          localStorage.removeItem("praxis_draft_versions");
+          localStorage.removeItem("praxis_active_version_index");
+          if (threadId) {
+            localStorage.removeItem(`praxis_alternative_hooks_${threadId}`);
+            localStorage.removeItem(`praxis_draft_versions_${threadId}`);
+            localStorage.removeItem(`praxis_active_version_index_${threadId}`);
+          }
+        }
+        setThreadId(null);
       }
     } catch (err: unknown) {
       const axiosErr = err as { response?: { status?: number } };
@@ -650,6 +706,7 @@ export function useAgent() {
     setAlternativeHooks,
     handleApplyHook,
     addDraftVersion,
+    initDraftVersions,
     handleUndo,
     handleRedo,
     handleSelectVersion,

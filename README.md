@@ -1,6 +1,6 @@
 # Praxis — Autonomous LinkedIn AI Agent & Studio
 
-> A domain-driven, stateful AI agent platform built with **Next.js 15**, **LangGraph**, and **Supabase** that drafts, self-critiques, refines, and publishes high-impact technical posts to LinkedIn with multi-image/PDF carousel support.
+> A domain-driven, stateful AI agent platform built with **Next.js 16**, **LangGraph**, and **Supabase** that drafts, self-critiques, refines, and publishes high-impact technical posts to LinkedIn with multi-image/PDF carousel support.
 
 ---
 
@@ -138,7 +138,7 @@ npx tsc --noEmit
 # 2. Run ESLint validation (0 errors, 0 warnings)
 npm run lint
 
-# 3. Run all unit & UI test suites (11 suites, 115 tests)
+# 3. Run all unit & UI test suites (17 suites, 158 tests)
 npx jest --testPathIgnorePatterns="integration"
 
 # 4. Run integration tests (requires Supabase / live service configuration)
@@ -225,7 +225,21 @@ graph TD
 ```
 
 ---
-
+ 
+## 📚 Documentation
+ 
+Detailed technical and operational documentation is available in the [`docs/`](docs/) directory:
+ 
+- [System Architecture](docs/ARCHITECTURE.md) — Comprehensive multi-agent architecture, LangGraph nodes, state design, and data flows.
+- [Getting Started](docs/GETTING-STARTED.md) — Prerequisites, environment provisioning, database migration, and local verification.
+- [Development Guide](docs/DEVELOPMENT.md) — Project structure, engineering workflows, scripts, code style, and branch conventions.
+- [Testing & Quality Assurance](docs/TESTING.md) — Jest test suites, unit/UI testing, mocking patterns, and coverage analysis.
+- [Configuration Reference](docs/CONFIGURATION.md) — Environment variables, secrets encryption, LLM models, and runtime options.
+- [API Reference](docs/API.md) — Endpoints overview, request/response formats, SSE streaming, authentication, and error codes.
+- [Deployment Guide](docs/DEPLOYMENT.md) — Production build, Vercel deployment, Supabase setup, and monitoring.
+ 
+---
+ 
 ## 📜 License
-
+ 
 MIT License. Designed and engineered for high-impact social publishing.
