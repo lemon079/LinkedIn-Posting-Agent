@@ -22,7 +22,8 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { useMedia } from "use-media";
-import { healthCheck } from "@/lib/api";
+import { healthCheck, saveUserSettings } from "@/lib/api";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 import { AuthForm } from "@/modules/auth/components/AuthForm";
 import type { User } from "@supabase/supabase-js";
@@ -66,6 +67,8 @@ export interface SettingsDialogProps {
   user: User | null;
   onSignOut?: () => void;
   onDisconnectLinkedIn?: () => void;
+  onSave?: () => Promise<void>;
+  token?: string | null;
 }
 
 const CLOUD_MODELS: Record<string, string[]> = {
@@ -94,9 +97,52 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   user,
   onSignOut,
   onDisconnectLinkedIn,
+  onSave,
+  token,
 }) => {
   const isDesktop = useMedia("(min-width: 768px)");
   const [currentTime] = useState(() => Date.now());
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleApplySettings = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      if (onSave) {
+        await onSave();
+      } else {
+        const minDelay = new Promise((resolve) => setTimeout(resolve, 500));
+        if (token) {
+          await Promise.all([
+            saveUserSettings(
+              { provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, liTokenExpiresAt },
+              token
+            ),
+            minDelay,
+          ]);
+        } else {
+          if (typeof window !== "undefined") {
+            localStorage.setItem("llm_provider", provider);
+            localStorage.setItem("llm_model", modelName);
+            localStorage.setItem("ollama_base_url", ollamaBaseUrl);
+            if (apiKey) localStorage.setItem("llm_api_key", apiKey);
+            if (liToken) localStorage.setItem("li_token", liToken);
+            if (liUrn) localStorage.setItem("li_urn", liUrn);
+            if (liTokenExpiresAt) localStorage.setItem("li_token_expires_at", String(liTokenExpiresAt));
+          }
+          await minDelay;
+        }
+      }
+      toast.success("Settings applied successfully!");
+      onClose();
+    } catch (err: unknown) {
+      console.error("Failed to apply settings:", err);
+      const msg = err instanceof Error ? err.message : "Failed to apply settings. Please try again.";
+      toast.error(msg);
+    } finally {
+      setIsSaving(false);
+    }
+  };
   const daysUntilRenewal = liTokenExpiresAt
     ? Math.max(0, Math.round((liTokenExpiresAt - currentTime) / (1000 * 60 * 60 * 24)))
     : 0;
@@ -300,7 +346,8 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition cursor-pointer"
+              disabled={isSaving}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               aria-label="Close settings"
             >
               <X className="size-4.5" />
@@ -740,10 +787,18 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
             : "Sign in to synchronize settings to your cloud profile."}
         </p>
         <Button
-          onClick={onClose}
-          className="w-full sm:w-auto bg-brand-blue hover:bg-brand-blue-hover active:bg-brand-blue-hover text-white font-semibold px-6 py-2.5 rounded-xl transition duration-200 shadow-md cursor-pointer text-xs sm:text-sm shrink-0"
+          onClick={handleApplySettings}
+          disabled={isSaving}
+          className="w-full sm:w-auto bg-brand-blue hover:bg-brand-blue-hover active:bg-brand-blue-hover text-white font-semibold px-6 py-2.5 rounded-xl transition duration-200 shadow-md cursor-pointer text-xs sm:text-sm shrink-0 flex items-center justify-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed"
         >
-          Apply Settings
+          {isSaving ? (
+            <>
+              <Loader2 className="size-3.5 animate-spin text-white" />
+              <span>Saving...</span>
+            </>
+          ) : (
+            "Apply Settings"
+          )}
         </Button>
       </div>
     </>
@@ -754,9 +809,9 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
 
   if (isDesktop) {
     return (
-      <Dialog open={isEffectivelyOpen} onOpenChange={(open) => !open && onClose()}>
+      <Dialog open={isEffectivelyOpen} onOpenChange={(open) => !isSaving && !open && onClose()}>
         <DialogContent
-          showCloseButton={true}
+          showCloseButton={!isSaving}
           className="w-full sm:max-w-2xl max-h-[85vh] sm:max-h-[85dvh] p-0 flex flex-col overflow-hidden bg-card border border-border shadow-2xl rounded-2xl text-foreground focus:outline-none"
         >
           {renderContent(true)}
@@ -766,7 +821,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   }
 
   return (
-    <Drawer open={isEffectivelyOpen} onOpenChange={(open) => !open && onClose()}>
+    <Drawer open={isEffectivelyOpen} onOpenChange={(open) => !isSaving && !open && onClose()}>
       <DrawerContent className="w-full h-[90dvh] max-h-[92dvh] mt-0 bg-card border-t border-border flex flex-col shadow-2xl text-foreground overflow-hidden rounded-t-2xl focus:outline-none">
         {renderContent(false)}
       </DrawerContent>

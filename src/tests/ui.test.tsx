@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import Home from "../app/page";
 import { useAgent } from "../hooks/useAgent";
 import "@testing-library/jest-dom";
@@ -266,6 +266,75 @@ describe("Frontend Dashboard UI", () => {
     expect(undoButton).not.toBeDisabled();
     undoButton.click();
     expect(handleUndo).toHaveBeenCalled();
+  });
+
+  test("SettingsDialog displays loader on Apply Settings and closes modal only after settings are saved", async () => {
+    let resolveSave: () => void = () => {};
+    const handleSaveSettings = jest.fn().mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSave = resolve;
+        })
+    );
+    const setIsSettingsOpen = jest.fn();
+
+    (useAgent as jest.Mock).mockReturnValue({
+      ...mockDefaultState,
+      isAuthenticated: true,
+      isSettingsOpen: true,
+      setIsSettingsOpen,
+      handleSaveSettings,
+    });
+
+    render(<Home />);
+
+    const applyButton = screen.getByRole("button", { name: /Apply Settings/i });
+    expect(applyButton).toBeInTheDocument();
+
+    // Click Apply Settings
+    fireEvent.click(applyButton);
+
+    // Button should now be disabled and show loading state
+    expect(handleSaveSettings).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: /Saving\.\.\./i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Saving\.\.\./i })).toBeDisabled();
+
+    // Modal has NOT closed yet
+    expect(setIsSettingsOpen).not.toHaveBeenCalled();
+
+    // Resolve the async save
+    resolveSave();
+
+    // After save completes, modal is closed
+    await waitFor(() => {
+      expect(setIsSettingsOpen).toHaveBeenCalledWith(false);
+    });
+  });
+
+  test("SettingsDialog keeps modal open and does not close if saving fails", async () => {
+    const handleSaveSettings = jest.fn().mockRejectedValue(new Error("Database connection failed"));
+    const setIsSettingsOpen = jest.fn();
+
+    (useAgent as jest.Mock).mockReturnValue({
+      ...mockDefaultState,
+      isAuthenticated: true,
+      isSettingsOpen: true,
+      setIsSettingsOpen,
+      handleSaveSettings,
+    });
+
+    render(<Home />);
+
+    const applyButton = screen.getByRole("button", { name: /Apply Settings/i });
+    fireEvent.click(applyButton);
+
+    await waitFor(() => {
+      // Button resets after error
+      expect(screen.getByRole("button", { name: /Apply Settings/i })).toBeInTheDocument();
+    });
+
+    // Modal should NOT have been closed
+    expect(setIsSettingsOpen).not.toHaveBeenCalled();
   });
 });
 

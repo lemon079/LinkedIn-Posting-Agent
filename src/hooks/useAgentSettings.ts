@@ -310,19 +310,55 @@ export function useAgentSettings() {
     ).catch(() => {});
   }, [token, provider, apiKey, modelName, ollamaBaseUrl]);
 
-  // 4. Save settings locally or to Postgres when settings panel is closed
+  // 4. Dedicated async save settings function with deliberate tactile feedback delay
+  const isExplicitSavingRef = useRef(false);
+  const handleSaveSettings = useCallback(async () => {
+    isExplicitSavingRef.current = true;
+    const minDelay = new Promise((resolve) => setTimeout(resolve, 500));
+
+    try {
+      if (token) {
+        await Promise.all([
+          saveUserSettings(
+            { provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, liTokenExpiresAt },
+            token
+          ),
+          minDelay,
+        ]);
+      } else {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("llm_provider", provider);
+          localStorage.setItem("llm_model", modelName);
+          localStorage.setItem("ollama_base_url", ollamaBaseUrl);
+          if (apiKey) localStorage.setItem("llm_api_key", apiKey);
+          if (liToken) localStorage.setItem("li_token", liToken);
+          if (liUrn) localStorage.setItem("li_urn", liUrn);
+          if (liTokenExpiresAt) localStorage.setItem("li_token_expires_at", String(liTokenExpiresAt));
+        }
+        await minDelay;
+      }
+    } finally {
+      setTimeout(() => {
+        isExplicitSavingRef.current = false;
+      }, 600);
+    }
+  }, [token, provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, liTokenExpiresAt]);
+
+  // Fallback: Save settings locally or to Postgres when settings panel is dismissed without clicking Apply
   const prevSettingsOpen = useRef(isSettingsOpen);
   useEffect(() => {
     if (prevSettingsOpen.current && !isSettingsOpen) {
-      if (token) {
-        saveUserSettings(
-          { provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, liTokenExpiresAt },
-          token
-        ).catch(() => {});
-      } else {
-        localStorage.setItem("llm_provider", provider);
-        localStorage.setItem("llm_model", modelName);
-        localStorage.setItem("ollama_base_url", ollamaBaseUrl);
+      if (!isExplicitSavingRef.current) {
+        if (token) {
+          saveUserSettings(
+            { provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, liTokenExpiresAt },
+            token
+          ).catch(() => {});
+        } else {
+          localStorage.setItem("llm_provider", provider);
+          localStorage.setItem("llm_model", modelName);
+          localStorage.setItem("ollama_base_url", ollamaBaseUrl);
+        }
       }
     }
     prevSettingsOpen.current = isSettingsOpen;
@@ -393,6 +429,7 @@ export function useAgentSettings() {
     isHydrated,
     isHydrating,
     isAuthenticated: Boolean(liToken || (user && token)),
+    handleSaveSettings,
     handleSignOut,
     handleDisconnectLinkedIn,
   };

@@ -511,6 +511,7 @@ export function useAgent() {
     handleClearDraft,
     handleNewPost,
     handleDismissError,
+    handleSaveSettings: settings.handleSaveSettings,
     handleSignOut: settings.handleSignOut,
     handleDisconnectLinkedIn: settings.handleDisconnectLinkedIn,
   };

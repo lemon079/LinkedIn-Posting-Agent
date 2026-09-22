@@ -65,6 +65,8 @@ export default function Home() {
     setProvider, setApiKey, setModelName, setOllamaBaseUrl,
     setLiToken, setLiUrn, setIsSettingsOpen,
     setSelectedFiles, handleUploadFile,
+    token,
+    handleSaveSettings,
     handleSignOut, handleDisconnectLinkedIn,
   } = agentState;
 
@@ -319,6 +321,8 @@ export default function Home() {
           setLiUrn={setLiUrn}
           liTokenExpiresAt={liTokenExpiresAt}
           user={user}
+          token={token}
+          onSave={handleSaveSettings}
           onSignOut={handleSignOut}
           onDisconnectLinkedIn={handleDisconnectLinkedIn}
         />
