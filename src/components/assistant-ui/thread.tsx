@@ -9,11 +9,24 @@ import { LinkedInFeed } from "@/components/LinkedInFeed";
 import { AssistantReasoning } from "./reasoning";
 import { AssistantAttachments } from "./attachment";
 import { HookLab } from "./hook-lab";
+import { GenerationLoader } from "./loading-state";
+import { useAuiState } from "@assistant-ui/react";
 
 import { AssistantErrorState } from "./error-state";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { BaseThreadEditorProps } from "@/types/ui";
+
+// Helper to safely read useAuiState even in isolated test harnesses without an AuiProvider
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function useSafeAuiState<T>(selector: (state: any) => T, fallback: T): T {
+  try {
+    return useAuiState(selector);
+  } catch {
+    return fallback;
+  }
+}
+
 
 export interface AssistantThreadProps extends BaseThreadEditorProps {
   defaultMode?: "preview" | "edit";
@@ -100,6 +113,38 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
 
   const currentText = draftText ? draftText : (streamingText ? streamingText.slice(0, streamedLength) : "");
   const charCount = currentText.length;
+
+  // assistant-ui runtime loading state: run is active and newest assistant message has no parts yet
+  const isAwaitingFirstToken = useSafeAuiState((s) => {
+    const isRunning = s.thread?.isRunning === true;
+    const messages = s.thread?.messages;
+    const latestMessage = messages && messages.length > 0 ? messages[messages.length - 1] : undefined;
+    return Boolean(
+      isRunning &&
+      latestMessage?.role === "assistant" &&
+      Array.isArray(latestMessage?.parts) &&
+      latestMessage.parts.length === 0
+    );
+  }, false);
+
+  const showLoader = isAwaitingFirstToken || Boolean(isGenerating && !currentText && (!reasoningSteps || reasoningSteps.length === 0));
+
+  // Client-side tick animation incremented approximately every 120ms while loader is visible
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    if (!showLoader) return;
+
+    const interval = setInterval(() => {
+      setTick((t) => t + 1);
+    }, 120);
+
+    return () => {
+      clearInterval(interval);
+      setTick(0);
+    };
+  }, [showLoader]);
+
 
   const handleCopy = async () => {
     if (!currentText) return;
@@ -346,30 +391,50 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
         />
       )}
 
-      {/* Workspace Content: Clean Preview or Edit (no skeleton loading card) */}
+      {/* Workspace Content: Clean Preview or Edit with GenerationLoader */}
       {viewMode === "preview" ? (
         <div
           className="w-full bg-card border border-border min-h-65 max-h-96 overflow-y-auto rounded-xl p-4 transition-colors duration-200 focus-within:ring-2 focus-within:ring-brand-blue/20"
           tabIndex={0}
           aria-label="Formatted Post Preview in Markdown"
         >
-          {currentText ? (
+          {showLoader ? (
+            <div
+              className="flex flex-col items-center justify-center py-16 min-h-48"
+              role="status"
+              aria-live="polite"
+            >
+              <GenerationLoader label="Generating" tick={tick} variant="dots" />
+            </div>
+          ) : currentText ? (
             <LinkedInFeed draftText={currentText} selectedFiles={selectedFiles} user={user} />
           ) : (
             <p className="text-sm text-muted-foreground italic">Your AI generated draft will appear here...</p>
           )}
         </div>
       ) : (
-        <Textarea
-          id="draft-editor"
-          className="w-full bg-card border-border h-65 max-h-65 overflow-y-auto resize-none rounded-xl focus-visible:ring-2 focus-visible:ring-brand-blue/20 focus-visible:border-brand-blue text-base md:text-sm leading-relaxed text-slate-900 dark:text-slate-100 transition-colors duration-200"
-          value={currentText}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={isPublishing}
-          placeholder="Your AI generated draft will appear here..."
-          aria-label="Interactive Draft Editor"
-          aria-invalid={charCount > 3000 ? "true" : "false"}
-        />
+        <div className="relative">
+          {showLoader ? (
+            <div
+              className="w-full bg-card border border-border h-65 rounded-xl flex flex-col items-center justify-center p-4"
+              role="status"
+              aria-live="polite"
+            >
+              <GenerationLoader label="Generating" tick={tick} variant="dots" />
+            </div>
+          ) : (
+            <Textarea
+              id="draft-editor"
+              className="w-full bg-card border-border h-65 max-h-65 overflow-y-auto resize-none rounded-xl focus-visible:ring-2 focus-visible:ring-brand-blue/20 focus-visible:border-brand-blue text-base md:text-sm leading-relaxed text-slate-900 dark:text-slate-100 transition-colors duration-200"
+              value={currentText}
+              onChange={(e) => onChange(e.target.value)}
+              disabled={isPublishing}
+              placeholder="Your AI generated draft will appear here..."
+              aria-label="Interactive Draft Editor"
+              aria-invalid={charCount > 3000 ? "true" : "false"}
+            />
+          )}
+        </div>
       )}
 
       {/* Assistant UI Attachments Controls */}

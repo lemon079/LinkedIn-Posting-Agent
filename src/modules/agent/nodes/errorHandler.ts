@@ -110,7 +110,9 @@ export async function handleAgentError(
     const tone =
       state.tone && state.tone.trim()
         ? state.tone
-        : "authoritative";
+        : state.activeTone && state.activeTone.trim()
+          ? state.activeTone
+          : "conversational";
 
     return {
       error: null,
@@ -130,7 +132,7 @@ export async function handleAgentError(
           : "auto",
         tone: (TONE_OPTIONS as readonly string[]).includes(tone)
           ? (tone as (typeof TONE_OPTIONS)[number])
-          : "authoritative",
+          : "conversational",
       },
       activeDomain: domain,
       activeArchetype: archetype,

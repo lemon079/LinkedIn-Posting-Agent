@@ -18,6 +18,7 @@ const config = {
         "<rootDir>/src/tests/security.test.ts",
         "<rootDir>/src/tests/guardrail.resilience.test.ts",
         "<rootDir>/src/tests/versionChain.test.ts",
+        "<rootDir>/src/tests/regressionBugs.test.ts",
       ],
 
 
@@ -38,7 +39,11 @@ const config = {
       displayName: "frontend-ui",
       testEnvironment: "jsdom",
       setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
-      testMatch: ["<rootDir>/src/tests/ui.test.tsx", "<rootDir>/src/tests/streamError.test.ts"],
+      testMatch: [
+        "<rootDir>/src/tests/ui.test.tsx",
+        "<rootDir>/src/tests/streamError.test.ts",
+        "<rootDir>/src/tests/generationLoader.test.tsx",
+      ],
       moduleNameMapper: {
         "^@/(.*)$": "<rootDir>/src/$1",
         "^(\\.\\.?/.*)\\.js$": "$1",

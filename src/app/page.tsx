@@ -111,13 +111,15 @@ export default function Home() {
           }
           finalDraft = rest ? `${hook1Text}\n\n${rest.trimStart()}` : hook1Text;
         }
+      } else {
+        setAlternativeHooks([]);
       }
       setDraftText(finalDraft);
       if (tId) localStorage.setItem("praxis_thread_id", tId);
       addDraftVersion(
         finalDraft,
         changeNote || (altHooks?.[0] ? `Initial Draft (${altHooks[0].type})` : "Initial Draft"),
-        altHooks,
+        altHooks && altHooks.length > 0 ? altHooks : undefined,
         hook1Text
       );
     },
@@ -195,11 +197,11 @@ export default function Home() {
               archetype={archetype}
               tone={tone}
               isGenerating={isGenerating}
-              setCustomTopic={isAuthenticated ? setCustomTopic : () => {}}
-              setContext={isAuthenticated ? setContext : () => {}}
-              setDomain={isAuthenticated ? setDomain : () => {}}
-              setArchetype={isAuthenticated ? setArchetype : () => {}}
-              setTone={isAuthenticated ? setTone : () => {}}
+              setCustomTopic={setCustomTopic}
+              setContext={setContext}
+              setDomain={setDomain}
+              setArchetype={setArchetype}
+              setTone={setTone}
               onGenerate={onGenerateClick}
             />
           </aside>

@@ -17,13 +17,20 @@ export const isMaskedOrInvalid = (key?: string): boolean => {
   return /[^\x00-\xFF]/.test(key);
 };
 
+export const normalizeProvider = (provider?: string): string => {
+  const p = (provider || "").toLowerCase().trim();
+  if (p === "google" || p === "gemini") return "gemini";
+  return p || "gemini";
+};
+
 const resolveApiKey = (provider: string, explicitKey?: string): string => {
   if (explicitKey && !isMaskedOrInvalid(explicitKey)) {
     return explicitKey;
   }
-  switch (provider) {
+  const norm = normalizeProvider(provider);
+  switch (norm) {
     case "gemini":
-      return config.GOOGLE_API_KEY;
+      return config.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY || "";
     case "openai":
       return process.env.OPENAI_API_KEY || "";
     case "anthropic":
@@ -34,7 +41,7 @@ const resolveApiKey = (provider: string, explicitKey?: string): string => {
 };
 
 export const createBaseLLM = (opts: LLMOptions = {}) => {
-  const llmProvider = opts.provider || "gemini";
+  const llmProvider = normalizeProvider(opts.provider);
   const llmKey = resolveApiKey(llmProvider, opts.apiKey);
   const reasoningOff = opts.maxReasoningTokens === 0;
   const normalizedModel = opts.model ? opts.model.trim() : undefined;
@@ -84,7 +91,7 @@ export const createBaseLLM = (opts: LLMOptions = {}) => {
         model: normalizedModel || "gemini-3.7-flash",
         temperature: 0.9,
         maxRetries: 1, // Keep internal retries short so withFallbacks / timeouts can engage fast
-        apiKey: llmKey,
+        apiKey: llmKey || config.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY,
         ...googleThinking,
       });
     }
@@ -174,23 +181,23 @@ export const createLLM = (opts: LLMOptions = {}) => {
 
   if (llmProvider === "gemini") {
     const fallbacks: ChatGoogle[] = [];
-    if (currentModel !== "gemini-2.5-flash") {
+    if (currentModel !== "gemini-3.5-flash") {
       fallbacks.push(
         new ChatGoogle({
-          model: "gemini-2.5-flash",
+          model: "gemini-3.5-flash",
           temperature: 0.9,
           maxRetries: 1,
-          apiKey: llmKey,
+          apiKey: llmKey || config.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY,
         })
       );
     }
-    if (currentModel !== "gemini-1.5-flash") {
+    if (currentModel !== "gemini-flash-latest") {
       fallbacks.push(
         new ChatGoogle({
-          model: "gemini-1.5-flash",
+          model: "gemini-flash-latest",
           temperature: 0.9,
           maxRetries: 1,
-          apiKey: llmKey,
+          apiKey: llmKey || config.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY,
         })
       );
     }
@@ -205,10 +212,13 @@ export const createLLM = (opts: LLMOptions = {}) => {
 const CRITIC_MODEL_MAP: Record<string, Record<string, string>> = {
   gemini: {
     "gemini-3.7-pro": "gemini-3.7-flash",
-    "gemini-3.7-flash": "gemini-2.5-flash",
-    "gemini-2.5-pro": "gemini-2.5-flash",
-    "gemini-2.5-flash": "gemini-1.5-flash",
-    "gemini-1.5-pro": "gemini-1.5-flash",
+    "gemini-3.7-flash": "gemini-3.5-flash",
+    "gemini-3.5-pro": "gemini-3.5-flash",
+    "gemini-3.5-flash": "gemini-3.5-flash",
+    "gemini-2.5-pro": "gemini-3.5-flash",
+    "gemini-2.5-flash": "gemini-3.5-flash",
+    "gemini-1.5-pro": "gemini-3.5-flash",
+    "gemini-1.5-flash": "gemini-3.5-flash",
   },
   openai: {
     "gpt-4o": "gpt-4o-mini",
@@ -223,42 +233,45 @@ const CRITIC_MODEL_MAP: Record<string, Record<string, string>> = {
 };
 
 const resolveCriticModel = (provider: string, userModel: string): string => {
-  const providerMap = CRITIC_MODEL_MAP[provider];
+  const norm = normalizeProvider(provider);
+  const providerMap = CRITIC_MODEL_MAP[norm];
   if (!providerMap) return userModel;
   return providerMap[userModel] || userModel;
 };
 
 export const createCriticLLM = (opts: LLMOptions = {}) => {
-  const provider = opts.provider || "gemini";
-  const userModel = opts.model || "";
-  const criticModel = resolveCriticModel(provider, userModel);
+  const provider = normalizeProvider(opts.provider);
+  const userModel = opts.model || (provider === "gemini" ? "gemini-3.7-flash" : "");
+  const criticModel =
+    resolveCriticModel(provider, userModel) || (provider === "gemini" ? "gemini-3.5-flash" : userModel);
   const llmKey = resolveApiKey(provider, opts.apiKey);
 
   const baseCritic = createBaseLLM({
     ...opts,
+    provider,
     model: criticModel,
     maxReasoningTokens: 0,
   });
 
   const criticFallbacks: BaseChatModel[] = [];
   if (provider === "gemini") {
-    if (criticModel !== "gemini-2.5-flash") {
+    if (criticModel !== "gemini-3.5-flash") {
       criticFallbacks.push(
         new ChatGoogle({
-          model: "gemini-2.5-flash",
+          model: "gemini-3.5-flash",
           temperature: 0.7,
           maxRetries: 1,
-          apiKey: llmKey,
+          apiKey: llmKey || config.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY,
         })
       );
     }
-    if (criticModel !== "gemini-1.5-flash") {
+    if (criticModel !== "gemini-flash-latest") {
       criticFallbacks.push(
         new ChatGoogle({
-          model: "gemini-1.5-flash",
+          model: "gemini-flash-latest",
           temperature: 0.7,
           maxRetries: 1,
-          apiKey: llmKey,
+          apiKey: llmKey || config.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY,
         })
       );
     }

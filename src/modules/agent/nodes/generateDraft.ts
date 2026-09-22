@@ -14,7 +14,7 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 
 const log = logger.child({ module: "Graph:generateDraft" });
 
-const getLLMOpts = (state: State, config?: RunnableConfig, maxReasoningTokens: number = 2048) => ({
+const getLLMOpts = (state: State, config?: RunnableConfig, maxReasoningTokens: number = 512) => ({
   provider: state.llmProvider || undefined,
   apiKey: (config?.configurable?.apiKey as string) || state.llmApiKey || undefined,
   model: state.llmModel || undefined,
@@ -187,7 +187,7 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
 
   // ── 1. Primary Attempt (with reasoning budget) ──────────────────────────
   try {
-    const llm = createLLM(getLLMOpts(state, config, 2048));
+    const llm = createLLM(getLLMOpts(state, config, 512));
     const controller = new AbortController();
     const response = await invokeWithTimeout(
       llm.invoke([new HumanMessage(prompt)], { signal: controller.signal }),

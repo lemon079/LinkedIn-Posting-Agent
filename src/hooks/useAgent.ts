@@ -61,7 +61,9 @@ export function useAgent() {
         } catch {}
       }
 
-      const savedHooks = localStorage.getItem("praxis_alternative_hooks");
+      const savedHooks = savedThread
+        ? localStorage.getItem(`praxis_alternative_hooks_${savedThread}`) || localStorage.getItem("praxis_alternative_hooks")
+        : localStorage.getItem("praxis_alternative_hooks");
       if (savedHooks) {
         try {
           setAlternativeHooks(JSON.parse(savedHooks));
@@ -86,6 +88,8 @@ export function useAgent() {
             }
             if (parsed[validIdx]?.alternativeHooks && parsed[validIdx].alternativeHooks.length > 0) {
               setAlternativeHooks(parsed[validIdx].alternativeHooks);
+            } else {
+              setAlternativeHooks([]);
             }
           }
         } catch {}
@@ -150,10 +154,16 @@ export function useAgent() {
     if (typeof window === "undefined" || !settings.isHydrated.current) return;
     if (alternativeHooks.length > 0) {
       localStorage.setItem("praxis_alternative_hooks", JSON.stringify(alternativeHooks));
+      if (threadId) {
+        localStorage.setItem(`praxis_alternative_hooks_${threadId}`, JSON.stringify(alternativeHooks));
+      }
     } else {
       localStorage.removeItem("praxis_alternative_hooks");
+      if (threadId) {
+        localStorage.removeItem(`praxis_alternative_hooks_${threadId}`);
+      }
     }
-  }, [alternativeHooks, settings.isHydrated]);
+  }, [alternativeHooks, threadId, settings.isHydrated]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !settings.isHydrated.current) return;
@@ -249,9 +259,11 @@ export function useAgent() {
       setActiveVersionIndex(nextIdx);
       const target = draftVersions[nextIdx];
       setDraftText(target.draft);
-      if (target.alternativeHooks && target.alternativeHooks.length > 0) {
-        setAlternativeHooks(target.alternativeHooks);
-      }
+      setAlternativeHooks(
+        target.alternativeHooks && target.alternativeHooks.length > 0
+          ? target.alternativeHooks
+          : []
+      );
     }
   }, [activeVersionIndex, draftVersions]);
 
@@ -261,9 +273,11 @@ export function useAgent() {
       setActiveVersionIndex(nextIdx);
       const target = draftVersions[nextIdx];
       setDraftText(target.draft);
-      if (target.alternativeHooks && target.alternativeHooks.length > 0) {
-        setAlternativeHooks(target.alternativeHooks);
-      }
+      setAlternativeHooks(
+        target.alternativeHooks && target.alternativeHooks.length > 0
+          ? target.alternativeHooks
+          : []
+      );
     }
   }, [activeVersionIndex, draftVersions]);
 
@@ -272,9 +286,11 @@ export function useAgent() {
       setActiveVersionIndex(index);
       const target = draftVersions[index];
       setDraftText(target.draft);
-      if (target.alternativeHooks && target.alternativeHooks.length > 0) {
-        setAlternativeHooks(target.alternativeHooks);
-      }
+      setAlternativeHooks(
+        target.alternativeHooks && target.alternativeHooks.length > 0
+          ? target.alternativeHooks
+          : []
+      );
     }
   }, [draftVersions]);
 
@@ -285,6 +301,12 @@ export function useAgent() {
     setPostUrl(null);
     setReasoningSteps([]);
     setAlternativeHooks([]);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("praxis_alternative_hooks");
+      if (threadId) {
+        localStorage.removeItem(`praxis_alternative_hooks_${threadId}`);
+      }
+    }
 
     try {
       const headers: Record<string, string> = {
@@ -392,8 +414,8 @@ export function useAgent() {
             const hooksToUse =
               event.alternativeHooks && event.alternativeHooks.length > 0
                 ? event.alternativeHooks
-                : alternativeHooks;
-            if (hooksToUse && hooksToUse.length > 0) {
+                : [];
+            if (hooksToUse.length > 0) {
               setAlternativeHooks(hooksToUse);
               hook1Text = hooksToUse[0].hook.trim();
               if (!effectiveDraft.trim().startsWith(hook1Text)) {
@@ -409,6 +431,8 @@ export function useAgent() {
                 }
                 effectiveDraft = rest ? `${hook1Text}\n\n${rest.trimStart()}` : hook1Text;
               }
+            } else {
+              setAlternativeHooks([]);
             }
             setStreamingText(effectiveDraft);
             setDraftText(effectiveDraft);
@@ -416,7 +440,7 @@ export function useAgent() {
             addDraftVersion(
               effectiveDraft,
               event.changeNote || (hooksToUse?.[0] ? `Initial Draft (${hooksToUse[0].type})` : undefined),
-              hooksToUse,
+              hooksToUse.length > 0 ? hooksToUse : undefined,
               hook1Text
             );
           } else if (event.type === "alternative_hooks") {
@@ -507,6 +531,7 @@ export function useAgent() {
       localStorage.removeItem("praxis_draft_versions");
       localStorage.removeItem("praxis_active_version_index");
       if (threadId) {
+        localStorage.removeItem(`praxis_alternative_hooks_${threadId}`);
         localStorage.removeItem(`praxis_draft_versions_${threadId}`);
         localStorage.removeItem(`praxis_active_version_index_${threadId}`);
       }
@@ -535,6 +560,7 @@ export function useAgent() {
       localStorage.removeItem("praxis_draft_versions");
       localStorage.removeItem("praxis_active_version_index");
       if (threadId) {
+        localStorage.removeItem(`praxis_alternative_hooks_${threadId}`);
         localStorage.removeItem(`praxis_draft_versions_${threadId}`);
         localStorage.removeItem(`praxis_active_version_index_${threadId}`);
       }

@@ -1,10 +1,10 @@
-export const DEFAULT_LLM_TIMEOUT_MS = 25000;
-export const DRAFT_TIMEOUT_MS = 20000;
-export const FALLBACK_DRAFT_TIMEOUT_MS = 12000;
-export const INTAKE_TIMEOUT_MS = 6000;
-export const CRITIC_TIMEOUT_MS = 8000;
-export const REFINE_TIMEOUT_MS = 12000;
-export const GUARDRAIL_TIMEOUT_MS = 5000;
+export const DEFAULT_LLM_TIMEOUT_MS = 30000;
+export const DRAFT_TIMEOUT_MS = 30000;
+export const FALLBACK_DRAFT_TIMEOUT_MS = 20000;
+export const INTAKE_TIMEOUT_MS = 10000;
+export const CRITIC_TIMEOUT_MS = 15000;
+export const REFINE_TIMEOUT_MS = 15000;
+export const GUARDRAIL_TIMEOUT_MS = 8000;
 
 /**
  * Minimum viable timeout for any downstream LLM call.
@@ -12,7 +12,7 @@ export const GUARDRAIL_TIMEOUT_MS = 5000;
  * so that lightweight safety/critique calls have a real chance to succeed
  * rather than being starved to an impossible 1s window.
  */
-export const MIN_VIABLE_LLM_TIMEOUT_MS = 3500;
+export const MIN_VIABLE_LLM_TIMEOUT_MS = 8000;
 
 export function getRemainingTimeoutMs(
   deadlineTimestamp?: number | null,

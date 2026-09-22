@@ -62,3 +62,58 @@ export const AssistantLoadingState: React.FC<AssistantLoadingStateProps> = ({
     </div>
   );
 };
+
+export type GenerationLoaderVariant = "dots" | "squares" | "rounded";
+
+export interface GenerationLoaderProps
+  extends Omit<React.ComponentProps<"div">, "children"> {
+  label: string;
+  tick: number;
+  variant?: GenerationLoaderVariant;
+}
+
+const CELL_SHAPES: Record<GenerationLoaderVariant, string> = {
+  dots: "rounded-full",
+  squares: "rounded-[1px]",
+  rounded: "rounded-[3px]",
+};
+
+export const GenerationLoader: React.FC<GenerationLoaderProps> = ({
+  label,
+  tick,
+  variant = "dots",
+  className,
+  ...props
+}) => {
+  const pixelOffset = Math.floor(tick / 3);
+
+  return (
+    <div
+      data-slot="generation-loader"
+      className={cn("flex flex-col items-center gap-3 select-none", className)}
+      {...props}
+    >
+      <div aria-hidden="true" className="grid grid-cols-3 gap-1">
+        {Array.from({ length: 9 }, (_, index) => {
+          const active = (index * 2 + pixelOffset) % 9 < 3;
+
+          return (
+            <span
+              key={index}
+              data-slot="pixel-cell"
+              className={cn(
+                "bg-foreground size-2 transition-opacity duration-300 motion-reduce:transition-none",
+                CELL_SHAPES[variant],
+                active ? "opacity-90" : "opacity-15"
+              )}
+            />
+          );
+        })}
+      </div>
+      <span className="text-foreground/70 relative inline-block text-xs font-medium tracking-wide">
+        {label}
+      </span>
+    </div>
+  );
+};
+
