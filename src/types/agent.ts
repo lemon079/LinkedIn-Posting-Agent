@@ -8,6 +8,7 @@ export interface DraftVersion {
   changeNote: string;
   timestamp: number;
   alternativeHooks?: HookOption[];
+  hookText?: string;
 }
 
 export interface DraftRequest {

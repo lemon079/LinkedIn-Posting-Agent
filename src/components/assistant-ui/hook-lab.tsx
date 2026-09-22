@@ -103,7 +103,7 @@ export const HookLab: React.FC<HookLabProps> = ({
             </div>
             <p className="text-[11px] text-muted-foreground">
               Swap the opening lines to test different scroll-stopping angles above the fold.{" "}
-              <span className="font-medium text-foreground/85">Applying a hook saves this as a new version.</span>
+              <span className="font-medium text-foreground/85">Applying a hook creates or switches between your 3 draft versions.</span>
             </p>
           </div>
         </div>
@@ -121,7 +121,11 @@ export const HookLab: React.FC<HookLabProps> = ({
         <div className="mt-3.5 grid grid-cols-1 md:grid-cols-3 gap-3 animate-fade-in-up">
           {hooks.map((item, idx) => {
             const config = TYPE_CONFIG[item.type] || TYPE_CONFIG.curiosity;
-            const isCurrentlyApplied = appliedHook === item.hook || currentDraft.startsWith(item.hook.trim());
+            const isCurrentlyApplied = Boolean(
+              currentDraft
+                ? currentDraft.trim().startsWith(item.hook.trim())
+                : appliedHook === item.hook
+            );
 
             return (
               <div

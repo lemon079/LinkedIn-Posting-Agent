@@ -23,6 +23,10 @@ export interface AssistantThreadProps extends BaseThreadEditorProps {
 function getShortVersionLabel(changeNote?: string, versionNumber?: number): string {
   if (!changeNote) return `Version ${versionNumber ?? 1}`;
   const lower = changeNote.toLowerCase();
+  if (lower.includes("metric")) return "Metric hook";
+  if (lower.includes("contrarian")) return "Contrarian hook";
+  if (lower.includes("incident")) return "Incident hook";
+  if (lower.includes("curiosity")) return "Curiosity hook";
   if (lower.includes("hook")) return "Hook swap";
   if (lower.includes("initial")) return "Initial draft";
   if (lower.includes("refin")) return "Refined draft";

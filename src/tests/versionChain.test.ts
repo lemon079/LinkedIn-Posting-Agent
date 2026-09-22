@@ -207,4 +207,119 @@ The result? Our 99.99% uptime target was hit for 4 consecutive quarters.
       expect(nextActiveIndex).toBe(0);
     });
   });
+
+  describe("3. Strict 3-Draft Cap & 1-to-1 Hook Version Mapping", () => {
+    const MAX_DRAFTS = 3;
+
+    // Helper simulating the updated useAgent addDraftVersion + handleApplyHook behavior
+    function handleApplyHookSimulation(
+      versions: DraftVersion[],
+      activeIdx: number,
+      selectedHook: string,
+      hookType: string,
+      baseBody: string
+    ): { nextVersions: DraftVersion[]; nextActiveIdx: number } {
+      const trimmedHook = selectedHook.trim();
+
+      // 1. If draft with this hook already exists, navigate to it
+      const existingIdx = versions.findIndex(
+        (v) => (v.hookText && v.hookText === trimmedHook) || v.draft.trim().startsWith(trimmedHook)
+      );
+
+      if (existingIdx !== -1) {
+        return { nextVersions: versions, nextActiveIdx: existingIdx };
+      }
+
+      // 2. Otherwise, construct updated draft and add version (capped at MAX_DRAFTS)
+      const updatedDraft = `${trimmedHook}\n\n${baseBody.trimStart()}`;
+
+      let baseHistory = versions.slice(0, activeIdx + 1);
+      if (baseHistory.length >= MAX_DRAFTS) {
+        baseHistory = baseHistory.slice(0, MAX_DRAFTS - 1);
+      }
+
+      const nextNum = baseHistory.length + 1;
+      const newVersion: DraftVersion = {
+        id: `v${nextNum}-${Date.now()}`,
+        versionNumber: nextNum,
+        draft: updatedDraft,
+        label: `v${nextNum}`,
+        changeNote: `Hook: ${hookType}`,
+        timestamp: Date.now(),
+        hookText: trimmedHook,
+      };
+
+      const nextVersions = [...baseHistory, newVersion];
+      return { nextVersions, nextActiveIdx: nextVersions.length - 1 };
+    }
+
+    test("maps 3 hooks to at most 3 draft versions without creating infinite drafts", () => {
+      const hook1 = "We reduced microservice latency by 45% with one adjustment.";
+      const hook2 = "Most industry advice on microservices is completely wrong.";
+      const hook3 = "Last week an edge case stalled our core microservices.";
+      const body = "Here is the architectural teardown:\n1. Async events\n2. Circuit breakers";
+
+      // Initial draft is created with Hook 1 (v1)
+      let versions: DraftVersion[] = [
+        {
+          id: "v1",
+          versionNumber: 1,
+          draft: `${hook1}\n\n${body}`,
+          label: "v1",
+          changeNote: "Initial Draft (Metric)",
+          timestamp: 1000,
+          hookText: hook1,
+        },
+      ];
+      let activeIdx = 0;
+
+      // User clicks Hook 2 -> creates v2 (total drafts = 2)
+      let res = handleApplyHookSimulation(versions, activeIdx, hook2, "contrarian", body);
+      versions = res.nextVersions;
+      activeIdx = res.nextActiveIdx;
+      expect(versions).toHaveLength(2);
+      expect(activeIdx).toBe(1);
+      expect(versions[1].draft.startsWith(hook2)).toBe(true);
+
+      // User clicks Hook 3 -> creates v3 (total drafts = 3)
+      res = handleApplyHookSimulation(versions, activeIdx, hook3, "incident", body);
+      versions = res.nextVersions;
+      activeIdx = res.nextActiveIdx;
+      expect(versions).toHaveLength(3);
+      expect(activeIdx).toBe(2);
+      expect(versions[2].draft.startsWith(hook3)).toBe(true);
+
+      // User clicks Hook 1 again -> switches to v1 (index 0), DOES NOT create v4!
+      res = handleApplyHookSimulation(versions, activeIdx, hook1, "metric", body);
+      versions = res.nextVersions;
+      activeIdx = res.nextActiveIdx;
+      expect(versions).toHaveLength(3);
+      expect(activeIdx).toBe(0);
+
+      // User clicks Hook 2 again -> switches to v2 (index 1), DOES NOT create v5!
+      res = handleApplyHookSimulation(versions, activeIdx, hook2, "contrarian", body);
+      versions = res.nextVersions;
+      activeIdx = res.nextActiveIdx;
+      expect(versions).toHaveLength(3);
+      expect(activeIdx).toBe(1);
+
+      // User clicks Hook 3 again -> switches to v3 (index 2), DOES NOT create v6!
+      res = handleApplyHookSimulation(versions, activeIdx, hook3, "incident", body);
+      versions = res.nextVersions;
+      activeIdx = res.nextActiveIdx;
+      expect(versions).toHaveLength(3);
+      expect(activeIdx).toBe(2);
+
+      // Simulating 50 alternating clicks across the 3 hooks:
+      const sequence = [hook1, hook2, hook3, hook2, hook1, hook3, hook1, hook2];
+      for (const h of sequence) {
+        res = handleApplyHookSimulation(versions, activeIdx, h, "tested", body);
+        versions = res.nextVersions;
+        activeIdx = res.nextActiveIdx;
+      }
+
+      // Total drafts is STILL strictly 3!
+      expect(versions).toHaveLength(3);
+    });
+  });
 });

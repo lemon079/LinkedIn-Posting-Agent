@@ -93,10 +93,33 @@ export default function Home() {
     threadId: threadId || undefined,
     alternativeHooks,
     onDraftReceived: (draft, _steps, tId, changeNote, altHooks) => {
-      setDraftText(draft);
+      let finalDraft = draft;
+      let hook1Text: string | undefined;
+      if (altHooks && altHooks.length > 0) {
+        setAlternativeHooks(altHooks);
+        hook1Text = altHooks[0].hook.trim();
+        if (!finalDraft.trim().startsWith(hook1Text)) {
+          const doubleBreakIdx = finalDraft.indexOf("\n\n");
+          let rest = "";
+          if (doubleBreakIdx !== -1) {
+            rest = finalDraft.slice(doubleBreakIdx + 2);
+          } else {
+            const singleBreakIdx = finalDraft.indexOf("\n");
+            if (singleBreakIdx !== -1) {
+              rest = finalDraft.slice(singleBreakIdx + 1);
+            }
+          }
+          finalDraft = rest ? `${hook1Text}\n\n${rest.trimStart()}` : hook1Text;
+        }
+      }
+      setDraftText(finalDraft);
       if (tId) localStorage.setItem("praxis_thread_id", tId);
-      if (altHooks && altHooks.length > 0) setAlternativeHooks(altHooks);
-      addDraftVersion(draft, changeNote, altHooks);
+      addDraftVersion(
+        finalDraft,
+        changeNote || (altHooks?.[0] ? `Initial Draft (${altHooks[0].type})` : "Initial Draft"),
+        altHooks,
+        hook1Text
+      );
     },
   });
 

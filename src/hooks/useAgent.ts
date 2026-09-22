@@ -174,20 +174,51 @@ export function useAgent() {
     }
   }, [draftVersions, activeVersionIndex, threadId, settings.isHydrated]);
 
+  const MAX_DRAFTS = 3;
+
   const addDraftVersion = useCallback(
-    (text: string, changeNote?: string, hooks?: HookOption[]) => {
+    (text: string, changeNote?: string, hooks?: HookOption[], hookText?: string) => {
+      const trimmedText = text.trim();
+      const trimmedHook = hookText?.trim();
+
       setDraftVersions((prev) => {
-        // Linear history model:
-        // If user navigated back to an earlier version (activeVersionIndex < prev.length - 1),
-        // we branch from that active version and truncate all forward history (like Figma / code editors).
+        // If identical to active version, do not duplicate
+        if (
+          activeVersionIndex >= 0 &&
+          activeVersionIndex < prev.length &&
+          prev[activeVersionIndex].draft.trim() === trimmedText
+        ) {
+          return prev;
+        }
+
+        // 1. Check if a draft with this hookText already exists in prev
+        if (trimmedHook) {
+          const existingHookIdx = prev.findIndex(
+            (v) => (v.hookText && v.hookText === trimmedHook) || v.draft.trim().startsWith(trimmedHook)
+          );
+          if (existingHookIdx !== -1) {
+            setActiveVersionIndex(existingHookIdx);
+            return prev;
+          }
+        }
+
+        // 2. Check if a draft with exact same text exists in prev
+        const existingTextIdx = prev.findIndex((v) => v.draft.trim() === trimmedText);
+        if (existingTextIdx !== -1) {
+          setActiveVersionIndex(existingTextIdx);
+          return prev;
+        }
+
+        // 3. Linear history model: branch from current active version
         const validIndex =
           activeVersionIndex >= 0 && activeVersionIndex < prev.length
             ? activeVersionIndex
             : prev.length - 1;
-        const baseHistory = prev.slice(0, validIndex + 1);
+        let baseHistory = prev.slice(0, validIndex + 1);
 
-        if (baseHistory.length > 0 && baseHistory[baseHistory.length - 1].draft.trim() === text.trim()) {
-          return prev;
+        // Strict cap of MAX_DRAFTS (3):
+        if (baseHistory.length >= MAX_DRAFTS) {
+          baseHistory = baseHistory.slice(0, MAX_DRAFTS - 1);
         }
 
         const nextVersionNumber = baseHistory.length + 1;
@@ -200,6 +231,7 @@ export function useAgent() {
           timestamp: Date.now(),
           alternativeHooks:
             hooks ?? (baseHistory.length > 0 ? baseHistory[baseHistory.length - 1].alternativeHooks : undefined),
+          hookText: trimmedHook,
         };
 
         const next = [...baseHistory, newVersion];
@@ -355,12 +387,38 @@ export function useAgent() {
               return next;
             });
           } else if (event.type === "final") {
-            setStreamingText(event.draft);
-            setReasoningSteps(event.reasoningSteps || []);
-            if (event.alternativeHooks && event.alternativeHooks.length > 0) {
-              setAlternativeHooks(event.alternativeHooks);
+            let effectiveDraft = event.draft;
+            let hook1Text: string | undefined;
+            const hooksToUse =
+              event.alternativeHooks && event.alternativeHooks.length > 0
+                ? event.alternativeHooks
+                : alternativeHooks;
+            if (hooksToUse && hooksToUse.length > 0) {
+              setAlternativeHooks(hooksToUse);
+              hook1Text = hooksToUse[0].hook.trim();
+              if (!effectiveDraft.trim().startsWith(hook1Text)) {
+                const doubleBreakIdx = effectiveDraft.indexOf("\n\n");
+                let rest = "";
+                if (doubleBreakIdx !== -1) {
+                  rest = effectiveDraft.slice(doubleBreakIdx + 2);
+                } else {
+                  const singleBreakIdx = effectiveDraft.indexOf("\n");
+                  if (singleBreakIdx !== -1) {
+                    rest = effectiveDraft.slice(singleBreakIdx + 1);
+                  }
+                }
+                effectiveDraft = rest ? `${hook1Text}\n\n${rest.trimStart()}` : hook1Text;
+              }
             }
-            addDraftVersion(event.draft, event.changeNote);
+            setStreamingText(effectiveDraft);
+            setDraftText(effectiveDraft);
+            setReasoningSteps(event.reasoningSteps || []);
+            addDraftVersion(
+              effectiveDraft,
+              event.changeNote || (hooksToUse?.[0] ? `Initial Draft (${hooksToUse[0].type})` : undefined),
+              hooksToUse,
+              hook1Text
+            );
           } else if (event.type === "alternative_hooks") {
             setAlternativeHooks(event.hooks);
           } else if (event.type === "error") {
@@ -487,6 +545,24 @@ export function useAgent() {
     const current = draftText || streamingText;
     if (!current) return;
 
+    const trimmedNewHook = newHook.trim();
+
+    // 1. Check if a draft version for this hook already exists in draftVersions
+    const existingIndex = draftVersions.findIndex(
+      (v) => (v.hookText && v.hookText === trimmedNewHook) || v.draft.trim().startsWith(trimmedNewHook)
+    );
+
+    if (existingIndex !== -1) {
+      setActiveVersionIndex(existingIndex);
+      const existing = draftVersions[existingIndex];
+      setDraftText(existing.draft);
+      if (existing.alternativeHooks && existing.alternativeHooks.length > 0) {
+        setAlternativeHooks(existing.alternativeHooks);
+      }
+      return;
+    }
+
+    // 2. Otherwise, construct updated draft by swapping opening hook
     const doubleBreakIdx = current.indexOf("\n\n");
     let rest = "";
     if (doubleBreakIdx !== -1) {
@@ -498,12 +574,15 @@ export function useAgent() {
       }
     }
 
-    const updated = rest ? `${newHook.trim()}\n\n${rest.trimStart()}` : newHook.trim();
+    const updated = rest ? `${trimmedNewHook}\n\n${rest.trimStart()}` : trimmedNewHook;
     setDraftText(updated);
     if (streamingText !== null) {
       setStreamingText(null);
     }
-    addDraftVersion(updated, "Swapped Hook via Hook Lab", alternativeHooks);
+
+    const hookObj = alternativeHooks.find((h) => h.hook.trim() === trimmedNewHook);
+    const hookLabel = hookObj ? `Hook: ${hookObj.type}` : "Swapped Hook via Hook Lab";
+    addDraftVersion(updated, hookLabel, alternativeHooks, trimmedNewHook);
   };
 
   const handleDismissError = () => {
