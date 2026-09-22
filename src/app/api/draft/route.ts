@@ -11,6 +11,9 @@ import { classifyIntent } from "@/modules/agent/core/intent";
 import { refineDraft, critiqueDraft } from "@/modules/agent/nodes";
 import type { State } from "@/modules/agent/core/state";
 
+// ── Vercel Streaming Function Config ─────────────────────────────────────
+export const maxDuration = 60; // seconds — matches the global latency budget below
+
 // ── Node name → user-facing step title mapping ──────────────────────────
 const NODE_TITLES: Record<string, string> = {
   analyzeIntake: "Analyzing Your Input",
@@ -40,6 +43,10 @@ function parseErrorInfo(rawError: string): {
     code = "MODEL_OVERLOADED";
   } else if (err.includes("timed out") || err.includes("timeout")) {
     code = "TIMEOUT";
+  } else if (err.includes("guardrail violation") || err.includes("flagged as unsafe")) {
+    code = "CONTENT_UNSAFE";
+  } else if (err.includes("safety service unavailable")) {
+    code = "SAFETY_SERVICE_UNAVAILABLE";
   } else if (err.includes("unauthorized") || err.includes("401") || err.includes("api_key") || err.includes("forbidden")) {
     code = "AUTH_ERROR";
   }
@@ -159,7 +166,7 @@ export async function POST(request: Request) {
       hasApiKey: Boolean(apiKey),
     });
 
-    const deadlineTimestamp = startTime + 35_000; // 35s hard latency budget ceiling
+    const deadlineTimestamp = startTime + 60_000; // 60s hard latency budget ceiling
 
     const threadId = incomingThreadId || Date.now().toString();
     const threadConfig = {

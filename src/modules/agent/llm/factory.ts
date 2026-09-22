@@ -71,10 +71,14 @@ export const createBaseLLM = (opts: LLMOptions = {}) => {
 
     case "gemini":
     default: {
+      // Belt-and-suspenders: explicitly disable thinking when 0 is passed,
+      // and enable with a token budget when a positive value is provided.
       const googleThinking =
-        opts.maxReasoningTokens && opts.maxReasoningTokens > 0
+        opts.maxReasoningTokens !== undefined && opts.maxReasoningTokens > 0
           ? { maxReasoningTokens: opts.maxReasoningTokens }
-          : {};
+          : opts.maxReasoningTokens === 0
+            ? { thinkingConfig: { thinkingBudget: 0, includeThoughts: false } }
+            : {};
 
       return new ChatGoogle({
         model: normalizedModel || "gemini-3.7-flash",
@@ -144,10 +148,10 @@ export const createLLM = (opts: LLMOptions = {}) => {
     llmProvider === "gemini"
       ? "gemini-3.7-flash"
       : llmProvider === "openai"
-      ? "gpt-4o"
-      : llmProvider === "anthropic"
-      ? "claude-3-5-sonnet-latest"
-      : "";
+        ? "gpt-4o"
+        : llmProvider === "anthropic"
+          ? "claude-3-5-sonnet-latest"
+          : "";
   const currentModel = normalizedModel || defaultModel;
 
   if (llmProvider === "openai" && currentModel !== "gpt-4o-mini") {
@@ -292,7 +296,7 @@ export const createCriticLLM = (opts: LLMOptions = {}) => {
           return primaryStructured.withFallbacks(fallbackStructured);
         }
         return primaryStructured;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       }) as any;
     }
   }

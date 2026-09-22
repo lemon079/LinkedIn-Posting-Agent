@@ -44,13 +44,22 @@ export async function handleAgentError(
 
   // Guardrail errors MUST FAIL CLOSED — never sanitize or bypass safety checks
   if (failedNode === "runGuardrails" || failedNode === "guardrail") {
+    // Distinguish genuine content violations from safety service unavailability.
+    // Both remain fail-closed, but the surfaced error message must not mislead.
+    const isContentViolation = rawError.includes("Guardrail violation");
+    const isServiceUnavailable = rawError.includes("Safety service unavailable");
+
     log.error(`guardrail_fail_closed`, {
       reason: "Guardrail errors are strictly fail-closed and cannot be bypassed by error recovery",
+      classification: isContentViolation ? "CONTENT_UNSAFE" : isServiceUnavailable ? "SAFETY_SERVICE_UNAVAILABLE" : "GUARDRAIL_UNKNOWN",
       failedNode,
       error: rawError,
     });
+
+    // Preserve the original guardrail error message — it already contains
+    // the correct user-facing text from the guardrail node.
     return {
-      error: rawError.includes("Guardrail violation")
+      error: isContentViolation || isServiceUnavailable
         ? rawError
         : `Safety guardrail check failed: ${rawError}. Content blocked.`,
       failedNode: "runGuardrails",

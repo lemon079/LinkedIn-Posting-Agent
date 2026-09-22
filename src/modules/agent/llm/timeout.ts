@@ -6,15 +6,25 @@ export const CRITIC_TIMEOUT_MS = 8000;
 export const REFINE_TIMEOUT_MS = 12000;
 export const GUARDRAIL_TIMEOUT_MS = 5000;
 
+/**
+ * Minimum viable timeout for any downstream LLM call.
+ * Even when the global deadline is exhausted, we still grant this much time
+ * so that lightweight safety/critique calls have a real chance to succeed
+ * rather than being starved to an impossible 1s window.
+ */
+export const MIN_VIABLE_LLM_TIMEOUT_MS = 3500;
+
 export function getRemainingTimeoutMs(
   deadlineTimestamp?: number | null,
-  fallbackTimeoutMs: number = DEFAULT_LLM_TIMEOUT_MS
+  fallbackTimeoutMs: number = DEFAULT_LLM_TIMEOUT_MS,
+  minTimeoutMs: number = MIN_VIABLE_LLM_TIMEOUT_MS
 ): number {
   if (!deadlineTimestamp) return fallbackTimeoutMs;
   const remaining = deadlineTimestamp - Date.now() - 1000; // 1s safety margin
-  if (remaining <= 1000) return 1000;
+  if (remaining <= minTimeoutMs) return minTimeoutMs;
   return Math.min(fallbackTimeoutMs, remaining);
 }
+
 
 export function isTransientLLMError(error: unknown): boolean {
   if (!error) return false;

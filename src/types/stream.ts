@@ -65,6 +65,8 @@ export type StreamErrorCode =
   | "MODEL_OVERLOADED"
   | "AUTH_ERROR"
   | "TIMEOUT"
+  | "CONTENT_UNSAFE"
+  | "SAFETY_SERVICE_UNAVAILABLE"
   | "UNKNOWN";
 
 export interface ErrorStreamEvent {

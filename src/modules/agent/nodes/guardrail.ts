@@ -1,7 +1,7 @@
 import { HumanMessage } from "@langchain/core/messages";
 import { createLLM } from "../llm/factory";
 import type { State } from "../core/state";
-import { invokeWithRetryAndTimeout, GUARDRAIL_TIMEOUT_MS } from "../llm/timeout";
+import { invokeWithRetryAndTimeout, GUARDRAIL_TIMEOUT_MS, MIN_VIABLE_LLM_TIMEOUT_MS, getRemainingTimeoutMs } from "../llm/timeout";
 import { logger } from "@/lib/logger";
 import type { LangChainMessageBlock } from "@/types";
 
@@ -78,15 +78,22 @@ Respond with only 'SAFE' or 'UNSAFE'.
 Response: ${contentToReview}`;
 
   // 2. Primary LLM safety evaluation with quick retry
+  // Guarantee at least MIN_VIABLE_LLM_TIMEOUT_MS so the guardrail is never
+  // starved to an impossible window when the global budget is exhausted.
+  const guardrailTimeout = Math.max(
+    getRemainingTimeoutMs(state.deadlineTimestamp, GUARDRAIL_TIMEOUT_MS),
+    MIN_VIABLE_LLM_TIMEOUT_MS
+  );
+
   try {
     const primaryLlm = createLLM(getLLMOpts(state, config));
     const res = await invokeWithRetryAndTimeout(
       (signal) => primaryLlm.invoke([new HumanMessage(safetyPrompt)], { signal }),
       {
-        timeoutMs: GUARDRAIL_TIMEOUT_MS,
+        timeoutMs: guardrailTimeout,
         maxRetries: 1,
         initialDelayMs: 300,
-        deadlineTimestamp: state.deadlineTimestamp,
+        deadlineTimestamp: null, // Use our own guardrailTimeout ceiling, not the global deadline
         onRetry: (attempt, err) => {
           log.warn(`Guardrail primary check retry scheduled`, {
             attempt,
@@ -145,9 +152,9 @@ Response: ${contentToReview}`;
       const fallbackRes = await invokeWithRetryAndTimeout(
         (signal) => secondaryLlm.invoke([new HumanMessage(safetyPrompt)], { signal }),
         {
-          timeoutMs: Math.min(4000, GUARDRAIL_TIMEOUT_MS),
+          timeoutMs: Math.max(Math.min(4000, GUARDRAIL_TIMEOUT_MS), MIN_VIABLE_LLM_TIMEOUT_MS),
           maxRetries: 0,
-          deadlineTimestamp: state.deadlineTimestamp,
+          deadlineTimestamp: null, // Use our own timeout ceiling, not the global deadline
         }
       );
 
@@ -192,7 +199,7 @@ Response: ${contentToReview}`;
       });
 
       return {
-        error: `Content safety check failed: Safety evaluation service is temporarily unavailable. Content blocked for compliance.`,
+        error: `Safety service unavailable: Safety evaluation service is temporarily unreachable. Please try again in a moment.`,
         failedNode: "runGuardrails",
         lastFailedNode: "runGuardrails",
       };

@@ -496,7 +496,7 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
       };
 
       const result = await runGuardrails(stateToReview);
-      expect(result.error).toContain("Safety evaluation service is temporarily unavailable");
+      expect(result.error).toContain("Safety service unavailable");
       expect(result.failedNode).toBe("runGuardrails");
     });
 

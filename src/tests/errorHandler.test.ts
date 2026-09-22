@@ -132,13 +132,28 @@ describe("handleAgentError (Error Agent Node)", () => {
       ...baseState,
       draft: "Here is a LinkedIn post for you:\n\nSome post content that had a guardrail outage.",
       failedNode: "runGuardrails",
-      error: "Safety evaluation service is temporarily unavailable",
+      error: "Safety service unavailable: Safety evaluation service is temporarily unreachable. Please try again in a moment.",
     };
 
     const result = await handleAgentError(state);
     // MUST NOT clear error to null
     expect(result.error).toBeDefined();
-    expect(result.error).toContain("Safety guardrail check failed");
+    // Now preserves the original "Safety service unavailable" message
+    expect(result.error).toContain("Safety service unavailable");
+    expect(result.failedNode).toBe("runGuardrails");
+  });
+
+  test("strictly fails closed on content violation guardrail errors", async () => {
+    const state: State = {
+      ...baseState,
+      draft: "Some harmful content",
+      failedNode: "runGuardrails",
+      error: "Guardrail violation: The generated content was flagged as UNSAFE.",
+    };
+
+    const result = await handleAgentError(state);
+    expect(result.error).toBeDefined();
+    expect(result.error).toContain("Guardrail violation");
     expect(result.failedNode).toBe("runGuardrails");
   });
 
