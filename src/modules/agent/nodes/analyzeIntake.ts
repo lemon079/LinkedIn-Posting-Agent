@@ -75,11 +75,37 @@ export async function analyzeIntake(state: State, config?: RunnableConfig): Prom
         ? userDomain
         : intake.domain || inferDomain(topic, context);
 
+    // Heuristic detection of topic intent to prevent Auto-Select from fabricating incidents:
+    const combinedText = `${topic} ${context}`.toLowerCase();
+    const isHiring = /\b(?:hiring|we'?re hiring|job opening|recruiting|open role|looking for a|join our team|talent)\b/i.test(combinedText);
+    const isDefinitionalOrExplainer =
+      /^(?:who|what|why|how|when)\s+(?:is|are|does|do|should)\b/i.test(topic.trim()) ||
+      /\b(?:who is an?|what is an?|difference between|overview of|guide to|deep dive into|demystifying)\b/i.test(topic) ||
+      !/(?:outage|incident|downtime|crashed|broke|latency spike|post-mortem|failure|bug|root cause)\b/i.test(combinedText);
+
     // If the user specified an explicit archetype preference (other than 'auto'), respect it over model inference
-    const resolvedArchetype =
+    let resolvedArchetype =
       userArchetype && userArchetype !== "auto"
         ? userArchetype
         : intake.archetype || "auto";
+
+    // Auto-Select Guardrails:
+    if (!userArchetype || userArchetype === "auto") {
+      if (isHiring) {
+        resolvedArchetype = "hiring";
+      } else if (resolvedArchetype === "teardown" && isDefinitionalOrExplainer) {
+        // Prevent definitional questions (e.g. "who is a forward deployed engineer?")
+        // from being forced into Incident Teardown, which fabricates fake incidents
+        log.info(`Auto-Select corrected definitional topic from teardown to breakdown`, {
+          topic,
+          originalArchetype: resolvedArchetype,
+          correctedArchetype: "breakdown",
+        });
+        resolvedArchetype = "breakdown";
+      } else if (resolvedArchetype === "auto") {
+        resolvedArchetype = isDefinitionalOrExplainer ? "breakdown" : "framework";
+      }
+    }
 
     // If the user specified an explicit tone preference, respect it over model inference
     const resolvedTone =
@@ -93,7 +119,6 @@ export async function analyzeIntake(state: State, config?: RunnableConfig): Prom
       archetype: resolvedArchetype as IntakeAnalysis["archetype"],
       tone: resolvedTone as IntakeAnalysis["tone"],
     };
-
 
     const durationMs = Date.now() - startTime;
     log.info(`Intake analysis completed`, {
@@ -125,10 +150,19 @@ export async function analyzeIntake(state: State, config?: RunnableConfig): Prom
 
     const fallbackAngle = inferAngle(topic, context, fallbackDomain);
 
+    const isHiringFallback = /\b(?:hiring|we'?re hiring|job opening|recruiting|open role|looking for a|join our team)\b/i.test(topic + " " + context);
+    const isDefinitionalFallback =
+      /^(?:who|what|why|how|when)\s+(?:is|are|does|do|should)\b/i.test(topic.trim()) ||
+      /\b(?:who is an?|what is an?|difference between|overview of|guide to)\b/i.test(topic);
+
     const fallbackArchetype =
       userArchetype && userArchetype !== "auto"
         ? userArchetype
-        : "auto";
+        : isHiringFallback
+          ? "hiring"
+          : isDefinitionalFallback
+            ? "breakdown"
+            : "framework";
 
     const fallbackTone =
       userTone && userTone.trim()

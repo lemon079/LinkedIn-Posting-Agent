@@ -23,6 +23,7 @@ export const ARCHETYPE_OPTIONS = [
   "framework",
   "breakdown",
   "comparison",
+  "hiring",
 ] as const;
 
 /**
@@ -77,7 +78,7 @@ export const CritiqueResult = z.object({
 
 export const HookOptionSchema = z.object({
   type: z
-    .enum(["metric", "contrarian", "incident", "curiosity", "question"])
+    .enum(["metric", "contrarian", "incident", "curiosity", "question", "hiring"])
     .describe("The archetype or psychological angle of the hook"),
   hook: z
     .string()
