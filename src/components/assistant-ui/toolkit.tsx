@@ -1,11 +1,9 @@
-"use generative";
-
-import { defineToolkit, externalTool } from "@assistant-ui/react";
+import { defineToolkit } from "@assistant-ui/react";
 import { WebSearch, type WebSearchResult } from "./web-search";
 
 export const toolkit = defineToolkit({
   web_search: {
-    execute: externalTool(),
+    type: "backend",
     render: ({ args, result, status }) => {
       const searchArgs = (args as { query?: string } | undefined) ?? {};
       const searchResult = result as { results?: WebSearchResult[] } | undefined;
