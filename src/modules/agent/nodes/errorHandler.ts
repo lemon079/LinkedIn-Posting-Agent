@@ -249,7 +249,10 @@ Rules:
       generatedText = generatedText.replace(/\[\/?DRAFT\]/gi, "").trim();
 
       if (generatedText.length > 30) {
-        log.info(`Error Agent successfully generated emergency fallback draft`);
+        log.info(`Error Agent successfully generated emergency fallback draft`, {
+          servingProvider: "Error Agent emergency synthesis",
+          provider: state.llmProvider || "gemini",
+        });
         return {
           error: null,
           failedNode: null,
@@ -257,6 +260,7 @@ Rules:
           draft: generatedText,
           postContent: generatedText,
           bestDraft: generatedText,
+          servingProvider: "Error Agent emergency synthesis",
           errorRecoveryCount: currentTotal,
           nodeRecoveryCounts: nodeCounts,
         };

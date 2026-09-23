@@ -1,12 +1,22 @@
 import { z } from "zod";
 import { HumanMessage } from "@langchain/core/messages";
 import { getSystemPrompt } from "../core/prompts";
-import { createLLM } from "../llm/factory";
 import type { State } from "../core/state";
 import { HookOptionSchema, type HookOption } from "../core/schemas";
 import { DOMAINS } from "../core/domains";
 import { getRecentHooks, addHook } from "@/modules/user/history";
-import { invokeWithTimeout, DRAFT_TIMEOUT_MS, FALLBACK_DRAFT_TIMEOUT_MS } from "../llm/timeout";
+import {
+  invokeWithTimeout,
+  DRAFT_TIMEOUT_MS,
+  FALLBACK_DRAFT_TIMEOUT_MS,
+  CROSS_PROVIDER_DRAFT_TIMEOUT_MS,
+} from "../llm/timeout";
+import {
+  createLLM,
+  getCrossProviderFallback,
+  createCrossProviderFallbackLLM,
+  detectServingProvider,
+} from "../llm/factory";
 import { logger } from "@/lib/logger";
 import type { LangChainMessageBlock } from "@/types";
 
@@ -211,32 +221,69 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
     }
 
     const hooks = extractAlternativeHooks(response.content, topicLine, domainKey);
+    const serving = detectServingProvider(response, state.llmProvider || "gemini");
 
     const durationMs = Date.now() - startTime;
     log.info(`Initial draft generated`, {
+      servingProvider: serving.servingProvider,
+      provider: serving.provider,
+      model: serving.model,
       draftLengthChars: rawDraft.length,
       alternativeHooksCount: hooks.length,
       durationMs,
     });
 
-    return { draft: rawDraft, postContent: rawDraft, alternativeHooks: hooks, failedNode: null };
+    return {
+      draft: rawDraft,
+      postContent: rawDraft,
+      alternativeHooks: hooks,
+      servingProvider: serving.servingProvider,
+      failedNode: null,
+    };
   } catch (primaryError: unknown) {
     const primaryDurationMs = Date.now() - startTime;
     const primaryMsg =
       primaryError instanceof Error ? primaryError.message : "Primary LLM draft error";
 
-    log.warn(`Primary draft generation failed or timed out, initiating fast fallback`, {
+    log.warn(`Primary draft generation failed or timed out, initiating fallback`, {
       error: primaryMsg,
       durationMs: primaryDurationMs,
     });
 
-    // ── 2. Fallback Attempt (fast non-reasoning mode) ───────────────────────
+    // ── 2. Fallback Attempt (cross-provider or fast same-provider) ───────────
     try {
-      const fallbackLlm = createLLM(getLLMOpts(state, config, 0));
+      const llmOpts = getLLMOpts(state, config, 0);
+      const crossCandidate = getCrossProviderFallback(state.llmProvider || "gemini", llmOpts);
+      let fallbackLlm;
+      let fallbackTimeout = FALLBACK_DRAFT_TIMEOUT_MS;
+      let fallbackLabel = "same-provider fallback";
+      let servingProviderName = state.llmProvider || "gemini";
+      let servingModelName: string | undefined;
+
+      if (crossCandidate) {
+        const created = createCrossProviderFallbackLLM(llmOpts);
+        if (created) {
+          fallbackLlm = created.llm;
+          fallbackTimeout = CROSS_PROVIDER_DRAFT_TIMEOUT_MS;
+          fallbackLabel = "cross-provider fallback";
+          servingProviderName = created.provider;
+          servingModelName = created.model;
+        }
+      }
+
+      if (!fallbackLlm) {
+        log.warn("No cross-provider fallback available; attempting fast same-provider fallback", {
+          primaryProvider: state.llmProvider || "gemini",
+        });
+        fallbackLlm = createLLM(llmOpts);
+        fallbackTimeout = FALLBACK_DRAFT_TIMEOUT_MS;
+        fallbackLabel = "same-provider fallback";
+      }
+
       const fallbackController = new AbortController();
       const fallbackResponse = await invokeWithTimeout(
         fallbackLlm.invoke([new HumanMessage(prompt)], { signal: fallbackController.signal }),
-        FALLBACK_DRAFT_TIMEOUT_MS,
+        fallbackTimeout,
         fallbackController
       );
 
@@ -256,13 +303,22 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
       const fallbackHooks = extractAlternativeHooks(fallbackResponse.content, topicLine, domainKey);
 
       const totalDurationMs = Date.now() - startTime;
-      log.info(`Draft generated successfully via fast fallback`, {
+      log.info(`Draft generated successfully via ${fallbackLabel}`, {
+        servingProvider: fallbackLabel,
+        provider: servingProviderName,
+        model: servingModelName,
         draftLengthChars: fallbackDraft.length,
         alternativeHooksCount: fallbackHooks.length,
         durationMs: totalDurationMs,
       });
 
-      return { draft: fallbackDraft, postContent: fallbackDraft, alternativeHooks: fallbackHooks, failedNode: null };
+      return {
+        draft: fallbackDraft,
+        postContent: fallbackDraft,
+        alternativeHooks: fallbackHooks,
+        servingProvider: fallbackLabel,
+        failedNode: null,
+      };
     } catch (fallbackError: unknown) {
       const totalDurationMs = Date.now() - startTime;
       const finalMsg =

@@ -1,7 +1,13 @@
 import { HumanMessage } from "@langchain/core/messages";
-import { createLLM } from "../llm/factory";
+import { createLLM, getCrossProviderFallback, createCrossProviderFallbackLLM } from "../llm/factory";
 import type { State } from "../core/state";
-import { invokeWithRetryAndTimeout, GUARDRAIL_TIMEOUT_MS, MIN_VIABLE_LLM_TIMEOUT_MS, getRemainingTimeoutMs } from "../llm/timeout";
+import {
+  invokeWithRetryAndTimeout,
+  GUARDRAIL_TIMEOUT_MS,
+  CROSS_PROVIDER_GUARDRAIL_TIMEOUT_MS,
+  MIN_VIABLE_LLM_TIMEOUT_MS,
+  getRemainingTimeoutMs,
+} from "../llm/timeout";
 import { logger } from "@/lib/logger";
 import type { LangChainMessageBlock } from "@/types";
 
@@ -128,8 +134,12 @@ Response: ${contentToReview}`;
       };
     }
 
-    log.info(`Content passed safety evaluation`, { durationMs });
-    return { failedNode: null };
+    log.info(`Content passed safety evaluation`, {
+      servingProvider: "primary",
+      provider: state.llmProvider || "gemini",
+      durationMs,
+    });
+    return { servingProvider: "primary", failedNode: null };
   } catch (primaryError: unknown) {
     const primaryMsg =
       primaryError instanceof Error ? primaryError.message : "Primary guardrail evaluation failed";
@@ -141,18 +151,40 @@ Response: ${contentToReview}`;
       durationMs: Date.now() - startTime,
     });
 
-    // 3. Secondary fast model fallback
+    // 3. Secondary fast model fallback (cross-provider if available, or fast same-provider)
     try {
-      const fallbackModel =
-        state.llmProvider === "gemini" || !state.llmProvider
-          ? "gemini-2.5-flash"
-          : undefined;
-      const secondaryLlm = createLLM(getLLMOpts(state, config, fallbackModel));
+      const llmOpts = getLLMOpts(state, config);
+      const crossCandidate = getCrossProviderFallback(state.llmProvider || "gemini", llmOpts);
+      let secondaryLlm;
+      let fallbackLabel = "same-provider fallback";
+      let servingProviderName = state.llmProvider || "gemini";
+      let timeoutMs = Math.max(Math.min(4000, GUARDRAIL_TIMEOUT_MS), MIN_VIABLE_LLM_TIMEOUT_MS);
+
+      if (crossCandidate) {
+        const created = createCrossProviderFallbackLLM(llmOpts);
+        if (created) {
+          secondaryLlm = created.llm;
+          fallbackLabel = "cross-provider fallback";
+          servingProviderName = created.provider;
+          timeoutMs = CROSS_PROVIDER_GUARDRAIL_TIMEOUT_MS;
+        }
+      }
+
+      if (!secondaryLlm) {
+        log.warn("No cross-provider fallback available for guardrails; attempting same-provider fallback", {
+          primaryProvider: state.llmProvider || "gemini",
+        });
+        const fallbackModel =
+          state.llmProvider === "gemini" || !state.llmProvider
+            ? "gemini-2.5-flash"
+            : undefined;
+        secondaryLlm = createLLM(getLLMOpts(state, config, fallbackModel));
+      }
 
       const fallbackRes = await invokeWithRetryAndTimeout(
         (signal) => secondaryLlm.invoke([new HumanMessage(safetyPrompt)], { signal }),
         {
-          timeoutMs: Math.max(Math.min(4000, GUARDRAIL_TIMEOUT_MS), MIN_VIABLE_LLM_TIMEOUT_MS),
+          timeoutMs,
           maxRetries: 0,
           deadlineTimestamp: null, // Use our own timeout ceiling, not the global deadline
         }
@@ -183,8 +215,12 @@ Response: ${contentToReview}`;
         };
       }
 
-      log.info(`Content passed safety evaluation via secondary model`, { durationMs });
-      return { failedNode: null };
+      log.info(`Content passed safety evaluation via secondary model`, {
+        servingProvider: fallbackLabel,
+        provider: servingProviderName,
+        durationMs,
+      });
+      return { servingProvider: fallbackLabel, failedNode: null };
     } catch (fallbackError: unknown) {
       const totalDurationMs = Date.now() - startTime;
       const finalMsg =

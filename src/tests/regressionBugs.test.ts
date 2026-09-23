@@ -168,11 +168,13 @@ describe("Regression Bug Fixes (Bugs 1-5)", () => {
   // Bug 2 & 5: generateDraft Timeouts & Latency Reduction
   // ──────────────────────────────────────────────────────────────────────────
   describe("Bug 2 & 5: Timeouts and Latency Guarantees", () => {
-    test("draft timeouts provide realistic headroom preventing false timeouts", () => {
-      // Primary draft timeout must be at least 30s
-      expect(DRAFT_TIMEOUT_MS).toBeGreaterThanOrEqual(30000);
-      // Fallback draft timeout must be at least 20s
-      expect(FALLBACK_DRAFT_TIMEOUT_MS).toBeGreaterThanOrEqual(20000);
+    test("draft timeouts provide realistic headroom while preventing 50s cascade", () => {
+      // Primary draft timeout is rebalanced to 18s
+      expect(DRAFT_TIMEOUT_MS).toBe(18000);
+      // Fallback draft timeout is rebalanced to 10s
+      expect(FALLBACK_DRAFT_TIMEOUT_MS).toBe(10000);
+      // Combined worst-case draft generation latency is capped at ~28s (down from 50s)
+      expect(DRAFT_TIMEOUT_MS + FALLBACK_DRAFT_TIMEOUT_MS).toBeLessThanOrEqual(30000);
     });
 
     test("normalizeProvider maps google and gemini uniformly", () => {
@@ -191,10 +193,10 @@ describe("Regression Bug Fixes (Bugs 1-5)", () => {
   // ──────────────────────────────────────────────────────────────────────────
   describe("Bug 3: critiqueDraft Structured Output & Timeout Floor", () => {
     test("critic timeout and minimum viable timeout floors prevent starvation", () => {
-      // Critic timeout must be at least 15s to allow Zod schema structured parsing
-      expect(CRITIC_TIMEOUT_MS).toBeGreaterThanOrEqual(15000);
-      // Minimum viable timeout floor must be at least 8s (not 3.5s or 1s)
-      expect(MIN_VIABLE_LLM_TIMEOUT_MS).toBeGreaterThanOrEqual(8000);
+      // Critic timeout is rebalanced to 10s
+      expect(CRITIC_TIMEOUT_MS).toBe(10000);
+      // Minimum viable timeout floor is at least 4s
+      expect(MIN_VIABLE_LLM_TIMEOUT_MS).toBeGreaterThanOrEqual(4000);
     });
 
     test("createCriticLLM does not use defunct models like gemini-1.5-flash or gemini-2.5-flash", () => {

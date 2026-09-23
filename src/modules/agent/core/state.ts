@@ -178,6 +178,10 @@ export const AgentState = Annotation.Root({
     reducer: (_x, y) => y,
     default: () => null,
   }),
+  servingProvider: Annotation<string | null>({
+    reducer: (_x, y) => y,
+    default: () => null,
+  }),
 });
 
 export type State = typeof AgentState.State;

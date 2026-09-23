@@ -1,5 +1,9 @@
 import { HumanMessage } from "@langchain/core/messages";
-import { createCriticLLM } from "../llm/factory";
+import {
+  createCriticLLM,
+  getCrossProviderFallback,
+  createCrossProviderCriticLLM,
+} from "../llm/factory";
 import { CritiqueResult } from "../core/schemas";
 import type { State } from "../core/state";
 
@@ -146,12 +150,22 @@ export async function critiqueDraft(state: State, config?: RunnableConfig): Prom
       } else {
         // Fallback: direct plain text invocation with JSON enforcement
         try {
-          const directLlm = createCriticLLM(getLLMOpts(state, config));
+          const directOpts = getLLMOpts(state, config);
+          const crossCrit = getCrossProviderFallback(state.llmProvider || "gemini", directOpts);
+          let directLlm;
+          if (crossCrit) {
+            const created = createCrossProviderCriticLLM(directOpts);
+            if (created) directLlm = created.llm;
+          }
+          if (!directLlm) {
+            directLlm = createCriticLLM(directOpts);
+          }
+
           const directPrompt = `${prompt}\n\nIMPORTANT: Respond with ONLY a valid JSON object matching this schema:\n{"score": 7, "strengths": ["..."], "weaknesses": ["..."], "instructions": "..."}`;
           const directRes = await invokeWithRetryAndTimeout(
             (signal) => directLlm.invoke([new HumanMessage(directPrompt)], { signal }),
             {
-              timeoutMs: Math.min(CRITIC_TIMEOUT_MS, 15000),
+              timeoutMs: Math.min(CRITIC_TIMEOUT_MS, 10000),
               maxRetries: 1,
               deadlineTimestamp: state.deadlineTimestamp,
             }
@@ -167,6 +181,7 @@ export async function critiqueDraft(state: State, config?: RunnableConfig): Prom
             log.info(`Direct prompt critique synthesis succeeded`, {
               iteration: newCount,
               score: directRecovered.score,
+              servingProvider: crossCrit ? "cross-provider fallback" : "same-provider fallback",
             });
             critique = directRecovered;
           }
