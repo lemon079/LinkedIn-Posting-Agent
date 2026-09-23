@@ -49,6 +49,12 @@ POST ARCHETYPES — SELECT THE BEST FIT FOR THE TOPIC:
    Under-the-Hood Mechanics -> Why Default Settings Break -> Concrete Fix -> Rule of Thumb.
 5. The Trade-off & Decision Matrix:
    Approach A vs Approach B -> Real-world Pros & Cons -> Exact Criteria for Choosing Between Them -> Architectural Conclusion.
+6. The Hiring / Recruiting Post:
+   Hook (what makes this role/team/moment worth stopping for) -> The Role (concrete day-to-day, actual problems to solve, not a generic bullet list) -> Why It's Interesting/Different (team, stage, tech, mission) -> Requirements (tight, real, prioritized) -> Compensation (ONLY if user supplied it — never invent a range) -> Clear CTA (apply, DM, comment, link in first comment).
+
+HIRING POST GUARDRAILS:
+- NEVER fabricate compensation, salary range, equity, perks, team size, funding, or milestones not supplied by the user.
+- Structure must focus on concrete daily craftsmanship and engineering challenges, avoiding boilerplate job-listing jargon.
 
 FORMATTING & CADENCE RULES:
 - Length: 120-220 words. High signal-to-noise ratio.
@@ -101,14 +107,21 @@ Instructions:
 1. "topic" — Extract the core subject for the post. Keep it concise, specific, and grounded in domain realities.
 2. "context" — Extract or infer relevant domain context: architectures, operational challenges, workflows, tools, constraints, or trade-offs.
 3. "domain" — Classify into exactly one of: engineering, hr, sales, marketing, general. If the user specified a domain, respect it.
-4. "angle" — Suggest a compelling practitioner hook or archetype angle:
+4. "archetype" — Select the most accurate post structure:
+   - "hiring": Role announcements, job openings, team growth, recruiting, or talent search.
+   - "breakdown" or "framework": Definitional questions, role explainers (e.g. "who is a forward deployed engineer?"), deep-dives, or architectural playbooks. CRITICAL: NEVER route definitional or conceptual explainer topics to "teardown"!
+   - "teardown": ONLY when the user explicitly provides a real production incident, outage, failure, or bug they experienced.
+   - "contrarian": Challenging conventional wisdom or dogma.
+   - "comparison": Evaluating two approaches or tools (X vs Y).
+5. "angle" — Suggest a compelling practitioner hook or archetype angle:
+   - "mission-driven challenge and day-to-day craft for hiring"
    - "teardown of an operational failure and root cause"
    - "contrarian take on conventional industry advice"
-   - "practical playbook for solving a concrete bottleneck"
+   - "practical playbook or role breakdown for solving a concrete bottleneck"
    - "under-the-hood gotcha and configuration tradeoff"
    - "direct comparison of two architectural approaches"
    Do NOT suggest generic textbook angles like "an overview of X" or melodramatic sob stories.
-5. "tone" — Recommend one of: conversational, authoritative, provocative, reflective. Aim for peer-level authenticity and high signal.`;
+6. "tone" — Recommend one of: conversational, authoritative, provocative, reflective. Aim for peer-level authenticity and high signal.`;
 };
 
 export const getCritiquePrompt = (
@@ -124,6 +137,14 @@ Do NOT penalize credible first-person or team experiential framing ("Last month 
 
 ANTI-FABRICATION MANDATE (AUTO-FAIL RULE):
 If the draft contains invented benchmark numbers, fake production incident claims, or fabricated personal stories not supplied in the user's prompt or grounding context, AUTO-FAIL the draft with a score <= 4. The instructions must explicitly direct the refiner to ground the insight in genuine domain patterns or user-supplied details.
+
+HIRING / RECRUITING POST EVALUATION CRITERIA:
+If evaluating a Hiring / Recruiting Post:
+- Role clarity & concrete day-to-day: Does it describe what the person actually does and builds on a daily basis, rather than a generic HR bulleted job spec?
+- Tight, realistic requirements: Are prerequisites focused and prioritized rather than an unrealistic laundry list?
+- Clear Frictionless CTA: Is the next step immediate and explicit (e.g. DM directly, comment below, or link in first comment)?
+- Anti-fabrication check: Were compensation, team size, funding, perks, or company claims invented without being provided in the user prompt? If fabricated, score <= 4 and direct immediate removal.
+- Do NOT penalize for lacking an incident narrative arc or personal failure story — hiring posts follow a distinct, non-narrative structure.
 
 SCORING RUBRIC (1-10) — Grade strictly. Do not give passing scores (>=7) to bland, generic drafts:
 1-3: Generic AI slop, buzzword soup, abstract textbook monologue, fabricated fake stories/incidents, or melodramatic "broetry". Lacks all domain specificity.

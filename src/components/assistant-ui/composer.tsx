@@ -150,6 +150,7 @@ export const AssistantComposer: React.FC<AssistantComposerProps> = ({
                         <SelectItem value="framework">Playbook / Framework</SelectItem>
                         <SelectItem value="breakdown">Gotcha / Deep Dive</SelectItem>
                         <SelectItem value="comparison">Decision Matrix / Comparison</SelectItem>
+                        <SelectItem value="hiring">Hiring / Recruiting Post</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

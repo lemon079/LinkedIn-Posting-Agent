@@ -42,7 +42,7 @@ export interface BaseThreadEditorProps {
   onDismissError?: () => void;
   reasoningSteps?: Array<{ title: string; output: string }>;
   alternativeHooks?: Array<{
-    type: "metric" | "contrarian" | "incident" | "curiosity" | "question";
+    type: "metric" | "contrarian" | "incident" | "curiosity" | "question" | "hiring";
     hook: string;
     rationale: string;
   }>;

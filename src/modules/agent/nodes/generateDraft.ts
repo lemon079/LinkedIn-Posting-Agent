@@ -41,7 +41,12 @@ function extractDraftText(content: unknown): string {
   return raw.replace(/\[\/?DRAFT\]/gi, "").trim();
 }
 
-function extractAlternativeHooks(content: unknown, topic: string, domain: string): HookOption[] {
+function extractAlternativeHooks(
+  content: unknown,
+  topic: string,
+  domain: string,
+  archetype?: string
+): HookOption[] {
   let raw = "";
   if (typeof content === "string") {
     raw = content;
@@ -75,6 +80,27 @@ function extractAlternativeHooks(content: unknown, topic: string, domain: string
   }
 
   const cleanTopic = topic || `${domain} workflow`;
+
+  if (archetype === "hiring") {
+    return [
+      {
+        type: "hiring",
+        hook: `We're expanding our team to solve a critical bottleneck in ${cleanTopic}:`,
+        rationale: "Mission-driven challenge hook frames the open role around a compelling technical problem.",
+      },
+      {
+        type: "hiring",
+        hook: `Most job descriptions for ${cleanTopic} list 20 generic bullet points. Here is what this role actually looks like on a Tuesday:`,
+        rationale: "Authentic day-to-day transparency hook builds immediate practitioner trust.",
+      },
+      {
+        type: "hiring",
+        hook: `If you've spent the last few years working on ${cleanTopic} and want high autonomy without bureaucracy:`,
+        rationale: "Values-aligned pattern interrupt attracts senior talent fatigued by corporate friction.",
+      },
+    ];
+  }
+
   return [
     {
       type: "metric",
@@ -113,6 +139,14 @@ const ARCHETYPE_INSTRUCTIONS: Record<string, string> = {
   comparison: `POST ARCHETYPE: Comparison / Trade-off
 - Directly evaluate two approaches, architectures, strategies, or tools (X vs Y).
 - Frame through clear trade-off dimensions (e.g. latency vs throughput, velocity vs tech debt, flexibility vs governance) and define exact decision criteria for when to choose each.`,
+  hiring: `POST ARCHETYPE: Hiring / Recruiting Post
+Structure:
+1. Hook: What makes this role/team/moment worth stopping the feed for (mission, pivotal technical challenge, or team inflection point).
+2. The role: Describe concrete day-to-day work and real problems to solve — avoid generic bullet lists of job responsibilities.
+3. What makes it interesting/different: Highlight team culture, engineering philosophy, stage, or tech stack.
+4. Requirements: Keep them tight, pragmatic, and real (must-haves vs nice-to-haves).
+5. Compensation: ONLY include compensation/salary if explicitly supplied in the prompt or context. NEVER invent a salary range, equity percentage, bonus, or perks.
+6. Clear CTA: State the exact next step (e.g. apply via link in first comment, DM me directly, or comment below).`,
 };
 
 /**
@@ -176,12 +210,25 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
   promptSections.push(`Grounding Info: "${state.searchContext || "None"}"`);
   promptSections.push("Generate the complete post inside [DRAFT] ... [/DRAFT] tags.");
   promptSections.push("");
-  promptSections.push("In addition, provide 3 high-impact alternative opening hooks for this post inside [HOOKS] ... [/HOOKS] tags as a JSON array:");
-  promptSections.push(`[
+  if (activeArchetype === "hiring") {
+    promptSections.push(
+      "In addition, provide 3 high-impact alternative opening hooks for this hiring post inside [HOOKS] ... [/HOOKS] tags as a JSON array:"
+    );
+    promptSections.push(`[
+  { "type": "hiring", "hook": "Mission or pivotal technical challenge opener for this role", "rationale": "Why this hook attracts senior practitioners" },
+  { "type": "hiring", "hook": "Real day-to-day work transparency opener", "rationale": "Why this hook cuts through HR fluff" },
+  { "type": "hiring", "hook": "Autonomy and craft-focused team culture opener", "rationale": "Why this hook triggers curiosity" }
+]`);
+  } else {
+    promptSections.push(
+      "In addition, provide 3 high-impact alternative opening hooks for this post inside [HOOKS] ... [/HOOKS] tags as a JSON array:"
+    );
+    promptSections.push(`[
   { "type": "metric", "hook": "Quantifiable result or metric-driven opening line", "rationale": "Why this hook triggers curiosity" },
   { "type": "contrarian", "hook": "Counter-intuitive take challenging conventional wisdom", "rationale": "Why this hook breaks feed fatigue" },
   { "type": "incident", "hook": "Specific operational challenge or outage post-mortem opener", "rationale": "Why this hook builds immediate practitioner trust" }
 ]`);
+  }
 
   const prompt = promptSections.join("\n");
 
@@ -210,7 +257,7 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
       await addHook(hook, state.userId, domainKey);
     }
 
-    const hooks = extractAlternativeHooks(response.content, topicLine, domainKey);
+    const hooks = extractAlternativeHooks(response.content, topicLine, domainKey, activeArchetype);
 
     const durationMs = Date.now() - startTime;
     log.info(`Initial draft generated`, {
@@ -253,7 +300,12 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
         await addHook(hook, state.userId, domainKey);
       }
 
-      const fallbackHooks = extractAlternativeHooks(fallbackResponse.content, topicLine, domainKey);
+      const fallbackHooks = extractAlternativeHooks(
+        fallbackResponse.content,
+        topicLine,
+        domainKey,
+        activeArchetype
+      );
 
       const totalDurationMs = Date.now() - startTime;
       log.info(`Draft generated successfully via fast fallback`, {

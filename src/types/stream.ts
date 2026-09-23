@@ -39,7 +39,7 @@ export interface FinalStreamEvent {
 }
 
 export interface HookOption {
-  type: "metric" | "contrarian" | "incident" | "curiosity" | "question";
+  type: "metric" | "contrarian" | "incident" | "curiosity" | "question" | "hiring";
   hook: string;
   rationale: string;
 }
