@@ -21,6 +21,7 @@ import { logger } from "@/lib/logger";
 import type { LangChainMessageBlock } from "@/types";
 
 import type { RunnableConfig } from "@langchain/core/runnables";
+import { isSearchEligibleArchetype, webSearchTool, type WebSearchResultItem } from "../tools/webSearch";
 
 const log = logger.child({ module: "Graph:generateDraft" });
 
@@ -206,6 +207,105 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
     hasAngle: Boolean(intake?.angle),
   });
 
+  // ── Web Search Grounding Execution & Archetype Gating ───────────────────
+  let searchContext = state.searchContext || "";
+  let retrievedSearchResults: WebSearchResultItem[] = state.webSearchResults || [];
+  const searchQueries: string[] = [];
+
+  const isSearchToggleOn = Boolean(state.webSearchEnabled);
+  const isEligibleArchetype = isSearchEligibleArchetype(activeArchetype);
+
+  if (!isSearchToggleOn) {
+    log.info("Web search telemetry", {
+      used: false,
+      skippedByToggle: true,
+      skippedByArchetype: false,
+      archetype: activeArchetype,
+      succeeded: false,
+      timedOut: false,
+      queryCount: 0,
+      resultCount: 0,
+    });
+  } else if (!isEligibleArchetype) {
+    log.info("Web search telemetry", {
+      used: false,
+      skippedByToggle: false,
+      skippedByArchetype: true,
+      archetype: activeArchetype,
+      succeeded: false,
+      timedOut: false,
+      queryCount: 0,
+      resultCount: 0,
+    });
+  } else {
+    // Formulate 1-3 targeted queries based on topic and context (strictly capped at 3)
+    const baseQuery = topicLine.trim();
+    if (baseQuery) {
+      searchQueries.push(baseQuery);
+      if (activeArchetype === "contrarian") {
+        searchQueries.push(`${baseQuery} counter perspective benchmarks`);
+      } else if (activeArchetype === "comparison") {
+        searchQueries.push(`${baseQuery} comparison trade-offs`);
+      } else {
+        searchQueries.push(`${baseQuery} industry data report`);
+      }
+    }
+    const cappedQueries = searchQueries.slice(0, 3);
+
+    let searchSucceeded = false;
+    let searchTimedOut = false;
+
+    // Execute queries with tool invocation so LangGraph emits on_tool_start / on_tool_end
+    for (const q of cappedQueries) {
+      try {
+        const toolResult = await webSearchTool.invoke({ query: q }, config);
+        if (toolResult && Array.isArray(toolResult.results) && toolResult.results.length > 0) {
+          retrievedSearchResults.push(...toolResult.results);
+          searchSucceeded = true;
+        }
+      } catch (err: unknown) {
+        const e = err as Error;
+        if (e.name === "AbortError" || e.message?.includes("timed out") || e.message?.includes("timeout")) {
+          searchTimedOut = true;
+        }
+        log.warn("Web search query failed or timed out; proceeding without blocking draft", {
+          query: q,
+          error: e.message,
+        });
+      }
+    }
+
+    // Deduplicate search results by title + domain
+    const uniqueResults: WebSearchResultItem[] = [];
+    const seen = new Set<string>();
+    for (const r of retrievedSearchResults) {
+      const key = `${r.domain}:${r.title}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueResults.push(r);
+      }
+    }
+    retrievedSearchResults = uniqueResults.slice(0, 6);
+
+    log.info("Web search telemetry", {
+      used: true,
+      skippedByToggle: false,
+      skippedByArchetype: false,
+      archetype: activeArchetype,
+      succeeded: searchSucceeded,
+      timedOut: searchTimedOut,
+      queryCount: cappedQueries.length,
+      resultCount: retrievedSearchResults.length,
+    });
+
+    if (retrievedSearchResults.length > 0) {
+      searchContext = [
+        "REFERENCE FACTS (FROM WEB SEARCH - GROUNDING ONLY):",
+        ...retrievedSearchResults.map((r) => `- [${r.domain}] ${r.title}`),
+      ].join("\n");
+    }
+  }
+
   const promptSections = [
     systemPrompt,
     "",
@@ -217,7 +317,28 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
   if (angleLine) promptSections.push(angleLine);
   if (archetypeInstruction) promptSections.push(archetypeInstruction);
   promptSections.push(toneLine);
-  promptSections.push(`Grounding Info: "${state.searchContext || "None"}"`);
+
+  if (searchContext) {
+    promptSections.push(
+      "",
+      "---",
+      "REFERENCE FACTS (GROUNDING DATA):",
+      searchContext,
+      "",
+      "MANDATORY GUARDRAILS FOR WEB SEARCH FACTS:",
+      "1. REFERENCE FACTS ONLY: The search facts above are public reference context only, strictly separated from user input.",
+      "2. PARAPHRASE REQUIREMENT: Facts from search MUST be reworded in your own words. NEVER quote directly or mirror search snippets verbatim.",
+      "3. LOOSE ATTRIBUTION: Loosely attribute search-derived facts (e.g. 'a recent report found...', 'industry benchmarks suggest...') rather than presenting them as personal proprietary numbers.",
+      "4. USER STORY IMMUTABILITY: Search results never override or fabricate the user's own story or metrics. If user input and a search result conflict, USER INPUT ALWAYS WINS.",
+      "5. NO PERSONAL METRIC FILL-IN: Search must NEVER fill in metrics for the user's OWN incident, company outage, or personal experience (e.g. do not search 'typical PostgreSQL p99 latency' and present it as the user's number).",
+      "6. PRACTITIONER VOICE: Voice must stay first-person practitioner; search-informed posts must NOT read like a summarized article or news curation.",
+      "---",
+      ""
+    );
+  } else {
+    promptSections.push(`Grounding Info: "None"`);
+  }
+
   promptSections.push("Generate the complete post inside [DRAFT] ... [/DRAFT] tags.");
   promptSections.push("");
   if (activeArchetype === "hiring") {
@@ -284,6 +405,9 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
       draft: rawDraft,
       postContent: rawDraft,
       alternativeHooks: hooks,
+      searchContext,
+      webSearchResults: retrievedSearchResults,
+      webSearchQueries: searchQueries,
       servingProvider: serving.servingProvider,
       failedNode: null,
     };
@@ -368,6 +492,9 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
         draft: fallbackDraft,
         postContent: fallbackDraft,
         alternativeHooks: fallbackHooks,
+        searchContext,
+        webSearchResults: retrievedSearchResults,
+        webSearchQueries: searchQueries,
         servingProvider: fallbackLabel,
         failedNode: null,
       };

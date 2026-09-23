@@ -19,6 +19,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   setDomain,
   setArchetype,
   setTone,
+  webSearchEnabled,
+  setWebSearchEnabled,
   onGenerate,
 }) => {
   return (
@@ -28,6 +30,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       domain={domain}
       archetype={archetype}
       tone={tone}
+      webSearchEnabled={webSearchEnabled}
+      setWebSearchEnabled={setWebSearchEnabled}
       isGenerating={isGenerating}
       setCustomTopic={setCustomTopic}
       setContext={setContext}

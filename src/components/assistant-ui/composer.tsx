@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Sparkles, Sliders, ChevronDown, ChevronRight, CornerDownLeft, Loader2 } from "lucide-react";
+import { Sparkles, Sliders, ChevronDown, ChevronRight, CornerDownLeft, Loader2, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,8 @@ export const AssistantComposer: React.FC<AssistantComposerProps> = ({
   setDomain,
   setArchetype,
   setTone,
+  webSearchEnabled = false,
+  setWebSearchEnabled,
   onGenerate,
   className,
 }) => {
@@ -40,6 +42,9 @@ export const AssistantComposer: React.FC<AssistantComposerProps> = ({
   const [takeaway, setTakeaway] = useState("");
   const [isContextExpanded, setIsContextExpanded] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
+
+  const isNonSearchArchetype =
+    archetype === "teardown" || archetype === "breakdown" || archetype === "hiring";
 
   // Sync happened and takeaway to context string
   useEffect(() => {
@@ -259,6 +264,55 @@ export const AssistantComposer: React.FC<AssistantComposerProps> = ({
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Web Search Grounding Toggle */}
+            <div className="rounded-xl border border-border/70 bg-muted/30 p-3 space-y-1.5 transition-colors">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="p-1 rounded-md bg-brand-blue/10 text-brand-blue shrink-0">
+                    <Globe className="size-3.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-semibold text-foreground">
+                        Ground with web search
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      Optionally enrich post with public facts and benchmarks
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={webSearchEnabled}
+                  aria-label="Ground with web search"
+                  disabled={isGenerating}
+                  onClick={() => setWebSearchEnabled?.(!webSearchEnabled)}
+                  className={cn(
+                    "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-blue disabled:cursor-not-allowed disabled:opacity-50",
+                    webSearchEnabled ? "bg-brand-blue" : "bg-muted-foreground/30"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "pointer-events-none inline-block size-3.5 transform rounded-full bg-white shadow-xs transition duration-200",
+                      webSearchEnabled ? "translate-x-4.5" : "translate-x-0.5"
+                    )}
+                  />
+                </button>
+              </div>
+
+              {webSearchEnabled && isNonSearchArchetype && (
+                <div className="pt-1 border-t border-border/40">
+                  <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+                    <span>this post type doesn&apos;t use search</span>
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="border-t border-border pt-2">

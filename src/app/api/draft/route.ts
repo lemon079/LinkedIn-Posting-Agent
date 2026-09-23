@@ -92,6 +92,7 @@ export async function POST(request: Request) {
       archetype,
       tone,
       keys,
+      webSearchEnabled,
       currentDraft,
       threadId: incomingThreadId,
       followUpMessage,
@@ -346,6 +347,9 @@ export async function POST(request: Request) {
             intake: null,
             plan: "",
             searchContext: "",
+            webSearchEnabled: Boolean(webSearchEnabled),
+            webSearchResults: [],
+            webSearchQueries: [],
             draft: "",
             alternativeHooks: [],
             userFeedback: null,
@@ -411,6 +415,27 @@ export async function POST(request: Request) {
                   }
                 }
               }
+            } else if (event.event === "on_tool_start") {
+              const toolInput = (event.data?.input as { query?: string }) || {};
+              sendEvent({
+                type: "tool_call",
+                toolCallId: event.runId || `search-${Date.now()}`,
+                toolName: event.name || "web_search",
+                status: "running",
+                args: toolInput,
+              });
+            } else if (event.event === "on_tool_end") {
+              const toolInput = (event.data?.input as { query?: string }) || {};
+              const toolOutput =
+                (event.data?.output as { results?: Array<{ title: string; domain: string }> }) || { results: [] };
+              sendEvent({
+                type: "tool_call",
+                toolCallId: event.runId || `search-${Date.now()}`,
+                toolName: event.name || "web_search",
+                status: "complete",
+                args: toolInput,
+                result: toolOutput,
+              });
             } else if (event.event === "on_chain_end") {
               const nodeName = event.name;
               if (STREAMABLE_NODES.has(nodeName)) {

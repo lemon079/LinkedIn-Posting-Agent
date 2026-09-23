@@ -22,6 +22,7 @@ export function useAgent() {
   const [alternativeHooks, setAlternativeHooks] = useState<HookOption[]>([]);
   const [draftVersions, setDraftVersions] = useState<DraftVersion[]>([]);
   const [activeVersionIndex, setActiveVersionIndex] = useState<number>(0);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [status, setStatus] = useState({ gen: false, pub: false, err: null as string | null });
 
   // Sub-hooks
@@ -47,6 +48,9 @@ export function useAgent() {
 
       const savedTone = localStorage.getItem("praxis_tone");
       if (savedTone) setTone(savedTone);
+
+      const savedSearch = localStorage.getItem("praxis_web_search_enabled");
+      if (savedSearch) setWebSearchEnabled(savedSearch === "true");
 
       const savedDraft = localStorage.getItem("praxis_draft_text");
       if (savedDraft) setDraftText(savedDraft);
@@ -122,6 +126,11 @@ export function useAgent() {
     if (typeof window === "undefined" || !settings.isHydrated.current) return;
     localStorage.setItem("praxis_tone", tone);
   }, [tone, settings.isHydrated]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !settings.isHydrated.current) return;
+    localStorage.setItem("praxis_web_search_enabled", String(webSearchEnabled));
+  }, [webSearchEnabled, settings.isHydrated]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !settings.isHydrated.current) return;
@@ -385,6 +394,7 @@ export function useAgent() {
             domain: domain === "auto" ? undefined : domain,
             archetype: archetype === "auto" ? undefined : archetype,
             tone: tone || undefined,
+            webSearchEnabled,
             keys: {
               provider: settings.provider,
               apiKey: settings.apiKey || undefined,
@@ -715,6 +725,8 @@ export function useAgent() {
     setDomain,
     setArchetype,
     setTone,
+    webSearchEnabled,
+    setWebSearchEnabled,
     setDraftText,
     setStreamingText,
     setActiveTab,

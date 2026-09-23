@@ -122,6 +122,18 @@ export const AgentState = Annotation.Root({
     reducer: (_x, y) => y,
     default: () => "",
   }),
+  webSearchEnabled: Annotation<boolean>({
+    reducer: (_x, y) => (y !== undefined ? y : false),
+    default: () => false,
+  }),
+  webSearchResults: Annotation<Array<{ title: string; domain: string }>>({
+    reducer: (_x, y) => y || [],
+    default: () => [],
+  }),
+  webSearchQueries: Annotation<string[]>({
+    reducer: (_x, y) => y || [],
+    default: () => [],
+  }),
 
   // ── LLM / LinkedIn credentials (pass-through from API) ───────────────
   linkedinToken: Annotation<string | null>({

@@ -9,6 +9,7 @@ import { LinkedInFeed } from "@/components/LinkedInFeed";
 import { AssistantReasoning } from "./reasoning";
 import { AssistantAttachments } from "./attachment";
 import { HookLab } from "./hook-lab";
+import { WebSearch } from "./web-search";
 
 import { ErrorState } from "./error-state";
 import { parseApiError } from "@/lib/errors";
@@ -60,6 +61,9 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
   onUndo,
   onRedo,
   onSelectVersion,
+  webSearchResults,
+  isSearchingWeb,
+  webSearchQuery,
   user,
   defaultMode = "preview",
   className,
@@ -371,6 +375,17 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
         <AssistantReasoning
           reasoningSteps={reasoningSteps}
           isStreaming={isGenerating && (!draftText && !streamingText)}
+        />
+      )}
+
+      {/* Grounded Web Search Result Card */}
+      {((webSearchResults && webSearchResults.length > 0) || isSearchingWeb) && (
+        <WebSearch
+          query={webSearchQuery || "Web search"}
+          results={webSearchResults || []}
+          visibleResults={(webSearchResults || []).length}
+          searching={Boolean(isSearchingWeb)}
+          cycle={0}
         />
       )}
 

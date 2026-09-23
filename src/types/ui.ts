@@ -17,6 +17,8 @@ export interface BaseComposerProps {
   setDomain?: (val: string) => void;
   setArchetype?: (val: string) => void;
   setTone?: (val: string) => void;
+  webSearchEnabled?: boolean;
+  setWebSearchEnabled?: (val: boolean) => void;
   onGenerate: () => void;
 }
 
@@ -52,6 +54,9 @@ export interface BaseThreadEditorProps {
   onUndo?: () => void;
   onRedo?: () => void;
   onSelectVersion?: (index: number) => void;
+  webSearchResults?: Array<{ title: string; domain: string }>;
+  isSearchingWeb?: boolean;
+  webSearchQuery?: string;
   user?: {
     name?: string;
     email?: string;

@@ -28,6 +28,7 @@ export interface DraftRequest {
     modelName?: string;
     ollamaBaseUrl?: string;
   };
+  webSearchEnabled?: boolean;
 }
 
 export interface DraftResponse {

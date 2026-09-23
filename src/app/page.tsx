@@ -4,7 +4,8 @@ import React, { useState, useCallback } from "react";
 
 import { useAgent } from "@/hooks/useAgent";
 import { useAgentRuntime } from "@/hooks/useAgentRuntime";
-import { AssistantRuntimeProvider } from "@assistant-ui/react";
+import { AssistantRuntimeProvider, AuiConfig, Tools } from "@assistant-ui/react";
+import { toolkit } from "@/components/assistant-ui/toolkit";
 import { Header } from "@/components/Header";
 import { ControlPanel } from "@/components/ControlPanel";
 import { EditorPanel } from "@/components/EditorPanel";
@@ -63,6 +64,7 @@ export default function Home() {
     handleRedo,
     handleSelectVersion,
     setCustomTopic, setContext, setDomain, setArchetype, setTone, setDraftText, setStreamingText, threadId,
+    webSearchEnabled, setWebSearchEnabled,
     handleGenerate, handlePublish, handleClearDraft, handleNewPost, handleDismissError,
     setProvider, setApiKey, setModelName, setOllamaBaseUrl,
     setLiToken, setLiUrn, setIsSettingsOpen,
@@ -86,6 +88,7 @@ export default function Home() {
     domain,
     archetype,
     tone,
+    webSearchEnabled,
     provider,
     apiKey,
     modelName,
@@ -109,6 +112,8 @@ export default function Home() {
       }
     },
   });
+
+  const auiConfig = React.useMemo(() => AuiConfig({ tools: Tools({ toolkit }) }), []);
 
 
   const effectiveTopic = !isAuthenticated && !customTopic ? SHOWCASE_TOPIC : customTopic;
@@ -162,7 +167,7 @@ export default function Home() {
   }
 
   return (
-    <AssistantRuntimeProvider runtime={runtime}>
+    <AssistantRuntimeProvider runtime={runtime} config={auiConfig}>
       <div className="min-h-screen bg-background text-foreground flex flex-col antialiased selection:bg-brand-blue/20">
         <Header
           onOpenSettings={() => {
@@ -224,6 +229,8 @@ export default function Home() {
                 domain={domain}
                 archetype={archetype}
                 tone={tone}
+                webSearchEnabled={webSearchEnabled}
+                setWebSearchEnabled={setWebSearchEnabled}
                 isGenerating={isGenerating}
                 setCustomTopic={setCustomTopic}
                 setContext={setContext}

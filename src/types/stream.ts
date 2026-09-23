@@ -78,6 +78,15 @@ export interface ErrorStreamEvent {
   failedNode?: string;
 }
 
+export interface ToolCallStreamEvent {
+  type: "tool_call";
+  toolCallId: string;
+  toolName: string;
+  status: "running" | "complete" | "incomplete" | "requires-action";
+  args: { query?: string };
+  result?: { results: Array<{ title: string; domain: string }> };
+}
+
 export type StreamEvent =
   | ThreadStreamEvent
   | NodeStartStreamEvent
@@ -87,6 +96,7 @@ export type StreamEvent =
   | AlternativeHooksStreamEvent
   | ChangeNoteStreamEvent
   | ChatMessageStreamEvent
+  | ToolCallStreamEvent
   | ErrorStreamEvent;
 
 export interface ErrorWithResponsePayload {

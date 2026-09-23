@@ -34,6 +34,9 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   onUndo,
   onRedo,
   onSelectVersion,
+  webSearchResults,
+  isSearchingWeb,
+  webSearchQuery,
   user,
 }) => {
   return (
@@ -62,6 +65,9 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
       onUndo={onUndo}
       onRedo={onRedo}
       onSelectVersion={onSelectVersion}
+      webSearchResults={webSearchResults}
+      isSearchingWeb={isSearchingWeb}
+      webSearchQuery={webSearchQuery}
       user={user}
     />
   );

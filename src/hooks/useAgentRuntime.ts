@@ -23,6 +23,7 @@ export interface AgentRuntimeOptions {
   currentDraft?: string;
   threadId?: string;
   alternativeHooks?: HookOption[];
+  webSearchEnabled?: boolean;
   onDraftReceived?: (
     draft: string,
     reasoningSteps: Array<{ title: string; output: string }>,
@@ -50,6 +51,7 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
     currentDraft,
     threadId,
     alternativeHooks,
+    webSearchEnabled = false,
     onDraftReceived,
     onError,
   } = options;
@@ -99,6 +101,7 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
                 domain: domain === "auto" ? null : domain,
                 archetype: archetype === "auto" ? null : archetype,
                 tone: tone || "conversational",
+                webSearchEnabled,
                 threadId: threadId || undefined,
                 currentDraft: currentDraft || undefined,
                 followUpMessage: promptTopic,
@@ -150,6 +153,16 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
           let receivedAlternativeHooks: HookOption[] = [];
           const reasoningSteps: Array<{ title: string; output: string }> = [];
           let currentThreadId = threadId || "";
+          const activeToolCalls: Record<
+            string,
+            {
+              type: "tool-call";
+              toolCallId: string;
+              toolName: string;
+              args: Record<string, unknown>;
+              result?: unknown;
+            }
+          > = {};
 
           while (true) {
             const { value, done } = await reader.read();
@@ -208,6 +221,22 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
                   ],
                 };
                 yield chatResult;
+              } else if (event.type === "tool_call") {
+                activeToolCalls[event.toolCallId] = {
+                  type: "tool-call",
+                  toolCallId: event.toolCallId,
+                  toolName: event.toolName,
+                  args: (event.args as Record<string, unknown>) || {},
+                  result: event.result,
+                };
+
+                const toolResult: ChatModelRunResult = {
+                  content: [
+                    ...(accumulatedReasoning ? [{ type: "reasoning" as const, text: accumulatedReasoning }] : []),
+                    ...Object.values(activeToolCalls),
+                  ],
+                };
+                yield toolResult;
               } else if (event.type === "change_note") {
                 latestChangeNote = event.note;
               } else if (event.type === "alternative_hooks") {
@@ -237,6 +266,7 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
                 const finalResult: ChatModelRunResult = {
                   content: [
                     ...(accumulatedReasoning ? [{ type: "reasoning" as const, text: accumulatedReasoning }] : []),
+                    ...Object.values(activeToolCalls),
                     {
                       type: "text",
                       text: displayText,
@@ -273,6 +303,7 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
     currentDraft,
     threadId,
     alternativeHooks,
+    webSearchEnabled,
     onDraftReceived,
     onError,
   ]);

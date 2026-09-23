@@ -14,6 +14,10 @@ jest.mock("../hooks/useAgent");
 jest.mock("@assistant-ui/react", () => ({
   AssistantRuntimeProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useLocalRuntime: jest.fn().mockReturnValue({}),
+  AuiConfig: jest.fn().mockImplementation((x) => x),
+  Tools: jest.fn().mockImplementation((x) => x),
+  defineToolkit: jest.fn().mockImplementation((x) => x),
+  externalTool: jest.fn().mockImplementation(() => () => {}),
 }));
 
 jest.mock("@assistant-ui/react-markdown", () => ({
