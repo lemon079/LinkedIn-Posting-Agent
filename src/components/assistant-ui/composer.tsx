@@ -46,13 +46,20 @@ export const AssistantComposer: React.FC<AssistantComposerProps> = ({
   const isNonSearchArchetype =
     archetype === "teardown" || archetype === "breakdown" || archetype === "hiring";
 
+  const isHiring = archetype === "hiring";
+
   // Sync happened and takeaway to context string
   useEffect(() => {
     let combined = "";
-    if (happened.trim()) combined += `What happened?\n${happened.trim()}\n\n`;
-    if (takeaway.trim()) combined += `Takeaway:\n${takeaway.trim()}`;
+    if (isHiring) {
+      if (happened.trim()) combined += `Role:\n${happened.trim()}\n\n`;
+      if (takeaway.trim()) combined += `What makes it different:\n${takeaway.trim()}`;
+    } else {
+      if (happened.trim()) combined += `What happened?\n${happened.trim()}\n\n`;
+      if (takeaway.trim()) combined += `Takeaway:\n${takeaway.trim()}`;
+    }
     setContext(combined.trim());
-  }, [happened, takeaway, setContext]);
+  }, [happened, takeaway, isHiring, setContext]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -242,20 +249,40 @@ export const AssistantComposer: React.FC<AssistantComposerProps> = ({
                 <div className="overflow-hidden">
                   <div className="space-y-3 pt-3 pb-1">
                     <div className="space-y-1.5">
+                      <Label
+                        htmlFor="context-happened"
+                        className="text-xs font-semibold text-muted-foreground"
+                      >
+                        {isHiring ? "Role & what they'll actually work on" : "What happened?"}
+                      </Label>
                       <Textarea
                         id="context-happened"
                         className="w-full bg-card border-border h-20 resize-none rounded-xl focus-visible:ring-2 focus-visible:ring-brand-blue/20 focus-visible:border-brand-blue text-base sm:text-sm placeholder-muted-foreground text-foreground transition-colors duration-200"
-                        placeholder="What happened? (e.g. Migrated databases with zero downtime, lost a major lead...)"
+                        placeholder={
+                          isHiring
+                            ? "e.g. real day-to-day responsibilities, not a generic job description"
+                            : "What happened? (e.g. Migrated databases with zero downtime, lost a major lead...)"
+                        }
                         value={happened}
                         onChange={(e) => setHappened(e.target.value)}
                         disabled={isGenerating}
                       />
                     </div>
                     <div className="space-y-1.5">
+                      <Label
+                        htmlFor="context-takeaway"
+                        className="text-xs font-semibold text-muted-foreground"
+                      >
+                        {isHiring ? "What makes this role/team different" : "Takeaway"}
+                      </Label>
                       <Textarea
                         id="context-takeaway"
                         className="w-full bg-card border-border h-20 resize-none rounded-xl focus-visible:ring-2 focus-visible:ring-brand-blue/20 focus-visible:border-brand-blue text-base sm:text-sm placeholder-muted-foreground text-foreground transition-colors duration-200"
-                        placeholder="What did you take away or want your audience to learn?"
+                        placeholder={
+                          isHiring
+                            ? "culture, stage, problem space — NOT compensation, to avoid inviting fabricated salary/perks"
+                            : "What did you take away or want your audience to learn?"
+                        }
                         value={takeaway}
                         onChange={(e) => setTakeaway(e.target.value)}
                         disabled={isGenerating}

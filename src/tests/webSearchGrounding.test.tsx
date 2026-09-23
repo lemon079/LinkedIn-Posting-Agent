@@ -7,6 +7,7 @@ import "@testing-library/jest-dom";
 import {
   isSearchEligibleArchetype,
   performWebSearch,
+  webSearchTool,
   SEARCH_TIMEOUT_MS,
 } from "../modules/agent/tools/webSearch";
 import { WebSearch } from "../components/assistant-ui/web-search";
@@ -159,6 +160,41 @@ describe("Task C: Web Search Grounding & Archetype Gating", () => {
 
       expect(screen.getByText("Read 1 source")).toBeInTheDocument();
       expect(screen.queryByText("Kafka Event Sourcing")).not.toBeInTheDocument();
+    });
+
+    it("renders skipped state with 'Web search skipped' query pill and amber notice", () => {
+      render(
+        <WebSearch
+          query=""
+          results={[]}
+          visibleResults={0}
+          searching={false}
+          skippedReason="Skipped — this archetype doesn't use search"
+          cycle={0}
+        />
+      );
+
+      expect(screen.getByText("Web search skipped")).toBeInTheDocument();
+      expect(screen.getByText("Skipped — this archetype doesn't use search")).toBeInTheDocument();
+      expect(screen.queryByText("Read 0 sources")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("4. Web Search Tool with Skipped Reason", () => {
+    it("returns empty results and skippedReason immediately without calling external fetch", async () => {
+      const mockFetch = jest.fn();
+      globalThis.fetch = mockFetch;
+
+      const output = await webSearchTool.invoke({
+        query: "Web search skipped",
+        skippedReason: "Skipped — this archetype doesn't use search",
+      });
+
+      expect(output).toEqual({
+        results: [],
+        skippedReason: "Skipped — this archetype doesn't use search",
+      });
+      expect(mockFetch).not.toHaveBeenCalled();
     });
   });
 });

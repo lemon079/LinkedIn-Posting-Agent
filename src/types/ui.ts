@@ -57,6 +57,7 @@ export interface BaseThreadEditorProps {
   webSearchResults?: Array<{ title: string; domain: string }>;
   isSearchingWeb?: boolean;
   webSearchQuery?: string;
+  webSearchSkippedReason?: string | null;
   user?: {
     name?: string;
     email?: string;

@@ -48,8 +48,8 @@ export function classifyIntent(
 
   // 2. Explicit new post requests
   const newPostPatterns = [
-    /^(?:write|create|draft|generate)\s+(?:a\s+)?(?:new\s+)?post\s+(?:about|on|discussing)\b/i,
-    /^(?:start\s+over|scratch\s+that|let's\s+start\s+fresh|new\s+topic)\b/i,
+    /^(?:write|create|draft|generate)\s+(?:a\s+)?(?:brand\s+)?(?:new\s+)?post\s+(?:about|on|discussing|regarding)\b/i,
+    /^(?:start\s+over|scratch\s+that|let's\s+start\s+(?:fresh|over)|new\s+topic|start\s+fresh|scrap\s+this)\b/i,
     /^(?:different\s+topic|another\s+post)\b/i,
   ];
 
@@ -83,16 +83,15 @@ export function classifyIntent(
 
   // 4. General informational questions / queries
   const questionPatterns = [
-    /^(?:what|how|why|who|where|when)\s+(?:is|are|does|do|can|should|would)\b/i,
+    /^(?:what|how|why|who|where|when)\b/i,
     /^(?:can\s+you\s+explain|could\s+you\s+clarify|tell\s+me\s+about)\b/i,
-    /^(?:how\s+does\s+(?:this|linkedin|the\s+agent)\s+work)\b/i,
   ];
 
   const editClues = [
-    /\b(?:make\s+it|rewrite|change|shorten|cut|tighten|expand|polish|punchier|hook|tone|post|draft)\b/i,
+    /\b(?:make\s+it|rewrite|shorten|tighten|expand|polish|punchier|rephrase)\b/i,
   ];
 
-  const isQuestion = questionPatterns.some((p) => p.test(rawMsg));
+  const isQuestion = questionPatterns.some((p) => p.test(rawMsg)) || rawMsg.endsWith("?");
   const hasEditClue = editClues.some((p) => p.test(rawMsg));
 
   if (isQuestion && !hasEditClue) {
@@ -112,6 +111,9 @@ export function classifyIntent(
   if (/\b(?:hook|opening|first\s+line|first\s+sentence|opener)\b/i.test(lowerMsg)) {
     targetScope = "hook_only";
     changeNote = "Sharpened opening hook to increase scroll-stopping tension";
+  } else if (/\b(?:metrics?|data|numbers?|percentages?|stats?|sla|latency)\b/i.test(lowerMsg) && containsNumericValue) {
+    targetScope = "general";
+    changeNote = "Incorporate metrics and data";
   } else if (/\b(?:shorter|cut|condense|trim|tighten|briefer|concise|reduce\s+length|too\s+long)\b/i.test(lowerMsg)) {
     targetScope = "length";
     changeNote = "Trimmed unnecessary filler and condensed body paragraphs for tighter pacing";

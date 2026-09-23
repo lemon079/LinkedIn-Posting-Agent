@@ -9,12 +9,13 @@ export interface WebSearchResult {
   domain: string;
 }
 
-export interface WebSearchProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface WebSearchProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "results"> {
   query: string;
   results: readonly WebSearchResult[];
   visibleResults: number;
   searching: boolean;
   cycle: number;
+  skippedReason?: string;
   className?: string;
 }
 
@@ -29,6 +30,7 @@ export const WebSearch: React.FC<WebSearchProps> = ({
   visibleResults = 0,
   searching = false,
   cycle = 0,
+  skippedReason,
   className,
   ...props
 }) => {
@@ -43,7 +45,9 @@ export const WebSearch: React.FC<WebSearchProps> = ({
 
   // Safe query display: handles missing, undefined, or partially streamed strings
   const displayQuery =
-    typeof query === "string" && query.trim().length > 0
+    skippedReason
+      ? "Web search skipped"
+      : typeof query === "string" && query.trim().length > 0
       ? query.trim()
       : searching
       ? "Searching web…"
@@ -66,13 +70,18 @@ export const WebSearch: React.FC<WebSearchProps> = ({
         </span>
       </div>
 
-      {/* 2. Status Line: Searching shimmer while running, else source count */}
+      {/* 2. Status Line: Searching shimmer while running, skipped notice if skipped, else source count */}
       <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 font-medium">
         {searching ? (
           <>
             <Loader2 className="size-3 animate-spin text-brand-blue" />
             <span className="animate-pulse">Searching…</span>
           </>
+        ) : skippedReason ? (
+          <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1.5 font-medium">
+            <span className="size-1.5 rounded-full bg-amber-500 shrink-0" />
+            <span>{skippedReason}</span>
+          </span>
         ) : (
           <span>
             {count > 0

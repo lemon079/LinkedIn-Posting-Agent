@@ -5,6 +5,7 @@ import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import Home from "../app/page";
 import { useAgent } from "../hooks/useAgent";
+import { AssistantComposer } from "../components/assistant-ui/composer";
 import "@testing-library/jest-dom";
 
 // Mock the hook that manages the agent state
@@ -379,5 +380,86 @@ describe("Frontend Dashboard UI", () => {
     expect(handleNewPost).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("AssistantComposer Archetype-Aware Context Fields", () => {
+  const baseComposerProps = {
+    customTopic: "Software Engineering",
+    context: "",
+    domain: "engineering",
+    tone: "conversational",
+    isGenerating: false,
+    setCustomTopic: jest.fn(),
+    setContext: jest.fn(),
+    setDomain: jest.fn(),
+    setArchetype: jest.fn(),
+    setTone: jest.fn(),
+    onGenerate: jest.fn(),
+  };
+
+  test("renders hiring-specific labels and placeholders when archetype is 'hiring'", () => {
+    const setContext = jest.fn();
+    render(
+      <AssistantComposer
+        {...baseComposerProps}
+        archetype="hiring"
+        setContext={setContext}
+      />
+    );
+
+    // Expand the additional context accordion
+    const toggleButton = screen.getByRole("button", { name: /Additional Context & Story Details/i });
+    fireEvent.click(toggleButton);
+
+    expect(screen.getByText("Role & what they'll actually work on")).toBeInTheDocument();
+    expect(screen.getByText("What makes this role/team different")).toBeInTheDocument();
+
+    const field1 = screen.getByPlaceholderText("e.g. real day-to-day responsibilities, not a generic job description");
+    const field2 = screen.getByPlaceholderText("culture, stage, problem space — NOT compensation, to avoid inviting fabricated salary/perks");
+
+    expect(field1).toBeInTheDocument();
+    expect(field2).toBeInTheDocument();
+
+    // Type into fields and verify auto-sync formatting
+    fireEvent.change(field1, { target: { value: "Build distributed pipelines" } });
+    fireEvent.change(field2, { target: { value: "Early stage high autonomy" } });
+
+    expect(setContext).toHaveBeenLastCalledWith(
+      "Role:\nBuild distributed pipelines\n\nWhat makes it different:\nEarly stage high autonomy"
+    );
+  });
+
+  test("defaults to Teardown-style labels and placeholders when archetype is 'auto'", () => {
+    const setContext = jest.fn();
+    render(
+      <AssistantComposer
+        {...baseComposerProps}
+        archetype="auto"
+        setContext={setContext}
+      />
+    );
+
+    // Expand accordion
+    const toggleButton = screen.getByRole("button", { name: /Additional Context & Story Details/i });
+    fireEvent.click(toggleButton);
+
+    expect(screen.getByText("What happened?")).toBeInTheDocument();
+    expect(screen.getByText("Takeaway")).toBeInTheDocument();
+
+    const field1 = screen.getByPlaceholderText("What happened? (e.g. Migrated databases with zero downtime, lost a major lead...)");
+    const field2 = screen.getByPlaceholderText("What did you take away or want your audience to learn?");
+
+    expect(field1).toBeInTheDocument();
+    expect(field2).toBeInTheDocument();
+
+    // Type into fields and verify auto-sync formatting
+    fireEvent.change(field1, { target: { value: "Database outage occurred" } });
+    fireEvent.change(field2, { target: { value: "Always set query timeouts" } });
+
+    expect(setContext).toHaveBeenLastCalledWith(
+      "What happened?\nDatabase outage occurred\n\nTakeaway:\nAlways set query timeouts"
+    );
+  });
+});
+
 
 

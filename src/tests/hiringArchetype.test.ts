@@ -6,6 +6,8 @@ import { DOMAINS } from "@/modules/agent/core/domains";
 import type { State } from "@/modules/agent/core/state";
 
 describe("Task A: Hiring Archetype + Auto-Select Fabrication Fix", () => {
+  jest.setTimeout(20000);
+
   describe("Archetype Options & Schemas", () => {
     test("ARCHETYPE_OPTIONS includes 'hiring'", () => {
       expect(ARCHETYPE_OPTIONS).toContain("hiring");
@@ -49,6 +51,19 @@ describe("Task A: Hiring Archetype + Auto-Select Fabrication Fix", () => {
       };
 
       // When intake analysis runs (even if LLM structured output falls back or attempts teardown):
+      const result = await analyzeIntake(state as State);
+      expect(result.activeArchetype).not.toBe("teardown");
+      expect(result.activeArchetype).toBe("breakdown");
+    });
+
+    test("repro case: topic = 'who is a forward deployed engineer?', archetype = 'auto', domain = 'engineering', empty context routes to 'breakdown' and NOT 'teardown'", async () => {
+      const state: Partial<State> = {
+        topic: "who is a forward deployed engineer?",
+        context: "",
+        archetype: "auto",
+        domain: "engineering",
+      };
+
       const result = await analyzeIntake(state as State);
       expect(result.activeArchetype).not.toBe("teardown");
       expect(result.activeArchetype).toBe("breakdown");

@@ -11,6 +11,7 @@ export interface WebSearchResultItem {
 
 export interface WebSearchOutput {
   results: WebSearchResultItem[];
+  skippedReason?: string;
 }
 
 export const SEARCH_TIMEOUT_MS = 6000; // 5-8s budget
@@ -115,7 +116,10 @@ export async function performWebSearch(
  * LangChain tool definition for web search.
  */
 export const webSearchTool = tool(
-  async ({ query }: { query: string }): Promise<WebSearchOutput> => {
+  async ({ query, skippedReason }: { query: string; skippedReason?: string }): Promise<WebSearchOutput> => {
+    if (skippedReason) {
+      return { results: [], skippedReason };
+    }
     return performWebSearch(query);
   },
   {
@@ -123,6 +127,7 @@ export const webSearchTool = tool(
     description: "Search the public web for real-world facts, benchmarks, and references.",
     schema: z.object({
       query: z.string().describe("The search query to look up"),
+      skippedReason: z.string().optional().describe("Reason web search was skipped due to archetype gating"),
     }),
   }
 );

@@ -43,6 +43,11 @@ const TYPE_CONFIG: Record<
     badgeClass: "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20",
     borderClass: "hover:border-sky-500/40",
   },
+  hiring: {
+    label: "Hiring / Role",
+    badgeClass: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/20",
+    borderClass: "hover:border-indigo-500/40",
+  },
 };
 
 export const HookLab: React.FC<HookLabProps> = ({

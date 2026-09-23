@@ -160,6 +160,7 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
               toolCallId: string;
               toolName: string;
               args: Record<string, unknown>;
+              argsText: string;
               result?: unknown;
             }
           > = {};
@@ -227,6 +228,7 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
                   toolCallId: event.toolCallId,
                   toolName: event.toolName,
                   args: (event.args as Record<string, unknown>) || {},
+                  argsText: JSON.stringify(event.args || {}),
                   result: event.result,
                 };
 
@@ -234,7 +236,7 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
                   content: [
                     ...(accumulatedReasoning ? [{ type: "reasoning" as const, text: accumulatedReasoning }] : []),
                     ...Object.values(activeToolCalls),
-                  ],
+                  ] as unknown as ChatModelRunResult["content"],
                 };
                 yield toolResult;
               } else if (event.type === "change_note") {
@@ -271,7 +273,7 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
                       type: "text",
                       text: displayText,
                     },
-                  ],
+                  ] as unknown as ChatModelRunResult["content"],
                 };
                 yield finalResult;
               } else if (event.type === "error") {

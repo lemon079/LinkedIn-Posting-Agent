@@ -122,17 +122,21 @@ export const AgentState = Annotation.Root({
     reducer: (_x, y) => y,
     default: () => "",
   }),
-  webSearchEnabled: Annotation<boolean>({
+  webSearchEnabled: Annotation<boolean | undefined>({
     reducer: (_x, y) => (y !== undefined ? y : false),
     default: () => false,
   }),
-  webSearchResults: Annotation<Array<{ title: string; domain: string }>>({
+  webSearchResults: Annotation<Array<{ title: string; domain: string }> | undefined>({
     reducer: (_x, y) => y || [],
     default: () => [],
   }),
-  webSearchQueries: Annotation<string[]>({
+  webSearchQueries: Annotation<string[] | undefined>({
     reducer: (_x, y) => y || [],
     default: () => [],
+  }),
+  webSearchSkippedReason: Annotation<string | null | undefined>({
+    reducer: (_x, y) => y,
+    default: () => null,
   }),
 
   // ── LLM / LinkedIn credentials (pass-through from API) ───────────────
@@ -190,10 +194,20 @@ export const AgentState = Annotation.Root({
     reducer: (_x, y) => y,
     default: () => null,
   }),
-  servingProvider: Annotation<string | null>({
+  servingProvider: Annotation<string | null | undefined>({
     reducer: (_x, y) => y,
     default: () => null,
   }),
 });
 
-export type State = typeof AgentState.State;
+type BaseAgentState = typeof AgentState.State;
+export type State = Omit<
+  BaseAgentState,
+  "webSearchEnabled" | "webSearchResults" | "webSearchQueries" | "webSearchSkippedReason" | "servingProvider"
+> & {
+  webSearchEnabled?: boolean;
+  webSearchResults?: Array<{ title: string; domain: string }>;
+  webSearchQueries?: string[];
+  webSearchSkippedReason?: string | null;
+  servingProvider?: string | null;
+};

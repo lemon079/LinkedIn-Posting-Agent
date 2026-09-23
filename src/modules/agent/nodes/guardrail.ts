@@ -190,14 +190,15 @@ Response: ${contentToReview}`;
         }
       );
 
+      const fallbackContent = (fallbackRes as { content?: unknown })?.content;
       const fallbackEvaluation =
-        typeof fallbackRes.content === "string"
-          ? fallbackRes.content
-          : Array.isArray(fallbackRes.content)
-            ? fallbackRes.content
+        typeof fallbackContent === "string"
+          ? fallbackContent
+          : Array.isArray(fallbackContent)
+            ? fallbackContent
                 .map((b: LangChainMessageBlock | string) =>
                   typeof b === "object" && b !== null && "text" in b
-                    ? String(b.text || "")
+                    ? String((b as LangChainMessageBlock).text || "")
                     : String(b)
                 )
                 .join("\n")

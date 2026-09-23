@@ -170,11 +170,12 @@ export async function critiqueDraft(state: State, config?: RunnableConfig): Prom
               deadlineTimestamp: state.deadlineTimestamp,
             }
           );
+          const directContent = (directRes as { content?: unknown })?.content;
           const textContent =
-            typeof directRes.content === "string"
-              ? directRes.content
-              : Array.isArray(directRes.content)
-                ? (directRes.content as Array<{ text?: string }>).map((c) => c.text || "").join("")
+            typeof directContent === "string"
+              ? directContent
+              : Array.isArray(directContent)
+                ? (directContent as Array<{ text?: string }>).map((c) => c.text || "").join("")
                 : "";
           const directRecovered = parseCritiqueFromText(textContent);
           if (directRecovered) {

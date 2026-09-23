@@ -37,6 +37,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   webSearchResults,
   isSearchingWeb,
   webSearchQuery,
+  webSearchSkippedReason,
   user,
 }) => {
   return (
@@ -68,6 +69,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
       webSearchResults={webSearchResults}
       isSearchingWeb={isSearchingWeb}
       webSearchQuery={webSearchQuery}
+      webSearchSkippedReason={webSearchSkippedReason}
       user={user}
     />
   );

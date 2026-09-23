@@ -225,6 +225,8 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
 
   const isSearchToggleOn = Boolean(state.webSearchEnabled);
   const isEligibleArchetype = isSearchEligibleArchetype(activeArchetype);
+  const skippedReason = "Skipped — this archetype doesn't use search";
+  let webSearchSkippedReason: string | null = null;
 
   if (!isSearchToggleOn) {
     log.info("Web search telemetry", {
@@ -238,6 +240,19 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
       resultCount: 0,
     });
   } else if (!isEligibleArchetype) {
+    webSearchSkippedReason = skippedReason;
+    try {
+      await webSearchTool.invoke(
+        {
+          query: "Web search skipped",
+          skippedReason,
+        },
+        config
+      );
+    } catch (err: unknown) {
+      log.warn("Web search skip notification tool call failed", { error: (err as Error).message });
+    }
+
     log.info("Web search telemetry", {
       used: false,
       skippedByToggle: false,
@@ -422,6 +437,7 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
       searchContext,
       webSearchResults: retrievedSearchResults,
       webSearchQueries: searchQueries,
+      webSearchSkippedReason,
       servingProvider: serving.servingProvider,
       failedNode: null,
     };
@@ -509,6 +525,7 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
         searchContext,
         webSearchResults: retrievedSearchResults,
         webSearchQueries: searchQueries,
+        webSearchSkippedReason,
         servingProvider: fallbackLabel,
         failedNode: null,
       };

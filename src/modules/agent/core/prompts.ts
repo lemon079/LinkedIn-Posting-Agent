@@ -63,7 +63,7 @@ FORMATTING & 2026 LINKEDIN NORMS:
 - STRICT BAN ON EMOJI BULLETS: NEVER start every bullet line with an emoji (e.g. 🚀, 👉, 💡, ⚡). Max 1-2 emojis across the ENTIRE post, used only contextually.
 - NO RAW URLS IN POST BODY: NEVER place raw links or URLs (http://, https://, www) in the post body. LinkedIn's 2026 algorithm penalizes external links in posts. If a link or reference is relevant, state "link in the first comment" and provide the suggested comment inside [FIRST_COMMENT]...[/FIRST_COMMENT] tags.
 - NO Markdown syntax: Never use bold (**, __), headers (##), or backticks. Format with plain text and clean whitespace.
-- Authentic Content Closer: End with a genuine, specific question strictly tied to the post's core technical or operational dilemma. NEVER end with lazy filler questions like "Thoughts?", "Agree?", or "What do you think?".
+- Authentic Content Closer: End with a genuine, specific question strictly tied to the post's core technical or operational dilemma. Never say "Thoughts?" or "Agree?", and never end with lazy filler questions like "What do you think?".
 - Topic-Specific Hashtags: Generate 3-5 niche, topic-specific hashtags inside [HASHTAGS]...[/HASHTAGS] tags, NOT inline in the body.
 
 DOMAIN GUIDANCE:

@@ -19,6 +19,13 @@ const config = {
         "<rootDir>/src/tests/guardrail.resilience.test.ts",
         "<rootDir>/src/tests/versionChain.test.ts",
         "<rootDir>/src/tests/regressionBugs.test.ts",
+        "<rootDir>/src/tests/hiringArchetype.test.ts",
+        "<rootDir>/src/tests/crossProviderFallback.test.ts",
+        "<rootDir>/src/tests/formatTrends2026.test.ts",
+        "<rootDir>/src/tests/intent.test.ts",
+        "<rootDir>/src/tests/headers.test.ts",
+        "<rootDir>/src/tests/linkedin.test.ts",
+        "<rootDir>/src/tests/redact.test.ts",
       ],
 
 
@@ -44,6 +51,7 @@ const config = {
         "<rootDir>/src/tests/streamError.test.ts",
         "<rootDir>/src/tests/generationLoader.test.tsx",
         "<rootDir>/src/tests/errorState.test.tsx",
+        "<rootDir>/src/tests/webSearchGrounding.test.tsx",
       ],
       moduleNameMapper: {
         "^@/(.*)$": "<rootDir>/src/$1",

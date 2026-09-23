@@ -36,6 +36,7 @@ export interface FinalStreamEvent {
   alternativeHooks?: HookOption[];
   changeNote?: string;
   intent?: "refine" | "new_post" | "question" | "missing_metric";
+  webSearchSkippedReason?: string | null;
 }
 
 export interface HookOption {
@@ -83,8 +84,8 @@ export interface ToolCallStreamEvent {
   toolCallId: string;
   toolName: string;
   status: "running" | "complete" | "incomplete" | "requires-action";
-  args: { query?: string };
-  result?: { results: Array<{ title: string; domain: string }> };
+  args: { query?: string; skippedReason?: string };
+  result?: { results?: Array<{ title: string; domain: string }>; skippedReason?: string };
 }
 
 export type StreamEvent =

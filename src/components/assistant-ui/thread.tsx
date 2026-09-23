@@ -64,6 +64,7 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
   webSearchResults,
   isSearchingWeb,
   webSearchQuery,
+  webSearchSkippedReason,
   user,
   defaultMode = "preview",
   className,
@@ -379,12 +380,13 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
       )}
 
       {/* Grounded Web Search Result Card */}
-      {((webSearchResults && webSearchResults.length > 0) || isSearchingWeb) && (
+      {((webSearchResults && webSearchResults.length > 0) || isSearchingWeb || webSearchSkippedReason) && (
         <WebSearch
-          query={webSearchQuery || "Web search"}
+          query={webSearchQuery || (webSearchSkippedReason ? "Web search skipped" : "Web search")}
           results={webSearchResults || []}
           visibleResults={(webSearchResults || []).length}
           searching={Boolean(isSearchingWeb)}
+          skippedReason={webSearchSkippedReason || undefined}
           cycle={0}
         />
       )}

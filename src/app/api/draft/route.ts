@@ -266,6 +266,11 @@ export async function POST(request: Request) {
               lastFailedNode: null,
               errorRecoveryCount: 0,
               nodeRecoveryCounts: {},
+              webSearchEnabled: false,
+              webSearchResults: [],
+              webSearchQueries: [],
+              webSearchSkippedReason: null,
+              servingProvider: null,
               deadlineTimestamp,
               rawLlmResponse: null,
             };
@@ -350,6 +355,7 @@ export async function POST(request: Request) {
             webSearchEnabled: Boolean(webSearchEnabled),
             webSearchResults: [],
             webSearchQueries: [],
+            webSearchSkippedReason: null,
             draft: "",
             alternativeHooks: [],
             userFeedback: null,
@@ -374,6 +380,7 @@ export async function POST(request: Request) {
             errorRecoveryCount: 0,
             nodeRecoveryCounts: {},
             rawLlmResponse: null,
+            servingProvider: null,
           };
 
           const eventStream = agent.streamEvents(initialState, {
@@ -416,21 +423,21 @@ export async function POST(request: Request) {
                 }
               }
             } else if (event.event === "on_tool_start") {
-              const toolInput = (event.data?.input as { query?: string }) || {};
+              const toolInput = (event.data?.input as { query?: string; skippedReason?: string }) || {};
               sendEvent({
                 type: "tool_call",
-                toolCallId: event.runId || `search-${Date.now()}`,
+                toolCallId: event.run_id || `search-${Date.now()}`,
                 toolName: event.name || "web_search",
                 status: "running",
                 args: toolInput,
               });
             } else if (event.event === "on_tool_end") {
-              const toolInput = (event.data?.input as { query?: string }) || {};
+              const toolInput = (event.data?.input as { query?: string; skippedReason?: string }) || {};
               const toolOutput =
-                (event.data?.output as { results?: Array<{ title: string; domain: string }> }) || { results: [] };
+                (event.data?.output as { results?: Array<{ title: string; domain: string }>; skippedReason?: string }) || { results: [] };
               sendEvent({
                 type: "tool_call",
-                toolCallId: event.runId || `search-${Date.now()}`,
+                toolCallId: event.run_id || `search-${Date.now()}`,
                 toolName: event.name || "web_search",
                 status: "complete",
                 args: toolInput,
@@ -488,6 +495,7 @@ export async function POST(request: Request) {
               critique: state.values.critique,
               critiqueScores: state.values.critiqueScores,
               alternativeHooks: state.values.alternativeHooks,
+              webSearchSkippedReason: state.values.webSearchSkippedReason || null,
             });
           }
         } catch (err: unknown) {
