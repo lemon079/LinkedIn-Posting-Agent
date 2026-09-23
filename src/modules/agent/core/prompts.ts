@@ -50,14 +50,15 @@ POST ARCHETYPES — SELECT THE BEST FIT FOR THE TOPIC:
 5. The Trade-off & Decision Matrix:
    Approach A vs Approach B -> Real-world Pros & Cons -> Exact Criteria for Choosing Between Them -> Architectural Conclusion.
 
-FORMATTING & CADENCE RULES:
-- Length: 120-220 words. High signal-to-noise ratio.
+FORMATTING & 2026 LINKEDIN NORMS:
+- Character Count Sweet Spot: Target 1,300 to 2,500 characters (approx. 200-350 words). High signal-to-noise ratio.
 - Structure: Short, punchy paragraphs (1-3 sentences each). Vary paragraph lengths for natural reading rhythm.
-- Visual clarity: Use blank lines between paragraphs. For lists, use plain dashes (-) or numbers (1.).
+- Visual clarity & Lists: Use blank lines between paragraphs. For lists, use standard plain dashes (-) or numbers (1.).
+- STRICT BAN ON EMOJI BULLETS: NEVER start every bullet line with an emoji (e.g. 🚀, 👉, 💡, ⚡). Max 1-2 emojis across the ENTIRE post, used only contextually.
+- NO RAW URLS IN POST BODY: NEVER place raw links or URLs (http://, https://, www) in the post body. LinkedIn's 2026 algorithm penalizes external links in posts. If a link or reference is relevant, state "link in the first comment" and provide the suggested comment inside [FIRST_COMMENT]...[/FIRST_COMMENT] tags.
 - NO Markdown syntax: Never use bold (**, __), headers (##), or backticks. Format with plain text and clean whitespace.
-- Emojis: 0 to 2 emojis total across the entire post. Use them only to highlight key metrics or visual breaks. Never use clapping hands, fire, rockets, or lightbulbs.
-- Hashtags: 2 to 3 concise, domain-relevant hashtags on their own line at the very end (e.g. #systemdesign #backend #distributedsystems).
-- Closer: End with a thoughtful, open question inviting peer debate, or a crisp concluding principle. Never say "Thoughts?" or "Agree?".
+- Authentic Content Closer: End with a genuine, specific question strictly tied to the post's core technical or operational dilemma. NEVER end with lazy filler questions like "Thoughts?", "Agree?", or "What do you think?".
+- Topic-Specific Hashtags: Generate 3-5 niche, topic-specific hashtags inside [HASHTAGS]...[/HASHTAGS] tags, NOT inline in the body.
 
 DOMAIN GUIDANCE:
 - ${domainConfig.specificityDescription}
@@ -122,12 +123,16 @@ Reward authenticity, scroll-stopping hooks, high-density insights, and clean hum
 Heavily penalize generic AI slop, textbook lectures, robotic transitions ("In today's world", "Here's what you need to know"), corporate buzzwords ("game-changer", "synergy", "leverage"), and predictable 4-line formulaic structures.
 Do NOT penalize credible first-person or team experiential framing ("Last month we migrated...", "Here is what we observed..."); authentic practitioner stories perform best on LinkedIn when backed by real details.
 
-ANTI-FABRICATION MANDATE (AUTO-FAIL RULE):
-If the draft contains invented benchmark numbers, fake production incident claims, or fabricated personal stories not supplied in the user's prompt or grounding context, AUTO-FAIL the draft with a score <= 4. The instructions must explicitly direct the refiner to ground the insight in genuine domain patterns or user-supplied details.
+ANTI-FABRICATION & 2026 AUTHENTICITY RULES (CRITICAL):
+1. In-Body Links (HARD FAIL): If the post body contains raw URLs or links (http://, https://, www), AUTO-FAIL the draft with score <= 4. Direct the author to move the link to a suggested first comment.
+2. Anti-Fabrication Mandate: If the draft contains invented benchmark numbers, fake production incident claims, or fabricated personal stories not supplied in the prompt/context, AUTO-FAIL with score <= 4.
+3. Mechanically Repetitive Structure (AI Pattern Check): Flag emoji-as-bullet patterns (e.g. 🚀, 👉 on every line) or monotonous repetitive sentence formulas as AI slop under Authenticity & Cadence.
+4. Manufactured / Bait-y Contrarian Framing: Distinguish between genuine practitioner contrarian takes (grounded in production constraints and technical realities) and cheap engagement bait (provocation without a real technical point). LinkedIn's 2026 Authenticity Update severely penalizes artificial bait. If bait-y without substance, score <= 5.
+5. Character Count Guidance (1,300 - 2,500 characters): Target character count is 1,300-2,500 characters. If outside this range, note as a SOFT WARNING in weaknesses/instructions to tighten or expand, but do NOT auto-fail solely for length if the content is otherwise exceptional.
 
 SCORING RUBRIC (1-10) — Grade strictly. Do not give passing scores (>=7) to bland, generic drafts:
-1-3: Generic AI slop, buzzword soup, abstract textbook monologue, fabricated fake stories/incidents, or melodramatic "broetry". Lacks all domain specificity.
-4-5: Contains some domain concepts, but hook is weak, structure is formulaic, tone sounds like AI documentation ("A common challenge is..."), or ungrounded claims are made.
+1-3: Generic AI slop, buzzword soup, abstract textbook monologue, fabricated fake stories/incidents, raw URLs in body, or melodramatic "broetry". Lacks all domain specificity.
+4-5: Contains some domain concepts, but hook is weak, structure is formulaic with emoji bullets, tone sounds like AI documentation ("A common challenge is..."), or ungrounded claims/links are made.
 6:   Solid technical or operational topic, but pacing is flat, hook lacks tension, or contains subtle AI clichés. Needs sharper line breaks and punchier takeaway.
 7:   Good practitioner post. Strong hook above the "...see more" cutoff, concrete domain details, authentic cadence, clear takeaway. Minor polish needed.
 8-9: Exceptional practitioner post. Irresistible scroll-stopping hook, crisp rhythm, high-density practical insight, authentic voice, zero fluff.
@@ -135,9 +140,9 @@ SCORING RUBRIC (1-10) — Grade strictly. Do not give passing scores (>=7) to bl
 
 EVALUATE ON THESE 4 CORE DIMENSIONS:
 1. Hook & Feed Truncation (0-10): Does the first 1-2 lines before the break create genuine tension, curiosity, or contrast to trigger "...see more"? Is it under 25 words?
-2. Authenticity & Cadence (Zero AI Slop) (0-10): Does this sound like a real person writing to peers? Is it free of cliché transitions ("Here's the thing:", "In today's fast-paced...") and corporate buzzwords?
+2. Authenticity & Cadence (Zero AI Slop) (0-10): Does this sound like a real person writing to peers? Is it free of cliché transitions ("Here's the thing:", "In today's fast-paced..."), corporate buzzwords, and emoji-bullet lists?
 3. Domain Specificity & Grounding (0-10): Does it cite concrete tools, configurations, trade-offs, metrics, or mechanisms from ${domainConfig.label}? Does it avoid inventing fake incident claims?
-4. Structure & Pacing (0-10): Are paragraphs short (1-3 lines) with natural breathing room? No raw markdown syntax (no **, no ##)? 0-2 emojis? 2-3 hashtags at the end?
+4. Structure & 2026 Format Compliance (0-10): Are paragraphs short (1-3 lines) with natural breathing room? No raw URLs in body? No emoji bullets? Genuine specific closing question (not "Thoughts?")? 3-5 hashtags in separate tag? Character count around 1,300-2,500 chars (soft warning if outside)?
 
 DRAFT TO REVIEW:
 """
@@ -172,14 +177,17 @@ CRITIC'S REWRITE INSTRUCTIONS:
 ${critiqueInstructions}
 """
 
-REWRITE CONSTRAINTS & INSTRUCTIONS:
+REWRITE CONSTRAINTS & 2026 LINKEDIN FORMATTING:
 - Directly execute all points in the critic's rewrite instructions.
 - Hook: Ensure the first 1-2 lines create immediate tension, intrigue, or metric-driven contrast before the first paragraph break.
 - Voice: Write with natural human cadence. Credible first-person or team framing ("We tested...", "Last week our team...") is encouraged if it adds authenticity.
 - Zero AI Slop: Absolutely eliminate corporate buzzwords ("game-changer", "leverage", "synergy", "deep dive", "unlock") and cliché transitions ("Here's the thing:", "Let that sink in", "In today's fast-paced world").
-- Length: 120-220 words. Every sentence must carry weight.
+- NO Emoji Bullets: Plain dashes (-) or numbers (1.) only. Max 1-2 emojis across the ENTIRE post.
+- NO Raw URLs in Body: Move any link reference to "link in first comment" and output [FIRST_COMMENT]...[/FIRST_COMMENT].
+- Closing Question: End with a genuine, specific question tied to the post's core technical subject, never "Thoughts?" or "Agree?".
+- Length: 1,300-2,500 characters (approx. 200-350 words). High signal-to-noise ratio.
 - Formatting: Short paragraphs (1-3 sentences) separated by blank lines. Plain text only (NO Markdown like **, ##, or backticks).
-- Emojis: 0 to 2 emojis max, used purposefully. Max 3 hashtags on their own line at the end.
+- Hashtags: 3-5 niche, topic-specific hashtags inside [HASHTAGS]...[/HASHTAGS] tags, not inline in the body.
 `;
 
   if (recentHooks.length > 0) {
@@ -234,12 +242,15 @@ SCOPED EDITS ONLY:
 - Keep the 2-3 line "...see more" hook preview optimized above the fold (under 25 words).
 ${preservedHook ? `- PRESERVE THIS EXACT OPENING HOOK unless the user specifically asked to rewrite the hook:\n"${preservedHook}"` : ""}
 
-LINKEDIN FORMATTING:
-- Short paragraphs (1-3 sentences) separated by blank lines.
+LINKEDIN FORMATTING (2026 NORMS):
+- Target 1,300 to 2,500 characters. Short paragraphs (1-3 sentences) separated by blank lines.
 - No corporate buzzwords ("game-changer", "leverage", "synergy", "deep dive", "unlock").
 - No cliché AI transitions ("In today's fast-paced world", "Here's the thing:", "Let that sink in").
+- NO emoji bullets (no 👉, 🚀, 💡 starting lines). Use plain dashes (-) or numbers. 0-2 emojis max.
+- NO raw URLs in body. Place links in a suggested first comment.
+- End with a genuine, specific question tied to the post's content, never "Thoughts?" or "Agree?".
 - Plain text only (NO markdown syntax like **, ##, or backticks).
-- 0-2 purposeful emojis max. Max 3 hashtags on their own line at the end.
+- 3-5 niche hashtags inside [HASHTAGS]...[/HASHTAGS] tags if relevant.
 
 OUTPUT FORMAT:
 Provide a concise 1-sentence note summarizing what you changed inside [NOTE] ... [/NOTE] tags.
