@@ -196,9 +196,29 @@ export async function critiqueDraft(state: State, config?: RunnableConfig): Prom
     }
 
 
-    // Track best draft across iterations
+    // Track best draft across iterations with validity & sweet-spot tie-breakers
+    const prevBestDraft = state.bestDraft || "";
     const prevBestScore = state.bestScore ?? 0;
-    const isBetter = critique.score > prevBestScore;
+    const prevIsValidLength = prevBestDraft.length > 0 && prevBestDraft.length <= 3000;
+    const currentIsValidLength = currentDraft.length > 0 && currentDraft.length <= 3000;
+
+    let isBetter = false;
+    if (!prevIsValidLength && currentIsValidLength) {
+      // Valid draft strictly beats invalid (>3000 chars) draft
+      isBetter = true;
+    } else if (prevIsValidLength && !currentIsValidLength) {
+      // Invalid draft cannot beat valid draft
+      isBetter = false;
+    } else if (critique.score > prevBestScore) {
+      isBetter = true;
+    } else if (critique.score === prevBestScore && currentIsValidLength) {
+      // Tie-breaker: prefer draft closer to 2026 sweet spot (1300-2500)
+      const prevDist = prevBestDraft ? Math.abs(prevBestDraft.length - 1900) : Infinity;
+      const currDist = Math.abs(currentDraft.length - 1900);
+      if (currDist <= prevDist) {
+        isBetter = true;
+      }
+    }
     const durationMs = Date.now() - startTime;
 
     log.info(`Critique completed`, {
@@ -228,8 +248,21 @@ export async function critiqueDraft(state: State, config?: RunnableConfig): Prom
 
     const fallbackScore = 7;
 
+    const prevBestDraft = state.bestDraft || "";
     const prevBestScore = state.bestScore || 0;
-    const isBetter = fallbackScore > prevBestScore;
+    const prevIsValidLength = prevBestDraft.length > 0 && prevBestDraft.length <= 3000;
+    const currentIsValidLength = currentDraft.length > 0 && currentDraft.length <= 3000;
+
+    let isBetter = false;
+    if (!prevIsValidLength && currentIsValidLength) {
+      isBetter = true;
+    } else if (prevIsValidLength && !currentIsValidLength) {
+      isBetter = false;
+    } else if (fallbackScore > prevBestScore) {
+      isBetter = true;
+    } else if (fallbackScore === prevBestScore && currentIsValidLength) {
+      isBetter = true;
+    }
 
     return {
       critique: {

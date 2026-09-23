@@ -122,6 +122,9 @@ export async function refineDraft(state: State, config?: RunnableConfig): Promis
       .replace(/\[NOTE\]:?[^\n\r]*/gi, "")
       .replace(/\[\/?DRAFT\]/gi, "")
       .replace(/\[\/?DRAFT\s*\n*\]/gi, "")
+      .replace(/\[\/?HASHTAGS?\]:?/gi, "")
+      .replace(/\[\/?FIRST_COMMENT\]:?/gi, "")
+      .replace(/\n{3,}/g, "\n\n")
       .trim();
 
     const finalDraft = refinedDraft || currentDraft;

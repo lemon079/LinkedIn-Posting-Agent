@@ -45,11 +45,22 @@ function extractDraftText(content: unknown): string {
   }
 
   // Strip [DRAFT] ... [/DRAFT] tags if present
+  let clean = raw;
   const draftMatch = raw.match(/\[DRAFT\]([\s\S]*?)\[\/DRAFT\]/i);
   if (draftMatch) {
-    return draftMatch[1].trim();
+    clean = draftMatch[1].trim();
+  } else {
+    clean = raw.replace(/\[\/?DRAFT\]/gi, "").trim();
   }
-  return raw.replace(/\[\/?DRAFT\]/gi, "").trim();
+
+  // Strip literal bracket tag wrappers (e.g. [HASHTAG], [HASHTAGS], [/HASHTAGS], [FIRST_COMMENT])
+  clean = clean
+    .replace(/\[\/?HASHTAGS?\]:?/gi, "")
+    .replace(/\[\/?FIRST_COMMENT\]:?/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return clean;
 }
 
 function extractAlternativeHooks(
@@ -339,7 +350,10 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
     promptSections.push(`Grounding Info: "None"`);
   }
 
-  promptSections.push("Generate the complete post inside [DRAFT] ... [/DRAFT] tags.");
+  promptSections.push(
+    "Generate the complete post inside [DRAFT] ... [/DRAFT] tags.",
+    "STRICT LENGTH CONSTRAINT: The entire post MUST be between 1,300 and 2,500 characters. NEVER exceed 2,600 characters under any circumstances. Posts over 3,000 characters fail system validation."
+  );
   promptSections.push("");
   if (activeArchetype === "hiring") {
     promptSections.push(

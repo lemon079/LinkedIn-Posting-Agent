@@ -57,7 +57,7 @@ HIRING POST GUARDRAILS:
 - Structure must focus on concrete daily craftsmanship and engineering challenges, avoiding boilerplate job-listing jargon.
 
 FORMATTING & 2026 LINKEDIN NORMS:
-- Character Count Sweet Spot: Target 1,300 to 2,500 characters (approx. 200-350 words). High signal-to-noise ratio.
+- Character Count Sweet Spot: Target 1,300 to 2,500 characters (approx. 200-350 words). High signal-to-noise ratio. STRICT CEILING: Never exceed 2,600 characters total. LinkedIn strictly rejects posts over 3,000 characters.
 - Structure: Short, punchy paragraphs (1-3 sentences each). Vary paragraph lengths for natural reading rhythm.
 - Visual clarity & Lists: Use blank lines between paragraphs. For lists, use standard plain dashes (-) or numbers (1.).
 - STRICT BAN ON EMOJI BULLETS: NEVER start every bullet line with an emoji (e.g. 🚀, 👉, 💡, ⚡). Max 1-2 emojis across the ENTIRE post, used only contextually.
@@ -206,7 +206,7 @@ REWRITE CONSTRAINTS & 2026 LINKEDIN FORMATTING:
 - NO Emoji Bullets: Plain dashes (-) or numbers (1.) only. Max 1-2 emojis across the ENTIRE post.
 - NO Raw URLs in Body: Move any link reference to "link in first comment" and output [FIRST_COMMENT]...[/FIRST_COMMENT].
 - Closing Question: End with a genuine, specific question tied to the post's core technical subject, never "Thoughts?" or "Agree?".
-- Length: 1,300-2,500 characters (approx. 200-350 words). High signal-to-noise ratio.
+- Length: 1,300-2,500 characters (approx. 200-350 words). High signal-to-noise ratio. Never exceed 2,600 characters.
 - Formatting: Short paragraphs (1-3 sentences) separated by blank lines. Plain text only (NO Markdown like **, ##, or backticks).
 - Hashtags: 3-5 niche, topic-specific hashtags inside [HASHTAGS]...[/HASHTAGS] tags, not inline in the body.
 `;
@@ -264,7 +264,7 @@ SCOPED EDITS ONLY:
 ${preservedHook ? `- PRESERVE THIS EXACT OPENING HOOK unless the user specifically asked to rewrite the hook:\n"${preservedHook}"` : ""}
 
 LINKEDIN FORMATTING (2026 NORMS):
-- Target 1,300 to 2,500 characters. Short paragraphs (1-3 sentences) separated by blank lines.
+- Target 1,300 to 2,500 characters. Never exceed 2,600 characters total. Short paragraphs (1-3 sentences) separated by blank lines.
 - No corporate buzzwords ("game-changer", "leverage", "synergy", "deep dive", "unlock").
 - No cliché AI transitions ("In today's fast-paced world", "Here's the thing:", "Let that sink in").
 - NO emoji bullets (no 👉, 🚀, 💡 starting lines). Use plain dashes (-) or numbers. 0-2 emojis max.

@@ -246,7 +246,12 @@ Rules:
           .join("");
       }
 
-      generatedText = generatedText.replace(/\[\/?DRAFT\]/gi, "").trim();
+      generatedText = generatedText
+        .replace(/\[\/?DRAFT\]/gi, "")
+        .replace(/\[\/?HASHTAGS?\]:?/gi, "")
+        .replace(/\[\/?FIRST_COMMENT\]:?/gi, "")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
 
       if (generatedText.length > 30) {
         log.info(`Error Agent successfully generated emergency fallback draft`, {
