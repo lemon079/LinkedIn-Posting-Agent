@@ -3,9 +3,9 @@
 
 ## System Overview
 
-Praxis is an event-driven, domain-directed autonomous AI agent studio for LinkedIn content creation and social publishing. Built on **Next.js 16 (App Router)**, **React 19**, **LangGraph (@langchain/langgraph)**, and **Supabase (PostgreSQL & Storage)**, the system takes a high-level topic or technical experience, classifies it into senior practitioner archetypes, generates an authentic post with feed truncation hook engineering, autonomously self-critiques and refines the draft, enforces content safety guardrails, and pauses at a Human-in-the-Loop checkpoint before publishing via the LinkedIn UGC REST API.
+Praxis is an event-driven, domain-directed autonomous AI agent studio for LinkedIn content creation and social publishing. Built on **Next.js 16 (App Router)**, **React 19**, **LangGraph (@langchain/langgraph)**, and **Supabase (PostgreSQL & Storage)**, the system takes a high-level topic or technical experience, classifies it into 6 senior practitioner archetypes (including technical Hiring / Recruiting), optionally grounds it with real-time web search facts, generates an authentic post with feed truncation hook engineering and 2026 LinkedIn format compliance, autonomously self-critiques and refines the draft, enforces content safety guardrails, and pauses at a Human-in-the-Loop checkpoint before publishing via the LinkedIn UGC REST API.
 
-The platform employs a Server-Sent Events (SSE) streaming architecture, delivering live chain-of-thought tokens, intermediate critique scores, and execution node transitions directly to a responsive assistant UI workspace.
+The platform employs a Server-Sent Events (SSE) streaming architecture, delivering live chain-of-thought tokens, tool calls, intermediate critique scores, and execution node transitions directly to a responsive assistant UI workspace powered by `@assistant-ui/react`.
 
 ---
 
@@ -24,6 +24,7 @@ graph TD
         UI["Studio Workspace (src/app/page.tsx)"]:::client
         Hooks["State & Stream Hooks (useAgent, useAgentSettings, useAgentMedia)"]:::client
         AssistantUI["Assistant UI & Hook Lab (@assistant-ui/react)"]:::client
+        WebSearchElem["WebSearch Component (@assistant-ui/react)"]:::client
         Preview["LinkedIn Feed Preview (LinkedInFeed.tsx)"]:::client
     end
 
@@ -57,12 +58,14 @@ graph TD
 
     subgraph External ["External Services & LLM Providers"]
         LLMs["Multi-Provider LLM Engine (Gemini / Claude / OpenAI / Ollama)"]:::external
+        WebSearchService["Tavily Search API (webSearchTool)"]:::external
         LinkedInAPI["LinkedIn UGC API v2"]:::external
     end
 
     %% Connections
     UI --> Hooks
     Hooks --> AssistantUI
+    AssistantUI --> WebSearchElem
     Hooks --> Preview
     Hooks -->|SSE Stream Request| DraftAPI
     Hooks -->|Resume Thread & Post| PublishAPI
@@ -98,6 +101,7 @@ graph TD
 
     %% External Calls
     Generate <--> LLMs
+    Generate <--> WebSearchService
     Critique <--> LLMs
     Refine <--> LLMs
     Publish <--> LinkedInAPI
@@ -110,21 +114,24 @@ graph TD
 ## Data Flow
 
 ### 1. Draft Generation Lifecycle (Streaming SSE)
-1. **Intake & Trigger:** The user enters a topic, context, archetype (Incident Teardown, Contrarian Take, Playbook, Gotcha, Decision Matrix), and tone in `src/components/assistant-ui/composer.tsx` or `src/components/ControlPanel.tsx`.
+1. **Intake & Trigger:** The user enters a topic, context, archetype (Incident Teardown, Contrarian Take, Playbook, Gotcha Breakdown, Decision Matrix, or Hiring / Recruiting), and tone in `src/components/assistant-ui/composer.tsx` or `src/components/ControlPanel.tsx`. Optionally enables "Ground with web search" toggle.
 2. **Request Dispatch:** `useAgent` initiates `POST /api/draft` with prompt payload and execution parameters.
 3. **Execution Pipeline:**
-   - **`analyzeIntake`**: Extracts core problem domain, target audience angle, and structure requirements.
-   - **`generateDraft`**: Selects domain few-shot exemplars and prompts primary model (fallbacking to secondary provider if timed out or quota exceeded). Simultaneously triggers Hook Lab angle generation.
-   - **`critiqueDraft`**: Evaluates draft across 4 criteria (Hook Strength, Domain Grounding, Actionable Insight, Structure & Flow) scoring 1–10.
+   - **`analyzeIntake`**: Extracts core problem domain, target audience angle, and structure requirements. Prevents non-narrative or definitional queries (e.g., "who is a forward deployed engineer?") from being forced into Incident Teardown.
+   - **`generateDraft`**:
+     - *Web Search Grounding*: If enabled and archetype is eligible (Contrarian, Playbook, Decision Matrix), executes 1-3 targeted queries with a 6s timeout fallback and content guardrails (rephrased, loosely attributed, non-overriding).
+     - *Format Compliance*: Enforces 2026 LinkedIn sweet spot (1,300-2,500 chars), bans repetitive emoji bullets, replaces raw URLs with suggested first-comment notes, crafts specific discussion closers, and places hashtags in a dedicated tag.
+     - *Multi-Provider Resilience*: Dispatches to primary model with automated failover across genuine providers (Gemini -> OpenAI `gpt-4o-mini` -> Claude `claude-3-5-haiku-latest`) under a tight ~28s primary budget.
+   - **`critiqueDraft`**: Evaluates draft across 4 core criteria plus archetype-specific rubrics (e.g. role clarity, concrete requirements, clear CTA for Hiring) and 2026 format checks (flagging repetitive emoji bullets, links in body as hard fail, manufactured contrarian bait).
    - **`refineDraft`**: If score < 7 and critique count < 2, applies concrete surgical improvements.
    - **`promoteBestDraft`**: Selects highest-scoring draft iteration.
-   - **`runGuardrails`**: Enforces strict safety standards (no offensive content, no ungrounded metric fabrications).
+   - **`runGuardrails`**: Enforces strict safety standards (no offensive content, no ungrounded metric fabrications) with cross-provider evaluation fallback.
    - **`validatePost`**: Validates character limits (1–3,000 characters).
 4. **Checkpoint Interruption:** LangGraph pauses execution immediately before `publishPost` via `interruptBefore: ["publishPost"]`. The checkpoint is persisted to PostgreSQL via `SupabaseCheckpointer`.
-5. **Streaming Response:** The client receives SSE events (`node_start`, `token`, `critique`, `final`) and populates the editor and Hook Lab swapper.
+5. **Streaming Response:** The client receives SSE events (`node_start`, `token`, `tool_call`, `critique`, `final`) and populates the editor, WebSearch component, and Hook Lab swapper.
 
 ### 2. Conversational Refinement & Hook Swapping
-1. **Hook Lab Swapper:** Users can audition 3 alternative hook styles (Metric-driven, Contrarian, Incident teardown). Selecting a hook immutably appends a new draft version to the history stack (`v1 · Initial Draft`, `v2`, etc.).
+1. **Hook Lab Swapper:** Users can audition 3 alternative hook styles (Metric-driven, Contrarian, Incident teardown, or Hiring-specific). Selecting a hook immutably appends a new draft version to the history stack (`v1 · Initial Draft`, `v2`, etc.).
 2. **Natural Language Feedback:** Users can type conversational requests ("make it punchier", "shorten to 150 words") into the composer, invoking targeted refinement passes.
 
 ### 3. Publishing Lifecycle
@@ -143,11 +150,12 @@ graph TD
 
 | Abstraction | File Location | Role & Architectural Purpose |
 |-------------|---------------|------------------------------|
-| **`AgentState`** | [`src/modules/agent/core/state.ts`](file:///d:/Work/linkedin-agent/src/modules/agent/core/state.ts) | Central LangGraph state annotation defining inputs, drafts, critique scores, reasoning traces, error counters, and credentials. |
+| **`AgentState`** | [`src/modules/agent/core/state.ts`](file:///d:/Work/linkedin-agent/src/modules/agent/core/state.ts) | Central LangGraph state annotation defining inputs, drafts, critique scores, reasoning traces, web search state, error counters, and credentials. |
 | **`SupabaseCheckpointer`** | [`src/modules/agent/checkpointer/supabase.ts`](file:///d:/Work/linkedin-agent/src/modules/agent/checkpointer/supabase.ts) | Custom `BaseCheckpointSaver` implementation serializing and deserializing LangGraph execution threads and writes to Supabase PostgreSQL. |
-| **`createModel` (LLMFactory)** | [`src/modules/agent/llm/factory.ts`](file:///d:/Work/linkedin-agent/src/modules/agent/llm/factory.ts) | Unified polymorphic provider factory creating Google Gemini, OpenAI, Anthropic, or Ollama LangChain chat models with structured error handling. |
+| **`createModel` (LLMFactory)** | [`src/modules/agent/llm/factory.ts`](file:///d:/Work/linkedin-agent/src/modules/agent/llm/factory.ts) | Unified polymorphic provider factory creating Google Gemini, OpenAI, Anthropic, or Ollama LangChain chat models with cross-provider failover chains. |
+| **`webSearchTool` & `performWebSearch`** | [`src/modules/agent/tools/webSearch.ts`](file:///d:/Work/linkedin-agent/src/modules/agent/tools/webSearch.ts) | Backend web search integration with Tavily API, archetype gating, 6s timeout budget, and `{ results: Array<{ title, domain }> }` formatting. |
+| **`assistantUiToolkit` & `WebSearch`** | [`src/components/assistant-ui/toolkit.tsx`](file:///d:/Work/linkedin-agent/src/components/assistant-ui/toolkit.tsx), [`src/components/assistant-ui/web-search.tsx`](file:///d:/Work/linkedin-agent/src/components/assistant-ui/web-search.tsx) | `@assistant-ui/react` toolkit integration using `externalTool()` to render stream-safe query badges, searching spinners, and domain result chips. |
 | **`withDeadline`** | [`src/modules/agent/llm/timeout.ts`](file:///d:/Work/linkedin-agent/src/modules/agent/llm/timeout.ts) | Deadline-aware wrapper wrapping model invocations with timeout abort controllers and execution timers. |
-| **`handleAgentError`** | [`src/modules/agent/nodes/errorHandler.ts`](file:///d:/Work/linkedin-agent/src/modules/agent/nodes/errorHandler.ts) | Autonomous error recovery node that catches malformed outputs, quota limits, or parsing errors, attempting emergency synthesis or graceful fallback. |
 | **`CryptoService`** | [`src/modules/auth/crypto.ts`](file:///d:/Work/linkedin-agent/src/modules/auth/crypto.ts) | Cryptographic security layer handling AES-256-GCM authenticated encryption and decryption for sensitive API keys and OAuth tokens. |
 | **`LinkedInPublisher`** | [`src/modules/linkedin/publisher.ts`](file:///d:/Work/linkedin-agent/src/modules/linkedin/publisher.ts) | High-level LinkedIn API client orchestrating UGC image/document asset registration, upload chunking, and post creation. |
 | **`useAgent`** | [`src/hooks/useAgent.ts`](file:///d:/Work/linkedin-agent/src/hooks/useAgent.ts) | Comprehensive React state orchestrator managing SSE streaming, draft version history stack, Hook Lab integration, and publishing flows. |
