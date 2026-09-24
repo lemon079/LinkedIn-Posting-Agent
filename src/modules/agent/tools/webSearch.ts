@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { tool } from "@langchain/core/tools";
+import { TavilySearch } from "@langchain/tavily";
 import { logger } from "@/lib/logger";
 
 const log = logger.child({ module: "Tools:webSearch" });
@@ -48,40 +49,61 @@ export async function performWebSearch(
     return { results: [] };
   }
 
+  // Graceful degradation: missing API key returns empty array without throwing
+  if (!apiKey) {
+    log.warn("Tavily API key not configured; skipping external web search call and returning empty results");
+    return { results: [] };
+  }
+
   const cleanQuery = query.trim();
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  let timeoutId: NodeJS.Timeout | undefined;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      try {
+        controller.abort();
+      } catch {}
+      const timeoutError = new Error(`Tavily search request timed out after ${timeoutMs}ms`);
+      timeoutError.name = "AbortError";
+      reject(timeoutError);
+    }, timeoutMs);
+    if (typeof timeoutId.unref === "function") {
+      timeoutId.unref();
+    }
+  });
 
   try {
-    if (!apiKey) {
-      log.warn("Tavily API key not configured; skipping external web search call and returning empty results");
-      clearTimeout(timeoutId);
-      return { results: [] };
-    }
-
-    const response = await fetch("https://api.tavily.com/search", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        api_key: apiKey,
-        query: cleanQuery,
-        search_depth: "basic",
-        max_results: 3,
-      }),
-      signal: controller.signal,
+    const tavilyTool = new TavilySearch({
+      tavilyApiKey: apiKey,
+      maxResults: 3,
+      searchDepth: "basic",
     });
+
+    const response = await Promise.race([
+      tavilyTool.invoke({ query: cleanQuery }, { signal: controller.signal }),
+      timeoutPromise,
+    ]);
 
     clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      log.warn("Tavily search API responded with non-200 status", { status: response.status });
+    // Handle internal error response from TavilySearch
+    if (!response || typeof response !== "object" || "error" in response) {
+      const errMsg = (response as { error?: string })?.error || "Unknown error";
+      const isTimeout =
+        errMsg.toLowerCase().includes("aborted") ||
+        errMsg.toLowerCase().includes("timed out") ||
+        controller.signal.aborted;
+      log.warn("Web search request failed or timed out; proceeding without search results", {
+        timedOut: isTimeout,
+        error: errMsg,
+      });
       return { results: [] };
     }
 
-    const data = await response.json();
-    const rawResults = Array.isArray(data.results) ? data.results : [];
+    const rawResults = Array.isArray((response as { results?: unknown[] }).results)
+      ? (response as { results: Array<{ title?: string; url?: string }> }).results
+      : [];
 
     const results: WebSearchResultItem[] = rawResults.slice(0, 3).map((item: { title?: string; url?: string }) => {
       let domain = "";

@@ -3,9 +3,9 @@ import { ChatOpenAI } from "@langchain/openai";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatOllama } from "@langchain/ollama";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
+import type { Runnable } from "@langchain/core/runnables";
 import { config } from "@/config/env";
 import type { LLMOptions } from "../types";
-
 
 const ANTHROPIC_MIN_THINKING_BUDGET = 1024;
 
@@ -486,28 +486,72 @@ export const createCriticLLM = (opts: LLMOptions = {}) => {
     );
   }
 
-  // Preserve BaseChatModel interface and enhance withStructuredOutput to support fallbacks
-  const critic = baseCritic;
   if (criticFallbacks.length > 0) {
-    const originalWithStructuredOutput = critic.withStructuredOutput?.bind(critic);
-    if (originalWithStructuredOutput) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      critic.withStructuredOutput = ((schema: any, options?: any) => {
-        const primaryStructured = originalWithStructuredOutput(schema, options);
-        const fallbackStructured = criticFallbacks
-          .filter((f) => typeof f.withStructuredOutput === "function")
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .map((f) => (f as any).withStructuredOutput(schema, options));
-        if (fallbackStructured.length > 0) {
-          return primaryStructured.withFallbacks(fallbackStructured);
-        }
-        return primaryStructured;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      }) as any;
-    }
+    return baseCritic.withFallbacks(criticFallbacks);
   }
 
-  return critic;
+  return baseCritic;
 };
+
+/**
+ * Explicit helper that composes .withStructuredOutput() and .withFallbacks()
+ * cleanly without runtime prototype or instance monkey-patching.
+ *
+ * If the model is a RunnableWithFallbacks (e.g. from createCriticLLM), structured
+ * output is applied to both the primary model and each fallback model, and the
+ * resulting structured runnables are composed via native .withFallbacks().
+ */
+export function withStructuredOutputFallbacks<
+  T = Record<string, unknown>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  Schema = any
+>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  model: BaseChatModel | Runnable<any, any>,
+  schema: Schema,
+  options?: Parameters<BaseChatModel["withStructuredOutput"]>[1]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Runnable<any, T> {
+  const isRunnableWithFallbacks =
+    typeof model === "object" &&
+    model !== null &&
+    "runnable" in model &&
+    "fallbacks" in model &&
+    Array.isArray((model as { fallbacks?: unknown }).fallbacks);
+
+  if (isRunnableWithFallbacks) {
+    const primary = (model as { runnable: BaseChatModel }).runnable;
+    const fallbacks = (model as { fallbacks: BaseChatModel[] }).fallbacks;
+
+    const primaryStructured =
+      typeof primary.withStructuredOutput === "function"
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? primary.withStructuredOutput(schema as any, options)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        : (primary as unknown as Runnable<any, T>);
+
+    const fallbackStructured = fallbacks
+      .filter((f) => typeof f.withStructuredOutput === "function")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((f) => f.withStructuredOutput(schema as any, options));
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (fallbackStructured.length > 0 && typeof (primaryStructured as any).withFallbacks === "function") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (primaryStructured as any).withFallbacks(fallbackStructured) as Runnable<any, T>;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return primaryStructured as Runnable<any, T>;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (typeof (model as any).withStructuredOutput === "function") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (model as any).withStructuredOutput(schema as any, options) as Runnable<any, T>;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return model as unknown as Runnable<any, T>;
+}
 
 

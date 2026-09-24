@@ -1,5 +1,5 @@
 import { HumanMessage } from "@langchain/core/messages";
-import { createCriticLLM } from "../llm/factory";
+import { createCriticLLM, withStructuredOutputFallbacks } from "../llm/factory";
 import { IntakeAnalysis } from "../core/schemas";
 import type { State } from "../core/state";
 
@@ -47,10 +47,11 @@ export async function analyzeIntake(state: State, config?: RunnableConfig): Prom
 
   try {
     const llm = createCriticLLM(getLLMOpts(state, config));
-    const structuredLLM =
-      state.llmProvider === "ollama"
-        ? llm.withStructuredOutput(IntakeAnalysis, { method: "jsonMode" })
-        : llm.withStructuredOutput(IntakeAnalysis);
+    const structuredLLM = withStructuredOutputFallbacks<IntakeAnalysis>(
+      llm,
+      IntakeAnalysis,
+      state.llmProvider === "ollama" ? { method: "jsonMode" } : undefined
+    );
 
     const prompt = getIntakePrompt(topic, context, userDomain);
     const intake = (await invokeWithRetryAndTimeout(

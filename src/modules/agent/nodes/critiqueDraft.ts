@@ -1,6 +1,7 @@
 import { HumanMessage } from "@langchain/core/messages";
 import {
   createCriticLLM,
+  withStructuredOutputFallbacks,
   getCrossProviderFallback,
   createCrossProviderCriticLLM,
 } from "../llm/factory";
@@ -110,10 +111,11 @@ export async function critiqueDraft(state: State, config?: RunnableConfig): Prom
 
   try {
     const llm = createCriticLLM(getLLMOpts(state, config));
-    const structuredLLM =
-      state.llmProvider === "ollama"
-        ? llm.withStructuredOutput(CritiqueResult, { method: "jsonMode" })
-        : llm.withStructuredOutput(CritiqueResult);
+    const structuredLLM = withStructuredOutputFallbacks<CritiqueResult>(
+      llm,
+      CritiqueResult,
+      state.llmProvider === "ollama" ? { method: "jsonMode" } : undefined
+    );
 
     const prompt = getCritiquePrompt(domainConfig, currentDraft);
     let critique: CritiqueResult | null = null;
