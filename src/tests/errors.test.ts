@@ -31,7 +31,7 @@ describe("API Limit and Error Classifier (parseApiError)", () => {
       expect(parsed.advice).toBeDefined();
     });
 
-    test("extracts concrete cooldown duration from Gemini 429 quota error and marks retryable", () => {
+    test("extracts concrete cooldown duration from Gemini 429 quota error and marks retryable without exposing cooldown in UI text", () => {
       const errorMsg =
         "GoogleGenerativeAIError: [429 Too Many Requests] quota exceeded for metric 'Generate Content requests per minute', limit: 20, retry in 43.49s";
       const parsed = parseApiError(errorMsg);
@@ -40,8 +40,10 @@ describe("API Limit and Error Classifier (parseApiError)", () => {
       expect(parsed.isRateLimit).toBe(true);
       expect(parsed.isRetryable).toBe(true);
       expect(parsed.retryAfterSeconds).toBe(44);
-      expect(parsed.title).toContain("Retry in ~44s");
-      expect(parsed.message).toContain("retry in ~44s");
+      expect(parsed.title).toBe("Google Gemini Rate Limit Reached");
+      expect(parsed.title).not.toContain("Retry in ~");
+      expect(parsed.message).not.toContain("retry in ~");
+      expect(parsed.advice).not.toContain("~44s");
     });
   });
 

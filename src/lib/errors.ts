@@ -87,15 +87,14 @@ export function parseApiError(rawInput: unknown): ParsedApiError {
     (err.includes("429") && !err.includes("resource_exhausted") && !err.includes("insufficient_quota") && !err.includes("billing"))
   ) {
     const providerName = provider === "gemini" ? "Google Gemini" : provider === "openai" ? "OpenAI" : provider === "anthropic" ? "Anthropic" : "LLM Provider";
-    const cooldownText = retryAfterSeconds ? ` (Retry in ~${retryAfterSeconds}s)` : "";
     return {
       type: "rate_limit",
-      title: `${providerName} Rate Limit Reached${cooldownText}`,
+      title: `${providerName} Rate Limit Reached`,
       message: retryAfterSeconds
-        ? `The ${providerName} API rate limit was reached. Please retry in ~${retryAfterSeconds}s, or switch to a faster lightweight model in Settings.`
+        ? `The ${providerName} API rate limit was reached. Please try again shortly, or switch to a faster lightweight model in Settings.`
         : `The ${providerName} API is currently receiving too many requests for the current rate tier (RPM/TPM limit).`,
       advice: retryAfterSeconds
-        ? `Wait ~${retryAfterSeconds}s and click 'Try Again', or switch to a faster model in Settings.`
+        ? "Wait a few moments and click 'Try Again', or switch to a faster model in Settings."
         : "Wait a few moments and click 'Try Again', or switch to a faster lightweight model (like Gemini 2.5 Flash) in Settings.",
       provider,
       isRateLimit: true,
@@ -123,9 +122,9 @@ export function parseApiError(rawInput: unknown): ParsedApiError {
     if (retryAfterSeconds) {
       return {
         type: "rate_limit",
-        title: `${providerName} Rate Limit Reached (Retry in ~${retryAfterSeconds}s)`,
-        message: `The ${providerName} API request limit was reached. Please retry in ~${retryAfterSeconds}s, or switch models in Settings.`,
-        advice: `Wait ~${retryAfterSeconds}s and click 'Try Again', or switch to another provider in Settings.`,
+        title: `${providerName} Rate Limit Reached`,
+        message: `The ${providerName} API request limit was reached. Please try again shortly, or switch models in Settings.`,
+        advice: "Wait a moment and click 'Try Again', or switch to another provider in Settings.",
         provider,
         isRateLimit: true,
         isQuota: false,

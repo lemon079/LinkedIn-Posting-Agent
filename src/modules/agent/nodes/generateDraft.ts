@@ -25,12 +25,20 @@ import { isSearchEligibleArchetype, webSearchTool, type WebSearchResultItem } fr
 
 const log = logger.child({ module: "Graph:generateDraft" });
 
-const getLLMOpts = (state: State, config?: RunnableConfig, maxReasoningTokens: number = 512) => ({
+export const DRAFT_MAX_OUTPUT_TOKENS = 1000;
+
+const getLLMOpts = (
+  state: State,
+  config?: RunnableConfig,
+  maxReasoningTokens: number = 512,
+  maxTokens: number = DRAFT_MAX_OUTPUT_TOKENS
+) => ({
   provider: state.llmProvider || undefined,
   apiKey: (config?.configurable?.apiKey as string) || state.llmApiKey || undefined,
   model: state.llmModel || undefined,
   ollamaBaseUrl: state.ollamaBaseUrl || undefined,
   maxReasoningTokens,
+  maxTokens,
 });
 
 function extractDraftText(content: unknown): string {
@@ -390,6 +398,14 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
 ]`);
   }
 
+  promptSections.push(
+    "",
+    "CRITICAL LENGTH CONSTRAINT (STRICT):",
+    "- The post inside [DRAFT] ... [/DRAFT] MUST be between 1,300 and 2,500 characters total (approx. 200–350 words).",
+    "- Hard ceiling: 2,800 characters maximum. Absolute maximum: 3,000 characters. NEVER exceed 3,000 characters.",
+    "- Write concise, high-signal paragraphs. Cut any fluff, verbose throat-clearing, or repetitive filler."
+  );
+
   const prompt = promptSections.join("\n");
 
   // ── 1. Primary Attempt (with reasoning budget) ──────────────────────────
@@ -419,12 +435,13 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
 
     const hooks = extractAlternativeHooks(response.content, topicLine, domainKey, activeArchetype);
     const serving = detectServingProvider(response, state.llmProvider || "gemini");
+    const actualModel = serving.model || state.llmModel || undefined;
 
     const durationMs = Date.now() - startTime;
     log.info(`Initial draft generated`, {
       servingProvider: serving.servingProvider,
       provider: serving.provider,
-      model: serving.model,
+      model: actualModel,
       draftLengthChars: rawDraft.length,
       alternativeHooksCount: hooks.length,
       durationMs,
@@ -439,6 +456,8 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
       webSearchQueries: searchQueries,
       webSearchSkippedReason,
       servingProvider: serving.servingProvider,
+      actualProvider: serving.provider,
+      actualModel,
       failedNode: null,
     };
   } catch (primaryError: unknown) {
@@ -479,6 +498,8 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
         fallbackLlm = createLLM(llmOpts);
         fallbackTimeout = FALLBACK_DRAFT_TIMEOUT_MS;
         fallbackLabel = "same-provider fallback";
+        servingProviderName = state.llmProvider || "gemini";
+        servingModelName = state.llmModel || undefined;
       }
 
       const fallbackController = new AbortController();
@@ -527,6 +548,8 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
         webSearchQueries: searchQueries,
         webSearchSkippedReason,
         servingProvider: fallbackLabel,
+        actualProvider: servingProviderName,
+        actualModel: servingModelName,
         failedNode: null,
       };
     } catch (fallbackError: unknown) {

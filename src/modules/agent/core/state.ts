@@ -198,16 +198,32 @@ export const AgentState = Annotation.Root({
     reducer: (_x, y) => y,
     default: () => null,
   }),
+  actualProvider: Annotation<string | null | undefined>({
+    reducer: (_x, y) => y,
+    default: () => null,
+  }),
+  actualModel: Annotation<string | null | undefined>({
+    reducer: (_x, y) => y,
+    default: () => null,
+  }),
 });
 
 type BaseAgentState = typeof AgentState.State;
 export type State = Omit<
   BaseAgentState,
-  "webSearchEnabled" | "webSearchResults" | "webSearchQueries" | "webSearchSkippedReason" | "servingProvider"
+  | "webSearchEnabled"
+  | "webSearchResults"
+  | "webSearchQueries"
+  | "webSearchSkippedReason"
+  | "servingProvider"
+  | "actualProvider"
+  | "actualModel"
 > & {
   webSearchEnabled?: boolean;
   webSearchResults?: Array<{ title: string; domain: string }>;
   webSearchQueries?: string[];
   webSearchSkippedReason?: string | null;
   servingProvider?: string | null;
+  actualProvider?: string | null;
+  actualModel?: string | null;
 };

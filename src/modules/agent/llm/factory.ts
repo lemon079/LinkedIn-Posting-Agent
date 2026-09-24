@@ -52,6 +52,7 @@ export const createBaseLLM = (opts: LLMOptions = {}) => {
         model: normalizedModel,
         baseUrl: opts.ollamaBaseUrl || "http://localhost:11434",
         temperature: reasoningOff ? 0.2 : 0.8,
+        ...(opts.maxTokens ? { numPredict: opts.maxTokens } : {}),
         ...(reasoningOff ? { think: false, format: "json" } : {}),
       });
 
@@ -60,6 +61,7 @@ export const createBaseLLM = (opts: LLMOptions = {}) => {
         model: normalizedModel || "gpt-4o",
         temperature: 0.9,
         apiKey: llmKey,
+        ...(opts.maxTokens ? { maxTokens: opts.maxTokens } : {}),
         ...(reasoningOff ? { reasoning: { effort: "low" as const } } : {}),
       });
 
@@ -72,6 +74,7 @@ export const createBaseLLM = (opts: LLMOptions = {}) => {
         model: normalizedModel || "claude-3-5-sonnet-latest",
         temperature: 0.9,
         apiKey: llmKey,
+        ...(opts.maxTokens ? { maxTokens: opts.maxTokens } : {}),
         ...(thinking ? { thinking } : {}),
       });
     }
@@ -92,6 +95,7 @@ export const createBaseLLM = (opts: LLMOptions = {}) => {
         temperature: 0.9,
         maxRetries: 1, // Keep internal retries short so withFallbacks / timeouts can engage fast
         apiKey: llmKey || config.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY,
+        ...(opts.maxTokens ? { maxOutputTokens: opts.maxTokens } : {}),
         ...googleThinking,
       });
     }
@@ -197,6 +201,7 @@ export function createCrossProviderFallbackLLM(opts: LLMOptions = {}) {
       model: cross.model,
       temperature: reasoningOff ? 0.2 : 0.9,
       apiKey: cross.apiKey,
+      ...(opts.maxTokens ? { maxTokens: opts.maxTokens } : {}),
       ...(reasoningOff ? { reasoning: { effort: "low" as const } } : {}),
     });
     return { llm, provider: cross.provider, model: cross.model };
@@ -205,6 +210,7 @@ export function createCrossProviderFallbackLLM(opts: LLMOptions = {}) {
       model: cross.model,
       temperature: reasoningOff ? 0.2 : 0.9,
       apiKey: cross.apiKey,
+      ...(opts.maxTokens ? { maxTokens: opts.maxTokens } : {}),
     });
     return { llm, provider: cross.provider, model: cross.model };
   }
@@ -244,36 +250,67 @@ export function detectServingProvider(
   if (response && typeof response === "object") {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const meta = (response as any).response_metadata || {};
-    const model = (meta.model_name || meta.model || meta.modelName || "").toLowerCase();
+    const rawModel = meta.model_name || meta.model || meta.modelName || "";
+    const model = (rawModel || "").toLowerCase();
 
-    if (model.includes("gpt") || model.includes("openai")) {
+    // 1. Ollama is always primary and never falls back cross-provider
+    if (norm === "ollama") {
       return {
-        servingProvider: norm === "openai" ? "primary" : "cross-provider fallback",
-        provider: "openai",
-        model,
+        servingProvider: "primary",
+        provider: "ollama",
+        model: rawModel || undefined,
       };
     }
-    if (model.includes("claude") || model.includes("anthropic")) {
-      return {
-        servingProvider: norm === "anthropic" ? "primary" : "cross-provider fallback",
-        provider: "anthropic",
-        model,
-      };
-    }
-    if (model.includes("gemini")) {
-      if (norm === "gemini") {
+
+    // 2. Gemini primary: check if fallback occurred (cross-provider or same-provider)
+    if (norm === "gemini") {
+      if (model.includes("gpt") || model.includes("openai")) {
+        return {
+          servingProvider: "cross-provider fallback",
+          provider: "openai",
+          model: rawModel || model,
+        };
+      }
+      if (model.includes("claude") || model.includes("anthropic")) {
+        return {
+          servingProvider: "cross-provider fallback",
+          provider: "anthropic",
+          model: rawModel || model,
+        };
+      }
+      if (model.includes("gemini")) {
         const isFallbackTier =
           model.includes("3.5-flash") || model.includes("flash-latest") || model.includes("2.5");
         return {
           servingProvider: isFallbackTier ? "same-provider fallback" : "primary",
           provider: "gemini",
-          model,
+          model: rawModel || model,
         };
       }
       return {
-        servingProvider: "cross-provider fallback",
+        servingProvider: "primary",
         provider: "gemini",
-        model,
+        model: rawModel || undefined,
+      };
+    }
+
+    // 3. OpenAI primary
+    if (norm === "openai") {
+      const isFallbackTier = model.includes("mini");
+      return {
+        servingProvider: isFallbackTier ? "same-provider fallback" : "primary",
+        provider: "openai",
+        model: rawModel || model,
+      };
+    }
+
+    // 4. Anthropic primary
+    if (norm === "anthropic") {
+      const isFallbackTier = model.includes("haiku");
+      return {
+        servingProvider: isFallbackTier ? "same-provider fallback" : "primary",
+        provider: "anthropic",
+        model: rawModel || model,
       };
     }
   }
@@ -305,6 +342,7 @@ export const createLLM = (opts: LLMOptions = {}) => {
       model: "gpt-4o-mini",
       temperature: 0.9,
       apiKey: llmKey,
+      ...(opts.maxTokens ? { maxTokens: opts.maxTokens } : {}),
     });
     return primary.withFallbacks([fallback]);
   }
@@ -314,6 +352,7 @@ export const createLLM = (opts: LLMOptions = {}) => {
       model: "claude-3-5-haiku-latest",
       temperature: 0.9,
       apiKey: llmKey,
+      ...(opts.maxTokens ? { maxTokens: opts.maxTokens } : {}),
     });
     return primary.withFallbacks([fallback]);
   }
@@ -327,12 +366,14 @@ export const createLLM = (opts: LLMOptions = {}) => {
               model: crossFallback.model,
               temperature: 0.9,
               apiKey: crossFallback.apiKey,
+              ...(opts.maxTokens ? { maxTokens: opts.maxTokens } : {}),
               ...(opts.maxReasoningTokens === 0 ? { reasoning: { effort: "low" as const } } : {}),
             })
           : new ChatAnthropic({
               model: crossFallback.model,
               temperature: 0.9,
               apiKey: crossFallback.apiKey,
+              ...(opts.maxTokens ? { maxTokens: opts.maxTokens } : {}),
             });
       return primary.withFallbacks([fallback]);
     }
@@ -353,6 +394,7 @@ export const createLLM = (opts: LLMOptions = {}) => {
           temperature: 0.9,
           maxRetries: 1,
           apiKey: llmKey || config.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY,
+          ...(opts.maxTokens ? { maxOutputTokens: opts.maxTokens } : {}),
         })
       );
     }
@@ -363,6 +405,7 @@ export const createLLM = (opts: LLMOptions = {}) => {
           temperature: 0.9,
           maxRetries: 1,
           apiKey: llmKey || config.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY,
+          ...(opts.maxTokens ? { maxOutputTokens: opts.maxTokens } : {}),
         })
       );
     }

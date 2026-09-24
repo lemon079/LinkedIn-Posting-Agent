@@ -5,8 +5,12 @@ import { getSystemPrompt, getCritiquePrompt } from "@/modules/agent/core/prompts
 import { DOMAINS } from "@/modules/agent/core/domains";
 import type { State } from "@/modules/agent/core/state";
 
+import * as llmService from "@/modules/agent/llm/factory";
+
 describe("Task A: Hiring Archetype + Auto-Select Fabrication Fix", () => {
-  jest.setTimeout(20000);
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
   describe("Archetype Options & Schemas", () => {
     test("ARCHETYPE_OPTIONS includes 'hiring'", () => {
@@ -42,7 +46,19 @@ describe("Task A: Hiring Archetype + Auto-Select Fabrication Fix", () => {
   });
 
   describe("Auto-Select Anti-Fabrication Routing", () => {
-    test("definitional question 'who is a forward deployed engineer?' does NOT route to Incident Teardown", async () => {
+    test("definitional question 'who is a forward deployed engineer?' overrides model 'teardown' output to 'breakdown'", async () => {
+      jest.spyOn(llmService, "withStructuredOutputFallbacks").mockReturnValue({
+        invoke: jest.fn().mockResolvedValue({
+          topic: "who is a forward deployed engineer?",
+          context: "explaining the role, daily work, and expectations",
+          domain: "engineering",
+          angle: "explaining the role",
+          archetype: "teardown", // Model mistakenly selected teardown
+          tone: "authoritative",
+        }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+
       const state: Partial<State> = {
         topic: "who is a forward deployed engineer?",
         context: "explaining the role, daily work, and expectations",
@@ -50,13 +66,24 @@ describe("Task A: Hiring Archetype + Auto-Select Fabrication Fix", () => {
         domain: "engineering",
       };
 
-      // When intake analysis runs (even if LLM structured output falls back or attempts teardown):
       const result = await analyzeIntake(state as State);
       expect(result.activeArchetype).not.toBe("teardown");
       expect(result.activeArchetype).toBe("breakdown");
     });
 
     test("repro case: topic = 'who is a forward deployed engineer?', archetype = 'auto', domain = 'engineering', empty context routes to 'breakdown' and NOT 'teardown'", async () => {
+      jest.spyOn(llmService, "withStructuredOutputFallbacks").mockReturnValue({
+        invoke: jest.fn().mockResolvedValue({
+          topic: "who is a forward deployed engineer?",
+          context: "",
+          domain: "engineering",
+          angle: "role explainer",
+          archetype: "teardown", // Model mistakenly selected teardown
+          tone: "conversational",
+        }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+
       const state: Partial<State> = {
         topic: "who is a forward deployed engineer?",
         context: "",
@@ -69,7 +96,44 @@ describe("Task A: Hiring Archetype + Auto-Select Fabrication Fix", () => {
       expect(result.activeArchetype).toBe("breakdown");
     });
 
+    test("repro case: topic = 'what is a forward deployed engineer?', archetype = 'auto', domain = 'engineering', empty context routes to 'breakdown' and NOT 'teardown'", async () => {
+      jest.spyOn(llmService, "withStructuredOutputFallbacks").mockReturnValue({
+        invoke: jest.fn().mockResolvedValue({
+          topic: "what is a forward deployed engineer?",
+          context: "",
+          domain: "engineering",
+          angle: "role explainer",
+          archetype: "teardown", // Model mistakenly selected teardown
+          tone: "conversational",
+        }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+
+      const state: Partial<State> = {
+        topic: "what is a forward deployed engineer?",
+        context: "",
+        archetype: "auto",
+        domain: "engineering",
+      };
+
+      const result = await analyzeIntake(state as State);
+      expect(result.activeArchetype).not.toBe("teardown");
+      expect(result.activeArchetype).toBe("breakdown");
+    });
+
     test("hiring topic with 'auto' archetype routes to 'hiring'", async () => {
+      jest.spyOn(llmService, "withStructuredOutputFallbacks").mockReturnValue({
+        invoke: jest.fn().mockResolvedValue({
+          topic: "We are hiring a Senior Distributed Systems Engineer",
+          context: "Remote US, Kafka, ClickHouse, 4+ years experience",
+          domain: "engineering",
+          angle: "Team expansion",
+          archetype: "hiring",
+          tone: "conversational",
+        }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+
       const state: Partial<State> = {
         topic: "We are hiring a Senior Distributed Systems Engineer",
         context: "Remote US, Kafka, ClickHouse, 4+ years experience",
@@ -82,6 +146,18 @@ describe("Task A: Hiring Archetype + Auto-Select Fabrication Fix", () => {
     });
 
     test("explicit user archetype preference overrides auto-select", async () => {
+      jest.spyOn(llmService, "withStructuredOutputFallbacks").mockReturnValue({
+        invoke: jest.fn().mockResolvedValue({
+          topic: "who is a forward deployed engineer?",
+          context: "comparing FDE vs Solutions Architect",
+          domain: "engineering",
+          angle: "Trade-offs",
+          archetype: "breakdown",
+          tone: "conversational",
+        }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+
       const state: Partial<State> = {
         topic: "who is a forward deployed engineer?",
         context: "comparing FDE vs Solutions Architect",
@@ -91,6 +167,24 @@ describe("Task A: Hiring Archetype + Auto-Select Fabrication Fix", () => {
 
       const result = await analyzeIntake(state as State);
       expect(result.activeArchetype).toBe("comparison");
+    });
+
+    test("fallback heuristic routes definitional question to 'breakdown' on LLM error", async () => {
+      jest.spyOn(llmService, "withStructuredOutputFallbacks").mockReturnValue({
+        invoke: jest.fn().mockRejectedValue(new Error("LLM failure")),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+
+      const state: Partial<State> = {
+        topic: "who is a forward deployed engineer?",
+        context: "",
+        archetype: "auto",
+        domain: "engineering",
+      };
+
+      const result = await analyzeIntake(state as State);
+      expect(result.activeArchetype).not.toBe("teardown");
+      expect(result.activeArchetype).toBe("breakdown");
     });
   });
 

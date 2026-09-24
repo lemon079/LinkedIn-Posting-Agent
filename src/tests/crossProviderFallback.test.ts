@@ -173,6 +173,37 @@ describe("Bug #1: True Cross-Provider LLM Fallback", () => {
       expect(result.servingProvider).toBe("same-provider fallback");
       expect(result.provider).toBe("gemini");
     });
+
+    test("correctly classifies Ollama model with 'gpt' in name (e.g. gpt-oss:120b-cloud) as primary Ollama, NOT OpenAI fallback", () => {
+      const response = {
+        content: "Draft text",
+        response_metadata: { model_name: "gpt-oss:120b-cloud" },
+      };
+      const result = detectServingProvider(response, "ollama");
+      expect(result.servingProvider).toBe("primary");
+      expect(result.provider).toBe("ollama");
+      expect(result.model).toBe("gpt-oss:120b-cloud");
+    });
+
+    test("detects primary OpenAI response", () => {
+      const response = {
+        content: "Draft text",
+        response_metadata: { model: "gpt-4o" },
+      };
+      const result = detectServingProvider(response, "openai");
+      expect(result.servingProvider).toBe("primary");
+      expect(result.provider).toBe("openai");
+    });
+
+    test("detects same-provider fallback tier in OpenAI (mini)", () => {
+      const response = {
+        content: "Draft text",
+        response_metadata: { model: "gpt-4o-mini" },
+      };
+      const result = detectServingProvider(response, "openai");
+      expect(result.servingProvider).toBe("same-provider fallback");
+      expect(result.provider).toBe("openai");
+    });
   });
 
   describe("Rebalanced latency budgets & worst-case cascade limits", () => {

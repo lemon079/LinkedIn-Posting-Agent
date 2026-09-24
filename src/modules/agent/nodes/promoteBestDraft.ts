@@ -40,8 +40,9 @@ export async function promoteBestDraft(state: State): Promise<Partial<State>> {
     finalScore,
     scoreDelta,
     draftLengthChars: bestDraft.length,
-    provider: state.llmProvider ?? "unknown",
-    model: state.llmModel ?? "unknown",
+    servingProvider: state.servingProvider || "primary",
+    provider: state.actualProvider || state.llmProvider || "unknown",
+    model: state.actualModel || state.llmModel || "unknown",
   };
 
   log.info(`Critique loop completed and best draft promoted`, telemetry);

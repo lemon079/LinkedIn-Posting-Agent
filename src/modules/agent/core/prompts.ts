@@ -86,7 +86,13 @@ ${recentHooks.map((h) => `- "${h}"`).join("\n")}
 \n`;
   }
 
-  prompt += `Return only the post text inside [DRAFT] ... [/DRAFT] tags. No preamble, no explanation.`;
+  prompt += `CRITICAL LENGTH REQUIREMENT:
+- Target length: 1,300 to 2,500 characters total (approx. 200–350 words).
+- Hard ceiling: 2,800 characters maximum.
+- NEVER exceed 3,000 characters under any circumstance.
+- Keep paragraphs tight and concise. Cut unnecessary fluff or filler phrases.
+
+Return only the post text inside [DRAFT] ... [/DRAFT] tags. No preamble, no explanation.`;
 
   return prompt;
 };
@@ -206,7 +212,7 @@ REWRITE CONSTRAINTS & 2026 LINKEDIN FORMATTING:
 - NO Emoji Bullets: Plain dashes (-) or numbers (1.) only. Max 1-2 emojis across the ENTIRE post.
 - NO Raw URLs in Body: Move any link reference to "link in first comment" and output [FIRST_COMMENT]...[/FIRST_COMMENT].
 - Closing Question: End with a genuine, specific question tied to the post's core technical subject, never "Thoughts?" or "Agree?".
-- Length: 1,300-2,500 characters (approx. 200-350 words). High signal-to-noise ratio. Never exceed 2,600 characters.
+- Length: 1,300-2,500 characters (approx. 200-350 words). High signal-to-noise ratio. Hard maximum 2,800 characters. Never exceed 3,000 characters.
 - Formatting: Short paragraphs (1-3 sentences) separated by blank lines. Plain text only (NO Markdown like **, ##, or backticks).
 - Hashtags: 3-5 niche, topic-specific hashtags inside [HASHTAGS]...[/HASHTAGS] tags, not inline in the body.
 `;
@@ -219,6 +225,10 @@ ${recentHooks.map((h) => `- "${h}"`).join("\n")}
   }
 
   prompt += `
+CRITICAL LENGTH REQUIREMENT:
+- Target length: 1,300 to 2,500 characters total.
+- Hard maximum: 2,800 characters. Never exceed 3,000 characters.
+
 Return only the refined post text inside [DRAFT] ... [/DRAFT] tags. No preamble, no explanation.`;
 
   return prompt;
