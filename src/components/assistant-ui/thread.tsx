@@ -10,6 +10,7 @@ import { AssistantReasoning } from "./reasoning";
 import { AssistantAttachments } from "./attachment";
 import { HookLab } from "./hook-lab";
 import { WebSearch } from "./web-search";
+import { FeedbackToolbar } from "./feedback-toolbar";
 
 import { ErrorState } from "./error-state";
 import { parseApiError } from "@/lib/errors";
@@ -66,6 +67,7 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
   webSearchQuery,
   webSearchSkippedReason,
   user,
+  runId,
   defaultMode = "preview",
   className,
 }) => {
@@ -264,7 +266,7 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
                 <select
                   value={activeVersionIndex}
                   onChange={(e) => onSelectVersion?.(Number(e.target.value))}
-                  className="bg-transparent text-foreground text-xs font-medium outline-none cursor-pointer max-w-[105px] sm:max-w-[140px] truncate"
+                  className="bg-transparent text-foreground text-xs font-medium outline-none cursor-pointer max-w-26.25 sm:max-w-35 truncate"
                   aria-label="Draft version history"
                 >
                   {draftVersions.map((v, i) => {
@@ -400,10 +402,15 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
         />
       )}
 
+      {/* Feedback Toolbar: Rate the draft */}
+      {!isGenerating && currentText && (
+        <FeedbackToolbar runId={runId} disabled={isGenerating} />
+      )}
+
       {/* Workspace Content: Clean Preview or Edit (no skeleton loading card) */}
       {viewMode === "preview" ? (
         <div
-          className="w-full bg-card border border-border min-h-[200px] max-h-[380px] sm:max-h-[460px] overflow-y-auto rounded-xl p-3 sm:p-4 transition-colors duration-200 focus-within:ring-2 focus-within:ring-brand-blue/20"
+          className="w-full bg-card border border-border min-h-50 max-h-95 sm:max-h-115 overflow-y-auto rounded-xl p-3 sm:p-4 transition-colors duration-200 focus-within:ring-2 focus-within:ring-brand-blue/20"
           tabIndex={0}
           aria-label="Formatted Post Preview in Markdown"
         >
@@ -416,7 +423,7 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
       ) : (
         <Textarea
           id="draft-editor"
-          className="w-full bg-card border-border min-h-[200px] h-[260px] sm:h-[300px] overflow-y-auto resize-none rounded-xl focus-visible:ring-2 focus-visible:ring-brand-blue/20 focus-visible:border-brand-blue text-base sm:text-sm leading-relaxed text-slate-900 dark:text-slate-100 transition-colors duration-200 p-3 sm:p-4"
+          className="w-full bg-card border-border min-h-50 h-65 sm:h-75 overflow-y-auto resize-none rounded-xl focus-visible:ring-2 focus-visible:ring-brand-blue/20 focus-visible:border-brand-blue text-base sm:text-sm leading-relaxed text-slate-900 dark:text-slate-100 transition-colors duration-200 p-3 sm:p-4"
           value={currentText}
           onChange={(e) => onChange(e.target.value)}
           disabled={isPublishing}

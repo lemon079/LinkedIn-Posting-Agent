@@ -25,12 +25,21 @@ export interface FinalStreamEvent {
   type: "final";
   draft: string;
   threadId?: string;
+  runId?: string;
   reasoningSteps?: Array<{ title: string; output: string }>;
   critique?: {
     score: number;
     strengths: string[];
     weaknesses: string[];
     instructions: string;
+    hook?: { score: number; reason: string };
+    authenticity?: { score: number; reason: string };
+    domainGrounding?: { score: number; reason: string };
+    structure?: { score: number; reason: string };
+    fabricationFlag?: boolean;
+    contrarianBaitFlag?: boolean;
+    verdict?: "pass" | "refine" | "needs_human_review";
+    reasons?: string[];
   } | null;
   critiqueScores?: number[];
   alternativeHooks?: HookOption[];

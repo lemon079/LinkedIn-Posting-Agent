@@ -133,43 +133,21 @@ Instructions:
 
 export const getCritiquePrompt = (
   domainConfig: DomainConfig,
-  draft: string
+  draft: string,
+  sourceContext = ""
 ): string => {
-  return `You are an elite LinkedIn content editor and practitioner reviewer for the ${domainConfig.label} domain. Your job is to rigorously evaluate a draft post and provide sharp, actionable feedback to turn it into a top-performing post.
+  const cleanSourceContext =
+    sourceContext?.trim() ||
+    "No additional background provided; the core topic defines the scope. Do not invent specific private benchmarks or fake incident claims.";
 
-CRITIQUE PHILOSOPHY:
-Reward authenticity, scroll-stopping hooks, high-density insights, and clean human cadence.
-Heavily penalize generic AI slop, textbook lectures, robotic transitions ("In today's world", "Here's what you need to know"), corporate buzzwords ("game-changer", "synergy", "leverage"), and predictable 4-line formulaic structures.
-Do NOT penalize credible first-person or team experiential framing ("Last month we migrated...", "Here is what we observed..."); authentic practitioner stories perform best on LinkedIn when backed by real details.
+  return `You are an elite LinkedIn content editor and practitioner reviewer for the ${domainConfig.label} domain. Your job is to rigorously evaluate a draft post on four independent axes and return structured feedback.
 
-ANTI-FABRICATION & 2026 AUTHENTICITY RULES (CRITICAL):
-1. In-Body Links (HARD FAIL): If the post body contains raw URLs or links (http://, https://, www), AUTO-FAIL the draft with score <= 4. Direct the author to move the link to a suggested first comment.
-2. Anti-Fabrication Mandate: If the draft contains invented benchmark numbers, fake production incident claims, or fabricated personal stories not supplied in the prompt/context, AUTO-FAIL with score <= 4.
-3. Mechanically Repetitive Structure (AI Pattern Check): Flag emoji-as-bullet patterns (e.g. 🚀, 👉 on every line) or monotonous repetitive sentence formulas as AI slop under Authenticity & Cadence.
-4. Manufactured / Bait-y Contrarian Framing: Distinguish between genuine practitioner contrarian takes (grounded in production constraints and technical realities) and cheap engagement bait (provocation without a real technical point). LinkedIn's 2026 Authenticity Update severely penalizes artificial bait. If bait-y without substance, score <= 5.
-5. Character Count Guidance (1,300 - 2,500 characters): Target character count is 1,300-2,500 characters. If outside this range, note as a SOFT WARNING in weaknesses/instructions to tighten or expand, but do NOT auto-fail solely for length if the content is otherwise exceptional.
+Score each axis 1-4 using ONLY the rubric below. Do not blend axes together.
 
-HIRING / RECRUITING POST EVALUATION CRITERIA:
-If evaluating a Hiring / Recruiting Post:
-- Role clarity & concrete day-to-day: Does it describe what the person actually does and builds on a daily basis, rather than a generic HR bulleted job spec?
-- Tight, realistic requirements: Are prerequisites focused and prioritized rather than an unrealistic laundry list?
-- Clear Frictionless CTA: Is the next step immediate and explicit (e.g. DM directly, comment below, or link in first comment)?
-- Anti-fabrication check: Were compensation, team size, funding, perks, or company claims invented without being provided in the user prompt? If fabricated, score <= 4 and direct immediate removal.
-- Do NOT penalize for lacking an incident narrative arc or personal failure story — hiring posts follow a distinct, non-narrative structure.
-
-SCORING RUBRIC (1-10) — Grade strictly. Do not give passing scores (>=7) to bland, generic drafts:
-1-3: Generic AI slop, buzzword soup, abstract textbook monologue, fabricated fake stories/incidents, raw URLs in body, or melodramatic "broetry". Lacks all domain specificity.
-4-5: Contains some domain concepts, but hook is weak, structure is formulaic with emoji bullets, tone sounds like AI documentation ("A common challenge is..."), or ungrounded claims/links are made.
-6:   Solid technical or operational topic, but pacing is flat, hook lacks tension, or contains subtle AI clichés. Needs sharper line breaks and punchier takeaway.
-7:   Good practitioner post. Strong hook above the "...see more" cutoff, concrete domain details, authentic cadence, clear takeaway. Minor polish needed.
-8-9: Exceptional practitioner post. Irresistible scroll-stopping hook, crisp rhythm, high-density practical insight, authentic voice, zero fluff.
-10:  Masterclass. Flawless pacing, profound domain insight, unforgettable hook, sparks natural peer discussion.
-
-EVALUATE ON THESE 4 CORE DIMENSIONS:
-1. Hook & Feed Truncation (0-10): Does the first 1-2 lines before the break create genuine tension, curiosity, or contrast to trigger "...see more"? Is it under 25 words?
-2. Authenticity & Cadence (Zero AI Slop) (0-10): Does this sound like a real person writing to peers? Is it free of cliché transitions ("Here's the thing:", "In today's fast-paced..."), corporate buzzwords, and emoji-bullet lists?
-3. Domain Specificity & Grounding (0-10): Does it cite concrete tools, configurations, trade-offs, metrics, or mechanisms from ${domainConfig.label}? Does it avoid inventing fake incident claims?
-4. Structure & 2026 Format Compliance (0-10): Are paragraphs short (1-3 lines) with natural breathing room? No raw URLs in body? No emoji bullets? Genuine specific closing question (not "Thoughts?")? 3-5 hashtags in separate tag? Character count around 1,300-2,500 chars (soft warning if outside)?
+SOURCE CONTEXT (the only facts/metrics/claims the draft is allowed to use):
+"""
+${cleanSourceContext}
+"""
 
 DRAFT TO REVIEW:
 """
@@ -178,8 +156,57 @@ ${draft}
 
 Domain specifics for reference: ${domainConfig.specificityDescription}
 
-Return your evaluation as structured JSON.
-The "instructions" field must be direct, tactical, and explicit: tell the author exactly what to rewrite, sharpen, cut, or rephrase to elevate the post.`;
+--- HOOK (first 1-2 lines before the line break, <25 words) ---
+1 = generic opener, no tension or specificity
+2 = mild curiosity but predictable
+3 = clear tension or metric-driven contrast
+4 = immediately provokes "...see more", highly specific
+
+--- AUTHENTICITY (zero AI slop) ---
+1 = robotic filler and/or 3+ buzzwords/formulaic emoji bullets
+2 = one or two clichés present
+3 = mostly natural voice, at most one minor tic
+4 = reads like a specific person, no filler phrases
+
+--- DOMAIN GROUNDING ---
+1 = generic/textbook, no concrete tools or trade-offs
+2 = some specifics but shallow
+3 = concrete architecture/trade-offs, mostly traceable to SOURCE CONTEXT
+4 = specific and precise, every claim traceable to SOURCE CONTEXT
+
+--- STRUCTURE & FORMAT ---
+1 = wall of text or broken formatting
+2 = readable but generic CTA ("Thoughts?", "Agree?")
+3 = short paragraphs, whitespace, on-topic CTA
+4 = 1,300-2,500 chars, clean whitespace, specific discussion-prompting CTA
+
+CRITICAL CHECKS & 2026 AUTHENTICITY RULES:
+1. In-Body Links (HARD FAIL): If the post body contains raw URLs or links (http://, https://, www), score structure as 1, overall score <= 4, and direct the author to move the link to a suggested first comment.
+2. Anti-Fabrication Mandate (fabricationFlag): Set fabricationFlag = true if the draft invents benchmark numbers, fake production incident claims, or fabricated personal/company stories not supplied in SOURCE CONTEXT. If fabricated, overall score <= 4.
+3. Mechanically Repetitive Structure (AI Pattern Check): Flag emoji-as-bullet patterns (e.g. 🚀, 👉 on every line) or monotonous repetitive sentence formulas as AI slop under Authenticity (score 1).
+4. Manufactured / Bait-y Contrarian Framing (contrarianBaitFlag): Distinguish between genuine practitioner contrarian takes and cheap engagement bait without substance. Under LinkedIn's 2026 Authenticity Update, manufactured contrarian bait must set contrarianBaitFlag = true and score <= 4.
+5. Character Count Guidance (1,300 - 2,500 characters): Target character count is 1,300-2,500 characters. If outside this range, note as a SOFT WARNING in weaknesses/instructions to tighten or expand, but do NOT auto-fail solely for length if the content is otherwise exceptional.
+
+HIRING / RECRUITING POST EVALUATION CRITERIA:
+If evaluating a Hiring / Recruiting Post:
+- Role clarity & concrete day-to-day: Does it describe what the person actually does and builds on a daily basis, rather than a generic HR bulleted job spec?
+- Tight, realistic requirements: Are prerequisites focused and prioritized rather than an unrealistic laundry list?
+- Clear Frictionless CTA: Is the next step immediate and explicit (e.g. DM directly, comment below, or link in first comment)?
+- Anti-fabrication check: Were compensation, team size, funding, perks, or company claims invented without being provided in the user prompt? If fabricated, flag fabrication and score <= 4.
+- Do NOT penalize for lacking an incident narrative arc or personal failure story.
+
+Return your evaluation as structured JSON with flat fields (no nested objects):
+- "hookScore": integer (1-4) using the Hook rubric.
+- "hookReason": string (one sentence citing the specific line/phrase behind the hook score).
+- "authenticityScore": integer (1-4) using the Authenticity rubric.
+- "authenticityReason": string (one sentence citing the specific line/phrase behind authenticity).
+- "domainGroundingScore": integer (1-4) using the Domain Grounding rubric.
+- "domainGroundingReason": string (one sentence citing the specific line/phrase behind domain grounding).
+- "structureScore": integer (1-4) using the Structure rubric.
+- "structureReason": string (one sentence citing the specific line/phrase behind structure).
+- "fabricationFlag": boolean (true if claims/metrics not in SOURCE CONTEXT).
+- "contrarianBaitFlag": boolean (true if bait-y without substance).
+- "instructions": direct, tactical rewrite instructions targeting ONLY axes scoring <= 2 or any true flag.`;
 };
 
 export const getRefinePrompt = (

@@ -70,6 +70,7 @@ export default function Home() {
     setLiToken, setLiUrn, setIsSettingsOpen,
     setSelectedFiles, handleUploadFile,
     token,
+    runId,
     handleSaveSettings,
     handleSignOut, handleDisconnectLinkedIn,
   } = agentState;
@@ -313,6 +314,7 @@ export default function Home() {
                     onRedo={handleRedo}
                     onSelectVersion={handleSelectVersion}
                     user={linkedInUser}
+                    runId={runId}
                   />
                 </div>
               ) : (

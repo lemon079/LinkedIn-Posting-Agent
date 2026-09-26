@@ -6,6 +6,9 @@ import type { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import type { Runnable } from "@langchain/core/runnables";
 import { config } from "@/config/env";
 import type { LLMOptions } from "../types";
+import { logger } from "@/lib/logger";
+
+const log = logger.child({ module: "LLM:Factory" });
 
 const ANTHROPIC_MIN_THINKING_BUDGET = 1024;
 
@@ -45,22 +48,24 @@ export const createBaseLLM = (opts: LLMOptions = {}) => {
   const llmKey = resolveApiKey(llmProvider, opts.apiKey);
   const reasoningOff = opts.maxReasoningTokens === 0;
   const normalizedModel = opts.model ? opts.model.trim() : undefined;
+  const temperature =
+    opts.temperature !== undefined ? opts.temperature : reasoningOff ? 0.2 : 0.9;
 
   switch (llmProvider) {
     case "ollama":
       return new ChatOllama({
         model: normalizedModel,
         baseUrl: opts.ollamaBaseUrl || "http://localhost:11434",
-        temperature: reasoningOff ? 0.2 : 0.8,
-        ...(opts.maxTokens ? { numPredict: opts.maxTokens } : {}),
-        ...(reasoningOff ? { think: false, format: "json" } : {}),
+        temperature,
+        ...(opts.maxTokens ? { numPredict: Math.max(opts.maxTokens * 4, 4096) } : {}),
       });
 
     case "openai":
       return new ChatOpenAI({
         model: normalizedModel || "gpt-4o",
-        temperature: 0.9,
+        temperature,
         apiKey: llmKey,
+        maxRetries: 2, // 2 retries with exponential backoff on the SAME model
         ...(opts.maxTokens ? { maxTokens: opts.maxTokens } : {}),
         ...(reasoningOff ? { reasoning: { effort: "low" as const } } : {}),
       });
@@ -72,8 +77,9 @@ export const createBaseLLM = (opts: LLMOptions = {}) => {
           : undefined;
       return new ChatAnthropic({
         model: normalizedModel || "claude-3-5-sonnet-latest",
-        temperature: 0.9,
+        temperature,
         apiKey: llmKey,
+        maxRetries: 2, // 2 retries with exponential backoff on the SAME model
         ...(opts.maxTokens ? { maxTokens: opts.maxTokens } : {}),
         ...(thinking ? { thinking } : {}),
       });
@@ -81,8 +87,6 @@ export const createBaseLLM = (opts: LLMOptions = {}) => {
 
     case "gemini":
     default: {
-      // Belt-and-suspenders: explicitly disable thinking when 0 is passed,
-      // and enable with a token budget when a positive value is provided.
       const googleThinking =
         opts.maxReasoningTokens !== undefined && opts.maxReasoningTokens > 0
           ? { maxReasoningTokens: opts.maxReasoningTokens }
@@ -92,8 +96,8 @@ export const createBaseLLM = (opts: LLMOptions = {}) => {
 
       return new ChatGoogle({
         model: normalizedModel || "gemini-3.7-flash",
-        temperature: 0.9,
-        maxRetries: 1, // Keep internal retries short so withFallbacks / timeouts can engage fast
+        temperature,
+        maxRetries: 2, // 2 retries with exponential backoff on the SAME model
         apiKey: llmKey || config.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY,
         ...(opts.maxTokens ? { maxOutputTokens: opts.maxTokens } : {}),
         ...googleThinking,
@@ -102,147 +106,38 @@ export const createBaseLLM = (opts: LLMOptions = {}) => {
   }
 };
 
-// ── In-Memory Circuit Breaker ──────────────────────────────────────────
-interface CallRecord {
-  timestamp: number;
-  success: boolean;
-  isTransient: boolean;
-}
+/**
+ * Creates the primary LLM instance.
+ * Strictly predictable: executes on the SAME model with 2 retries on failure.
+ * No silent model-tier downgrade or cross-provider substitution.
+ */
+export const createLLM = (opts: LLMOptions = {}) => {
+  return createBaseLLM(opts);
+};
 
-class LLMCircuitBreaker {
-  private history: Map<string, CallRecord[]> = new Map();
-  private readonly windowMs = 60_000;
-  private readonly thresholdRate = 0.3; // 30% error rate
-  private readonly minCalls = 3;
+/**
+ * Critic LLM factory.
+ * Enforces the EXACT SAME model and provider as configured for generation.
+ * Reasoning tokens are set to 0 for deterministic evaluation.
+ */
+export const createCriticLLM = (opts: LLMOptions = {}) => {
+  const provider = normalizeProvider(opts.provider);
+  const userModel = opts.model || (provider === "gemini" ? "gemini-3.7-flash" : "");
 
-  private getKey(provider: string, model?: string): string {
-    return `${provider}:${model || "default"}`;
-  }
-
-  record(provider: string, model: string | undefined, success: boolean, isTransient: boolean = false) {
-    const key = this.getKey(provider, model);
-    const records = this.history.get(key) || [];
-    const now = Date.now();
-    records.push({ timestamp: now, success, isTransient });
-    const valid = records.filter((r) => now - r.timestamp <= this.windowMs);
-    this.history.set(key, valid);
-  }
-
-  isDegraded(provider: string, model?: string): boolean {
-    const key = this.getKey(provider, model);
-    const records = this.history.get(key);
-    if (!records || records.length < this.minCalls) return false;
-    const now = Date.now();
-    const recent = records.filter((r) => now - r.timestamp <= this.windowMs);
-    if (recent.length < this.minCalls) return false;
-    const failures = recent.filter((r) => !r.success);
-    const rate = failures.length / recent.length;
-    const lastTwoTransient =
-      recent.length >= 2 && !recent[recent.length - 1].success && !recent[recent.length - 2].success;
-    return rate >= this.thresholdRate || lastTwoTransient;
-  }
-
-  reset() {
-    this.history.clear();
-  }
-}
-
-export const circuitBreaker = new LLMCircuitBreaker();
-
-import { logger } from "@/lib/logger";
-
-const log = logger.child({ module: "LLM:Factory" });
-
-export interface FallbackProviderConfig {
-  provider: "openai" | "anthropic";
-  model: string;
-  apiKey: string;
-}
-
-export function getCrossProviderFallback(
-  primaryProvider?: string,
-  opts?: LLMOptions
-): FallbackProviderConfig | null {
-  const norm = normalizeProvider(primaryProvider);
-  if (norm !== "gemini") return null;
-
-  // 1. Check OpenAI
-  const openAiKey = opts?.alternateKeys?.openai || resolveApiKey("openai");
-  if (openAiKey && !isMaskedOrInvalid(openAiKey)) {
-    return {
-      provider: "openai",
-      model: "gpt-4o-mini",
-      apiKey: openAiKey,
-    };
-  }
-
-  // 2. Check Anthropic
-  const anthropicKey = opts?.alternateKeys?.anthropic || resolveApiKey("anthropic");
-  if (anthropicKey && !isMaskedOrInvalid(anthropicKey)) {
-    return {
-      provider: "anthropic",
-      model: "claude-3-5-haiku-latest",
-      apiKey: anthropicKey,
-    };
-  }
-
-  return null;
-}
-
-export function createCrossProviderFallbackLLM(opts: LLMOptions = {}) {
-  const primaryProvider = opts.provider || "gemini";
-  const cross = getCrossProviderFallback(primaryProvider, opts);
-  if (!cross) return null;
-
-  const reasoningOff = opts.maxReasoningTokens === 0;
-
-  if (cross.provider === "openai") {
-    const llm = new ChatOpenAI({
-      model: cross.model,
-      temperature: reasoningOff ? 0.2 : 0.9,
-      apiKey: cross.apiKey,
-      ...(opts.maxTokens ? { maxTokens: opts.maxTokens } : {}),
-      ...(reasoningOff ? { reasoning: { effort: "low" as const } } : {}),
-    });
-    return { llm, provider: cross.provider, model: cross.model };
-  } else {
-    const llm = new ChatAnthropic({
-      model: cross.model,
-      temperature: reasoningOff ? 0.2 : 0.9,
-      apiKey: cross.apiKey,
-      ...(opts.maxTokens ? { maxTokens: opts.maxTokens } : {}),
-    });
-    return { llm, provider: cross.provider, model: cross.model };
-  }
-}
-
-export function createCrossProviderCriticLLM(opts: LLMOptions = {}) {
-  const primaryProvider = opts.provider || "gemini";
-  const cross = getCrossProviderFallback(primaryProvider, opts);
-  if (!cross) return null;
-
-  if (cross.provider === "openai") {
-    const llm = new ChatOpenAI({
-      model: "gpt-4o-mini",
-      temperature: 0.7,
-      apiKey: cross.apiKey,
-    });
-    return { llm, provider: cross.provider, model: "gpt-4o-mini" };
-  } else {
-    const llm = new ChatAnthropic({
-      model: "claude-3-5-haiku-latest",
-      temperature: 0.7,
-      apiKey: cross.apiKey,
-    });
-    return { llm, provider: cross.provider, model: "claude-3-5-haiku-latest" };
-  }
-}
+  return createBaseLLM({
+    ...opts,
+    provider,
+    model: userModel,
+    maxReasoningTokens: 0,
+    temperature: opts.temperature !== undefined ? opts.temperature : 0.7,
+  });
+};
 
 export function detectServingProvider(
   response: unknown,
   primaryProvider?: string
 ): {
-  servingProvider: "primary" | "cross-provider fallback" | "same-provider fallback";
+  servingProvider: "primary";
   provider: string;
   model?: string;
 } {
@@ -251,68 +146,11 @@ export function detectServingProvider(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const meta = (response as any).response_metadata || {};
     const rawModel = meta.model_name || meta.model || meta.modelName || "";
-    const model = (rawModel || "").toLowerCase();
-
-    // 1. Ollama is always primary and never falls back cross-provider
-    if (norm === "ollama") {
-      return {
-        servingProvider: "primary",
-        provider: "ollama",
-        model: rawModel || undefined,
-      };
-    }
-
-    // 2. Gemini primary: check if fallback occurred (cross-provider or same-provider)
-    if (norm === "gemini") {
-      if (model.includes("gpt") || model.includes("openai")) {
-        return {
-          servingProvider: "cross-provider fallback",
-          provider: "openai",
-          model: rawModel || model,
-        };
-      }
-      if (model.includes("claude") || model.includes("anthropic")) {
-        return {
-          servingProvider: "cross-provider fallback",
-          provider: "anthropic",
-          model: rawModel || model,
-        };
-      }
-      if (model.includes("gemini")) {
-        const isFallbackTier =
-          model.includes("3.5-flash") || model.includes("flash-latest") || model.includes("2.5");
-        return {
-          servingProvider: isFallbackTier ? "same-provider fallback" : "primary",
-          provider: "gemini",
-          model: rawModel || model,
-        };
-      }
-      return {
-        servingProvider: "primary",
-        provider: "gemini",
-        model: rawModel || undefined,
-      };
-    }
-
-    // 3. OpenAI primary
-    if (norm === "openai") {
-      const isFallbackTier = model.includes("mini");
-      return {
-        servingProvider: isFallbackTier ? "same-provider fallback" : "primary",
-        provider: "openai",
-        model: rawModel || model,
-      };
-    }
-
-    // 4. Anthropic primary
-    if (norm === "anthropic") {
-      const isFallbackTier = model.includes("haiku");
-      return {
-        servingProvider: isFallbackTier ? "same-provider fallback" : "primary",
-        provider: "anthropic",
-        model: rawModel || model,
-      };
-    }
+    return {
+      servingProvider: "primary",
+      provider: norm,
+      model: rawModel || undefined,
+    };
   }
 
   return {
@@ -321,228 +159,8 @@ export function detectServingProvider(
   };
 }
 
-export const createLLM = (opts: LLMOptions = {}) => {
-  const primary = createBaseLLM(opts);
-  const normalizedModel = opts.model ? opts.model.trim() : undefined;
-  const llmProvider = opts.provider || "gemini";
-  const llmKey = resolveApiKey(llmProvider, opts.apiKey);
-
-  const defaultModel =
-    llmProvider === "gemini"
-      ? "gemini-3.7-flash"
-      : llmProvider === "openai"
-        ? "gpt-4o"
-        : llmProvider === "anthropic"
-          ? "claude-3-5-sonnet-latest"
-          : "";
-  const currentModel = normalizedModel || defaultModel;
-
-  if (llmProvider === "openai" && currentModel !== "gpt-4o-mini") {
-    const fallback = new ChatOpenAI({
-      model: "gpt-4o-mini",
-      temperature: 0.9,
-      apiKey: llmKey,
-      ...(opts.maxTokens ? { maxTokens: opts.maxTokens } : {}),
-    });
-    return primary.withFallbacks([fallback]);
-  }
-
-  if (llmProvider === "anthropic" && currentModel !== "claude-3-5-haiku-latest") {
-    const fallback = new ChatAnthropic({
-      model: "claude-3-5-haiku-latest",
-      temperature: 0.9,
-      apiKey: llmKey,
-      ...(opts.maxTokens ? { maxTokens: opts.maxTokens } : {}),
-    });
-    return primary.withFallbacks([fallback]);
-  }
-
-  if (llmProvider === "gemini") {
-    const crossFallback = getCrossProviderFallback(llmProvider, opts);
-    if (crossFallback) {
-      const fallback =
-        crossFallback.provider === "openai"
-          ? new ChatOpenAI({
-              model: crossFallback.model,
-              temperature: 0.9,
-              apiKey: crossFallback.apiKey,
-              ...(opts.maxTokens ? { maxTokens: opts.maxTokens } : {}),
-              ...(opts.maxReasoningTokens === 0 ? { reasoning: { effort: "low" as const } } : {}),
-            })
-          : new ChatAnthropic({
-              model: crossFallback.model,
-              temperature: 0.9,
-              apiKey: crossFallback.apiKey,
-              ...(opts.maxTokens ? { maxTokens: opts.maxTokens } : {}),
-            });
-      return primary.withFallbacks([fallback]);
-    }
-
-    log.warn(
-      "No cross-provider fallback API key configured for Gemini; falling back within Gemini tiers",
-      {
-        primaryProvider: "gemini",
-        configuredModel: currentModel,
-      }
-    );
-
-    const fallbacks: ChatGoogle[] = [];
-    if (currentModel !== "gemini-3.5-flash") {
-      fallbacks.push(
-        new ChatGoogle({
-          model: "gemini-3.5-flash",
-          temperature: 0.9,
-          maxRetries: 1,
-          apiKey: llmKey || config.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY,
-          ...(opts.maxTokens ? { maxOutputTokens: opts.maxTokens } : {}),
-        })
-      );
-    }
-    if (currentModel !== "gemini-flash-latest") {
-      fallbacks.push(
-        new ChatGoogle({
-          model: "gemini-flash-latest",
-          temperature: 0.9,
-          maxRetries: 1,
-          apiKey: llmKey || config.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY,
-          ...(opts.maxTokens ? { maxOutputTokens: opts.maxTokens } : {}),
-        })
-      );
-    }
-    if (fallbacks.length > 0) {
-      return primary.withFallbacks(fallbacks);
-    }
-  }
-
-  return primary;
-};
-
-const CRITIC_MODEL_MAP: Record<string, Record<string, string>> = {
-  gemini: {
-    "gemini-3.7-pro": "gemini-3.7-flash",
-    "gemini-3.7-flash": "gemini-3.5-flash",
-    "gemini-3.5-pro": "gemini-3.5-flash",
-    "gemini-3.5-flash": "gemini-3.5-flash",
-    "gemini-2.5-pro": "gemini-3.5-flash",
-    "gemini-2.5-flash": "gemini-3.5-flash",
-    "gemini-1.5-pro": "gemini-3.5-flash",
-    "gemini-1.5-flash": "gemini-3.5-flash",
-  },
-  openai: {
-    "gpt-4o": "gpt-4o-mini",
-    "gpt-4-turbo": "gpt-4o-mini",
-    "gpt-4": "gpt-4o-mini",
-  },
-  anthropic: {
-    "claude-3-5-sonnet-latest": "claude-3-5-haiku-latest",
-    "claude-3-opus-20240229": "claude-3-5-haiku-latest",
-    "claude-3-sonnet-20240229": "claude-3-5-haiku-latest",
-  },
-};
-
-const resolveCriticModel = (provider: string, userModel: string): string => {
-  const norm = normalizeProvider(provider);
-  const providerMap = CRITIC_MODEL_MAP[norm];
-  if (!providerMap) return userModel;
-  return providerMap[userModel] || userModel;
-};
-
-export const createCriticLLM = (opts: LLMOptions = {}) => {
-  const provider = normalizeProvider(opts.provider);
-  const userModel = opts.model || (provider === "gemini" ? "gemini-3.7-flash" : "");
-  const criticModel =
-    resolveCriticModel(provider, userModel) || (provider === "gemini" ? "gemini-3.5-flash" : userModel);
-  const llmKey = resolveApiKey(provider, opts.apiKey);
-
-  const baseCritic = createBaseLLM({
-    ...opts,
-    provider,
-    model: criticModel,
-    maxReasoningTokens: 0,
-  });
-
-  const criticFallbacks: BaseChatModel[] = [];
-  if (provider === "gemini") {
-    const crossFallback = getCrossProviderFallback(provider, opts);
-    if (crossFallback) {
-      if (crossFallback.provider === "openai") {
-        criticFallbacks.push(
-          new ChatOpenAI({
-            model: crossFallback.model,
-            temperature: 0.7,
-            apiKey: crossFallback.apiKey,
-          })
-        );
-      } else {
-        criticFallbacks.push(
-          new ChatAnthropic({
-            model: crossFallback.model,
-            temperature: 0.7,
-            apiKey: crossFallback.apiKey,
-          })
-        );
-      }
-    } else {
-      log.warn(
-        "No cross-provider fallback API key configured for Gemini critic; falling back within Gemini tiers",
-        {
-          provider,
-          criticModel,
-        }
-      );
-      if (criticModel !== "gemini-3.5-flash") {
-        criticFallbacks.push(
-          new ChatGoogle({
-            model: "gemini-3.5-flash",
-            temperature: 0.7,
-            maxRetries: 1,
-            apiKey: llmKey || config.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY,
-          })
-        );
-      }
-      if (criticModel !== "gemini-flash-latest") {
-        criticFallbacks.push(
-          new ChatGoogle({
-            model: "gemini-flash-latest",
-            temperature: 0.7,
-            maxRetries: 1,
-            apiKey: llmKey || config.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY,
-          })
-        );
-      }
-    }
-  } else if (provider === "openai" && criticModel !== "gpt-4o-mini") {
-    criticFallbacks.push(
-      new ChatOpenAI({
-        model: "gpt-4o-mini",
-        temperature: 0.7,
-        apiKey: llmKey,
-      })
-    );
-  } else if (provider === "anthropic" && criticModel !== "claude-3-5-haiku-latest") {
-    criticFallbacks.push(
-      new ChatAnthropic({
-        model: "claude-3-5-haiku-latest",
-        temperature: 0.7,
-        apiKey: llmKey,
-      })
-    );
-  }
-
-  if (criticFallbacks.length > 0) {
-    return baseCritic.withFallbacks(criticFallbacks);
-  }
-
-  return baseCritic;
-};
-
 /**
- * Explicit helper that composes .withStructuredOutput() and .withFallbacks()
- * cleanly without runtime prototype or instance monkey-patching.
- *
- * If the model is a RunnableWithFallbacks (e.g. from createCriticLLM), structured
- * output is applied to both the primary model and each fallback model, and the
- * resulting structured runnables are composed via native .withFallbacks().
+ * Helper that composes .withStructuredOutput() cleanly across runnables.
  */
 export function withStructuredOutputFallbacks<
   T = Record<string, unknown>,
@@ -555,38 +173,6 @@ export function withStructuredOutputFallbacks<
   options?: Parameters<BaseChatModel["withStructuredOutput"]>[1]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Runnable<any, T> {
-  const isRunnableWithFallbacks =
-    typeof model === "object" &&
-    model !== null &&
-    "runnable" in model &&
-    "fallbacks" in model &&
-    Array.isArray((model as { fallbacks?: unknown }).fallbacks);
-
-  if (isRunnableWithFallbacks) {
-    const primary = (model as { runnable: BaseChatModel }).runnable;
-    const fallbacks = (model as { fallbacks: BaseChatModel[] }).fallbacks;
-
-    const primaryStructured =
-      typeof primary.withStructuredOutput === "function"
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ? primary.withStructuredOutput(schema as any, options)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        : (primary as unknown as Runnable<any, T>);
-
-    const fallbackStructured = fallbacks
-      .filter((f) => typeof f.withStructuredOutput === "function")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((f) => f.withStructuredOutput(schema as any, options));
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (fallbackStructured.length > 0 && typeof (primaryStructured as any).withFallbacks === "function") {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (primaryStructured as any).withFallbacks(fallbackStructured) as Runnable<any, T>;
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return primaryStructured as Runnable<any, T>;
-  }
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (typeof (model as any).withStructuredOutput === "function") {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -596,5 +182,3 @@ export function withStructuredOutputFallbacks<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return model as unknown as Runnable<any, T>;
 }
-
-

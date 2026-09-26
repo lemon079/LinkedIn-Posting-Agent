@@ -46,6 +46,7 @@ export interface LlmOptions {
   ollamaBaseUrl?: string;
   maxReasoningTokens?: number;
   maxTokens?: number;
+  temperature?: number;
   alternateKeys?: {
     openai?: string;
     anthropic?: string;

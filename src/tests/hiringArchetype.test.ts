@@ -169,7 +169,7 @@ describe("Task A: Hiring Archetype + Auto-Select Fabrication Fix", () => {
       expect(result.activeArchetype).toBe("comparison");
     });
 
-    test("fallback heuristic routes definitional question to 'breakdown' on LLM error", async () => {
+    test("surfaces error requiring user input when LLM fails on 'auto' archetype", async () => {
       jest.spyOn(llmService, "withStructuredOutputFallbacks").mockReturnValue({
         invoke: jest.fn().mockRejectedValue(new Error("LLM failure")),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -183,8 +183,8 @@ describe("Task A: Hiring Archetype + Auto-Select Fabrication Fix", () => {
       };
 
       const result = await analyzeIntake(state as State);
-      expect(result.activeArchetype).not.toBe("teardown");
-      expect(result.activeArchetype).toBe("breakdown");
+      expect(result.error).toContain("Intake analysis failed");
+      expect(result.failedNode).toBe("analyzeIntake");
     });
   });
 

@@ -98,7 +98,7 @@ describe("handleAgentError (Error Agent Node)", () => {
     expect(result.postContent).toBe("Great engineering teams need trust to thrive.");
   });
 
-  test("performs emergency direct synthesis when draft is empty", async () => {
+  test("returns structured error state without emergency synthesis when draft is empty", async () => {
     const state: State = {
       ...baseState,
       draft: "",
@@ -107,9 +107,9 @@ describe("handleAgentError (Error Agent Node)", () => {
     };
 
     const result = await handleAgentError(state);
-    expect(result.error).toBeNull();
-    expect(result.draft).toContain("leadership");
-    expect(result.postContent).toContain("leadership");
+    expect(result.error).toBe("Generation failed — try again.");
+    expect(result.failedNode).toBe("generateDraft");
+    expect(result.draft).toBeUndefined();
     expect(result.errorRecoveryCount).toBe(1);
   });
 

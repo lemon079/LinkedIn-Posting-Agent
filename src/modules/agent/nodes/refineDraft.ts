@@ -82,8 +82,9 @@ export async function refineDraft(state: State, config?: RunnableConfig): Promis
 
   try {
     const llm = createLLM(getLLMOpts(state, config));
+    const baseRefineTimeout = state.llmProvider === "ollama" ? 90000 : REFINE_TIMEOUT_MS;
+    const timeoutMs = getRemainingTimeoutMs(state.deadlineTimestamp, baseRefineTimeout);
     const controller = new AbortController();
-    const timeoutMs = getRemainingTimeoutMs(state.deadlineTimestamp, REFINE_TIMEOUT_MS);
     const res = await invokeWithTimeout(
       llm.invoke([new HumanMessage(prompt)], { signal: controller.signal }),
       timeoutMs,

@@ -28,6 +28,7 @@ Praxis supports both session-based authentication and secure OAuth credential de
 | `POST` | `/api/draft` | Streams LangGraph agent execution and draft generation via Server-Sent Events (SSE). | Optional (falls back to server env) |
 | `POST` | `/api/publish` | Resumes paused LangGraph thread to upload media and publish post to LinkedIn. | Optional (uses OAuth or server keys) |
 | `POST` | `/api/health-check` | Tests connectivity and credentials for Gemini, OpenAI, Anthropic, or Ollama. | No |
+| `POST` | `/api/feedback` | Records user rating and feedback to LangSmith runs. | No |
 | `GET` | `/api/auth/linkedin` | Initiates 3-legged LinkedIn OAuth 2.0 flow with CSRF protection. | No |
 | `GET` | `/api/auth/linkedin/callback` | Exchanges OAuth code for access token and stores encrypted credentials. | No |
 | `GET` | `/api/media/upload/sign` | Generates a presigned storage upload URL for image or PDF attachments. | Yes |
@@ -129,6 +130,28 @@ data: {"type": "final", "content": "Full finished LinkedIn post text...", "threa
 ```
 
 ---
+
+
+---
+
+### 4. `POST /api/feedback`
+
+#### Request Body
+```json
+{
+  "runId": "langsmith-run-uuid-1234",
+  "score": 1,
+  "value": "positive",
+  "comment": "Optional user comment"
+}
+```
+
+#### Response (Success: 200 OK)
+```json
+{
+  "ok": true
+}
+```
 
 ## Error Codes
 

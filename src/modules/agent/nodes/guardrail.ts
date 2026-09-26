@@ -1,10 +1,9 @@
 import { HumanMessage } from "@langchain/core/messages";
-import { createLLM, getCrossProviderFallback, createCrossProviderFallbackLLM } from "../llm/factory";
+import { createLLM } from "../llm/factory";
 import type { State } from "../core/state";
 import {
   invokeWithRetryAndTimeout,
   GUARDRAIL_TIMEOUT_MS,
-  CROSS_PROVIDER_GUARDRAIL_TIMEOUT_MS,
   MIN_VIABLE_LLM_TIMEOUT_MS,
   getRemainingTimeoutMs,
 } from "../llm/timeout";
@@ -31,10 +30,10 @@ function checkLocalSafetyRules(content: string): { safe: boolean; reason?: strin
   return { safe: true };
 }
 
-const getLLMOpts = (state: State, config?: RunnableConfig, overrideModel?: string) => ({
+const getLLMOpts = (state: State, config?: RunnableConfig) => ({
   provider: state.llmProvider || undefined,
   apiKey: (config?.configurable?.apiKey as string) || state.llmApiKey || undefined,
-  model: overrideModel || state.llmModel || undefined,
+  model: state.llmModel || undefined,
   ollamaBaseUrl: state.ollamaBaseUrl || undefined,
   maxReasoningTokens: 0,
 });
@@ -44,10 +43,9 @@ const getLLMOpts = (state: State, config?: RunnableConfig, overrideModel?: strin
  *
  * Evaluates generated content against safety standards.
  * 1. Deterministic local safety rules check.
- * 2. Primary LLM safety evaluation with quick retry.
- * 3. Secondary fast model fallback if primary is degraded.
- * 4. FAIL-CLOSED: If safety cannot be verified by any method, the content
- *    is blocked and surfaces an error. It NEVER fails open.
+ * 2. Primary LLM safety evaluation with quick retry on the same model.
+ * 3. FAIL-CLOSED: If safety cannot be verified, the content is blocked
+ *    and surfaces an error. It NEVER fails open or falls back silently.
  */
 export const runGuardrails = async (state: State, config?: RunnableConfig): Promise<Partial<State>> => {
   if (state.error) {
@@ -86,8 +84,9 @@ Response: ${contentToReview}`;
   // 2. Primary LLM safety evaluation with quick retry
   // Guarantee at least MIN_VIABLE_LLM_TIMEOUT_MS so the guardrail is never
   // starved to an impossible window when the global budget is exhausted.
+  const baseGuardrailTimeout = state.llmProvider === "ollama" ? 30000 : GUARDRAIL_TIMEOUT_MS;
   const guardrailTimeout = Math.max(
-    getRemainingTimeoutMs(state.deadlineTimestamp, GUARDRAIL_TIMEOUT_MS),
+    getRemainingTimeoutMs(state.deadlineTimestamp, baseGuardrailTimeout),
     MIN_VIABLE_LLM_TIMEOUT_MS
   );
 
@@ -143,103 +142,19 @@ Response: ${contentToReview}`;
   } catch (primaryError: unknown) {
     const primaryMsg =
       primaryError instanceof Error ? primaryError.message : "Primary guardrail evaluation failed";
+    const totalDurationMs = Date.now() - startTime;
 
-    log.warn(`provider_degraded`, {
-      module: "Graph:guardrail",
-      provider: state.llmProvider || "gemini",
-      error: primaryMsg,
-      durationMs: Date.now() - startTime,
+    // FAIL CLOSED: Do NOT ship unverified content
+    log.error(`guardrail_fail_closed`, {
+      reason: "Safety evaluation service unavailable",
+      primaryError: primaryMsg,
+      durationMs: totalDurationMs,
     });
 
-    // 3. Secondary fast model fallback (cross-provider if available, or fast same-provider)
-    try {
-      const llmOpts = getLLMOpts(state, config);
-      const crossCandidate = getCrossProviderFallback(state.llmProvider || "gemini", llmOpts);
-      let secondaryLlm;
-      let fallbackLabel = "same-provider fallback";
-      let servingProviderName = state.llmProvider || "gemini";
-      let timeoutMs = Math.max(Math.min(4000, GUARDRAIL_TIMEOUT_MS), MIN_VIABLE_LLM_TIMEOUT_MS);
-
-      if (crossCandidate) {
-        const created = createCrossProviderFallbackLLM(llmOpts);
-        if (created) {
-          secondaryLlm = created.llm;
-          fallbackLabel = "cross-provider fallback";
-          servingProviderName = created.provider;
-          timeoutMs = CROSS_PROVIDER_GUARDRAIL_TIMEOUT_MS;
-        }
-      }
-
-      if (!secondaryLlm) {
-        log.warn("No cross-provider fallback available for guardrails; attempting same-provider fallback", {
-          primaryProvider: state.llmProvider || "gemini",
-        });
-        const fallbackModel =
-          state.llmProvider === "gemini" || !state.llmProvider
-            ? "gemini-2.5-flash"
-            : undefined;
-        secondaryLlm = createLLM(getLLMOpts(state, config, fallbackModel));
-      }
-
-      const fallbackRes = await invokeWithRetryAndTimeout(
-        (signal) => secondaryLlm.invoke([new HumanMessage(safetyPrompt)], { signal }),
-        {
-          timeoutMs,
-          maxRetries: 0,
-          deadlineTimestamp: null, // Use our own timeout ceiling, not the global deadline
-        }
-      );
-
-      const fallbackContent = (fallbackRes as { content?: unknown })?.content;
-      const fallbackEvaluation =
-        typeof fallbackContent === "string"
-          ? fallbackContent
-          : Array.isArray(fallbackContent)
-            ? fallbackContent
-                .map((b: LangChainMessageBlock | string) =>
-                  typeof b === "object" && b !== null && "text" in b
-                    ? String((b as LangChainMessageBlock).text || "")
-                    : String(b)
-                )
-                .join("\n")
-            : "";
-
-      const cleanedFallback = fallbackEvaluation.trim().toUpperCase();
-      const durationMs = Date.now() - startTime;
-
-      if (cleanedFallback.includes("UNSAFE") && !cleanedFallback.startsWith("SAFE")) {
-        log.warn(`Content flagged as UNSAFE by fallback guardrails`, { durationMs });
-        return {
-          error: "Guardrail violation: The generated content was flagged as UNSAFE.",
-          failedNode: "runGuardrails",
-          lastFailedNode: "runGuardrails",
-        };
-      }
-
-      log.info(`Content passed safety evaluation via secondary model`, {
-        servingProvider: fallbackLabel,
-        provider: servingProviderName,
-        durationMs,
-      });
-      return { servingProvider: fallbackLabel, failedNode: null };
-    } catch (fallbackError: unknown) {
-      const totalDurationMs = Date.now() - startTime;
-      const finalMsg =
-        fallbackError instanceof Error ? fallbackError.message : primaryMsg;
-
-      // 4. FAIL CLOSED: Do NOT ship unverified content
-      log.error(`guardrail_fail_closed`, {
-        reason: "Safety evaluation service unavailable across primary and fallback tiers",
-        primaryError: primaryMsg,
-        fallbackError: finalMsg,
-        durationMs: totalDurationMs,
-      });
-
-      return {
-        error: `Safety service unavailable: Safety evaluation service is temporarily unreachable. Please try again in a moment.`,
-        failedNode: "runGuardrails",
-        lastFailedNode: "runGuardrails",
-      };
-    }
+    return {
+      error: `Safety service unavailable: Safety evaluation service is temporarily unreachable. Please try again in a moment.`,
+      failedNode: "runGuardrails",
+      lastFailedNode: "runGuardrails",
+    };
   }
 };

@@ -37,12 +37,23 @@ const routeDraft = (state: State) => {
 
 const routeCritique = (state: State) => {
   if (state.error) return "handleAgentError";
+  const verdict = state.critique?.verdict;
   const score = state.critique?.score ?? 10;
   const count = state.critiqueCount ?? 0;
+  const refinementPasses = state.refinementPasses ?? 0;
 
-  // Exit: score passes threshold OR we've used both critique slots OR reached max 2 refinement passes
-  if (score >= 7 || count >= 2 || (state.refinementPasses ?? 0) >= 2) return "promoteBestDraft";
-  return "refineDraft";
+  // If explicit verdict is "refine" and cap has not been reached:
+  if (verdict === "refine" && count < 2 && refinementPasses < 2) {
+    return "refineDraft";
+  }
+
+  // Fallback for legacy score: if score < 7 and cap has not been reached:
+  if (!verdict && score < 7 && count < 2 && refinementPasses < 2) {
+    return "refineDraft";
+  }
+
+  // Exit: "pass", "needs_human_review", or caps reached
+  return "promoteBestDraft";
 };
 
 const routeGuardrails = (state: State) => {

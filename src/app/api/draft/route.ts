@@ -91,7 +91,6 @@ export async function POST(request: Request) {
       domain,
       archetype,
       tone,
-      keys,
       webSearchEnabled,
       currentDraft,
       threadId: incomingThreadId,
@@ -156,10 +155,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const provider = keys?.provider || creds.provider || config.defaultProvider;
-    const model = keys?.modelName || creds.model || config.defaultModel;
-    const apiKey = keys?.apiKey || creds.apiKey;
-    const ollamaBaseUrl = keys?.ollamaBaseUrl || creds.ollamaUrl;
+    const provider = creds.provider || config.defaultProvider;
+    const model = creds.model || config.defaultModel;
+    const apiKey = creds.apiKey;
+    const ollamaBaseUrl = creds.ollamaUrl;
 
     log.info(`LLM credentials resolved`, {
       provider,
@@ -398,8 +397,13 @@ export async function POST(request: Request) {
           });
 
           let currentStepTitle = "";
+          let rootRunId: string | undefined;
 
           for await (const event of eventStream) {
+            // Capture root run_id from the very first event
+            if (!rootRunId && event.run_id) {
+              rootRunId = event.run_id;
+            }
             if (event.event === "on_chain_start") {
               const nodeName = event.name;
               if (STREAMABLE_NODES.has(nodeName)) {
@@ -490,6 +494,7 @@ export async function POST(request: Request) {
             sendEvent({
               type: "final",
               threadId,
+              runId: rootRunId,
               draft: state.values.postContent,
               reasoningSteps: state.values.reasoningSteps,
               critique: state.values.critique,

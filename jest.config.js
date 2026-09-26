@@ -26,6 +26,7 @@ const config = {
         "<rootDir>/src/tests/headers.test.ts",
         "<rootDir>/src/tests/linkedin.test.ts",
         "<rootDir>/src/tests/redact.test.ts",
+        "<rootDir>/src/tests/critiqueSystem.test.ts",
       ],
 
 

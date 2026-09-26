@@ -86,18 +86,18 @@ export const DOMAINS: Record<string, DomainConfig> = {
 export const inferDomain = (topic: string, context: string): string => {
   const combined = (topic + " " + context).toLowerCase();
 
-  if (combined.match(/candidate|interview|onboarding|performance review|hiring|recruiting|resume|hr/i)) {
+  if (combined.match(/\b(?:candidate|interview|onboarding|performance review|hiring|recruiting|resume|hr)\b/i)) {
     return "hr";
   }
-  if (combined.match(/deal|pipeline|quota|objection|meddic|sales|prospect|closing/i)) {
+  if (combined.match(/\b(?:deal|pipeline|quota|objection|meddic|sales|prospect|closing)\b/i)) {
     return "sales";
   }
-  if (combined.match(/campaign|funnel|conversion|ad spend|marketing|seo|ctr/i)) {
+  if (combined.match(/\b(?:campaign|funnel|conversion|ad spend|marketing|seo|ctr)\b/i)) {
     return "marketing";
   }
   if (
     combined.match(
-      /code|api|database|server|react|postgres|kafka|algorithm|rfc|config|latency|deploy|ci\/cd|docker|kubernetes|devops|frontend|backend|data structure|complexity|theorem|big-o|recursion|dynamic programming/i
+      /\b(?:code|api|database|server|react|postgres|kafka|algorithm|rfc|config|latency|deploy|ci\/cd|docker|kubernetes|devops|frontend|backend|data structure|complexity|theorem|big-o|recursion|dynamic programming)\b/i
     )
   ) {
     return "engineering";

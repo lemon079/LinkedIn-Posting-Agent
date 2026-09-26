@@ -1,7 +1,7 @@
 <!-- generated-by: gsd-doc-writer -->
 # Testing & Quality Assurance
 
-Praxis maintains an automated testing suite comprising 17 test suites and 158 tests covering agent logic, LLM fallback resilience, guardrail heuristics, SSE streaming transport, and React UI components.
+Praxis maintains an automated testing suite comprising 26 test suites and 228 tests covering agent logic, LLM single-path predictability and retry resilience, guardrail heuristics, SSE streaming transport, and React UI components.
 
 ---
 

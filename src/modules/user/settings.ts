@@ -204,12 +204,12 @@ function mergeDbCredentials(
   row: UserSettingsRow
 ): AgentCredentials {
   return {
-    provider: row.llm_provider || creds.provider,
-    apiKey: row.encrypted_api_key ? safeDecrypt(row.encrypted_api_key) : creds.apiKey,
-    model: row.llm_model || creds.model,
-    ollamaUrl: row.ollama_base_url || creds.ollamaUrl,
-    liToken: row.encrypted_linkedin_token ? safeDecrypt(row.encrypted_linkedin_token) : creds.liToken,
-    liUrn: row.linkedin_urn || creds.liUrn,
+    provider: creds.provider || row.llm_provider || undefined,
+    apiKey: creds.apiKey || (row.encrypted_api_key ? safeDecrypt(row.encrypted_api_key) : undefined),
+    model: creds.model || row.llm_model || undefined,
+    ollamaUrl: creds.ollamaUrl || row.ollama_base_url || undefined,
+    liToken: creds.liToken || (row.encrypted_linkedin_token ? safeDecrypt(row.encrypted_linkedin_token) : undefined),
+    liUrn: creds.liUrn || row.linkedin_urn || undefined,
   };
 }
 

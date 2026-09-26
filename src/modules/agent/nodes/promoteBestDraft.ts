@@ -39,6 +39,8 @@ export async function promoteBestDraft(state: State): Promise<Partial<State>> {
     initialScore,
     finalScore,
     scoreDelta,
+    verdict: state.critique?.verdict ?? "pass",
+    reasons: state.critique?.reasons ?? [],
     draftLengthChars: bestDraft.length,
     servingProvider: state.servingProvider || "primary",
     provider: state.actualProvider || state.llmProvider || "unknown",

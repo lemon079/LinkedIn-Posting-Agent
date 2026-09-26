@@ -1,7 +1,5 @@
-import { HumanMessage } from "@langchain/core/messages";
-import { createLLM } from "../llm/factory";
 import type { State } from "../core/state";
-import { DOMAIN_OPTIONS, ARCHETYPE_OPTIONS, TONE_OPTIONS } from "../core/schemas";
+import { DOMAIN_OPTIONS, ARCHETYPE_OPTIONS, TONE_OPTIONS, resolveIntakeOnLLMFailure } from "../core/schemas";
 import { inferDomain, inferAngle } from "../core/domains";
 import { logger } from "@/lib/logger";
 import type { RunnableConfig } from "@langchain/core/runnables";
@@ -94,7 +92,18 @@ export async function handleAgentError(
       failedNode !== "runGuardrails" &&
       failedNode !== "validatePost")
   ) {
-    log.info(`Error Agent repairing intake analysis with heuristic inference`);
+    if (rawError.includes("Please specify your domain")) {
+      log.warn(`Error Agent halting for user input as requested by analyzeIntake`);
+      return {
+        error: rawError,
+        failedNode: "analyzeIntake",
+        lastFailedNode: "analyzeIntake",
+        errorRecoveryCount: currentTotal,
+        nodeRecoveryCounts: nodeCounts,
+      };
+    }
+
+    log.info(`Error Agent repairing intake analysis with explicit/heuristic values`);
     const domain =
       state.domain && state.domain !== "auto"
         ? state.domain
@@ -152,9 +161,21 @@ export async function handleAgentError(
       nodeRecoveryCounts: nodeCounts,
       critique: {
         score: fallbackScore,
+        hookScore: 3,
+        hookReason: "Fallback evaluation",
+        authenticityScore: 3,
+        authenticityReason: "Fallback evaluation",
+        domainGroundingScore: 3,
+        domainGroundingReason: "Fallback evaluation",
+        structureScore: 3,
+        structureReason: "Fallback evaluation",
+        fabricationFlag: false,
+        contrarianBaitFlag: false,
         strengths: ["Clear topic relevance"],
         weaknesses: [],
         instructions: "Proceed with current draft",
+        verdict: "pass",
+        reasons: [],
       },
       bestDraft: state.bestDraft || state.draft,
       bestScore: Math.max(state.bestScore || 0, fallbackScore),
@@ -206,74 +227,24 @@ export async function handleAgentError(
     }
   }
 
-  // ── Strategy 4: Empty Draft / Thought-Only Autonomous Regeneration ─────────
+  // ── Strategy 4: Failed Draft / Empty Draft ─────────────────────────────────
   if (failedNode === "generateDraft" || !state.draft || state.draft.length < 50) {
-    log.info(`Error Agent attempting emergency direct draft synthesis`);
-    try {
-      const fallbackLlm = createLLM({
-        provider: state.llmProvider || undefined,
-        apiKey: (config?.configurable?.apiKey as string) || state.llmApiKey || undefined,
-        model: state.llmModel || undefined,
-        ollamaBaseUrl: state.ollamaBaseUrl || undefined,
-        maxReasoningTokens: 0, // Disable thinking to avoid thought-only empty responses
-      });
-
-      const topic = state.intake?.topic || state.topic || "Professional Growth";
-      const context = state.intake?.context || state.context || "";
-      const emergencyPrompt = `You are a professional LinkedIn ghostwriter. Write a concise, engaging LinkedIn post (under 250 words) about:
-Topic: "${topic}"
-Context: "${context}"
-
-Rules:
-- Write ONLY the post text.
-- Do not include introductory phrases like "Here is a post:".
-- Do not include hashtags at the very top.
-- Include a strong opening hook, 2-3 short body paragraphs, and a closing question.`;
-
-      const response = await fallbackLlm.invoke([new HumanMessage(emergencyPrompt)]);
-      let generatedText = "";
-      if (typeof response.content === "string") {
-        generatedText = response.content;
-      } else if (Array.isArray(response.content)) {
-        generatedText = response.content
-          .map((p) =>
-            typeof p === "string"
-              ? p
-              : p && typeof p === "object" && "text" in p && typeof (p as { text: unknown }).text === "string"
-              ? (p as { text: string }).text
-              : ""
-          )
-          .join("");
-      }
-
-      generatedText = generatedText
-        .replace(/\[\/?DRAFT\]/gi, "")
-        .replace(/\[\/?HASHTAGS?\]:?/gi, "")
-        .replace(/\[\/?FIRST_COMMENT\]:?/gi, "")
-        .replace(/\n{3,}/g, "\n\n")
-        .trim();
-
-      if (generatedText.length > 30) {
-        log.info(`Error Agent successfully generated emergency fallback draft`, {
-          servingProvider: "Error Agent emergency synthesis",
-          provider: state.llmProvider || "gemini",
-        });
-        return {
-          error: null,
-          failedNode: null,
-          lastFailedNode: "generateDraft",
-          draft: generatedText,
-          postContent: generatedText,
-          bestDraft: generatedText,
-          servingProvider: "Error Agent emergency synthesis",
-          errorRecoveryCount: currentTotal,
-          nodeRecoveryCounts: nodeCounts,
-        };
-      }
-    } catch (regenError: unknown) {
-      const msg = regenError instanceof Error ? regenError.message : "Emergency generation failed";
-      log.error(`Error Agent emergency generation attempt failed`, { error: msg });
-    }
+    log.warn(`Error Agent: generation failed for node ${failedNode}, returning structured error state`, {
+      failedNode,
+      reason: rawError,
+    });
+    return {
+      error: "Generation failed — try again.",
+      errorDetails: {
+        status: "failed",
+        reason: rawError,
+        retryable: true,
+      },
+      failedNode: "generateDraft",
+      lastFailedNode: "generateDraft",
+      errorRecoveryCount: currentTotal,
+      nodeRecoveryCounts: nodeCounts,
+    };
   }
 
   // If all recovery strategies fail, terminate gracefully with user advice

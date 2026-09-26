@@ -206,6 +206,10 @@ export const AgentState = Annotation.Root({
     reducer: (_x, y) => y,
     default: () => null,
   }),
+  errorDetails: Annotation<{ status: "failed"; reason: string; retryable: boolean } | null>({
+    reducer: (_x, y) => y,
+    default: () => null,
+  }),
 });
 
 type BaseAgentState = typeof AgentState.State;
@@ -218,6 +222,7 @@ export type State = Omit<
   | "servingProvider"
   | "actualProvider"
   | "actualModel"
+  | "errorDetails"
 > & {
   webSearchEnabled?: boolean;
   webSearchResults?: Array<{ title: string; domain: string }>;
@@ -226,4 +231,5 @@ export type State = Omit<
   servingProvider?: string | null;
   actualProvider?: string | null;
   actualModel?: string | null;
+  errorDetails?: { status: "failed"; reason: string; retryable: boolean } | null;
 };

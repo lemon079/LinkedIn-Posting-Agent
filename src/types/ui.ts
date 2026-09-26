@@ -26,6 +26,7 @@ export interface BaseComposerProps {
  * Shared base props for thread draft editing across EditorPanel and AssistantThread.
  */
 export interface BaseThreadEditorProps {
+  runId?: string | null;
   draftText: string | null;
   streamingText: string | null;
   isGenerating: boolean;

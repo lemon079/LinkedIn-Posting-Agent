@@ -44,19 +44,21 @@ describe("createBaseLLM", () => {
   });
 });
 
-describe("createLLM with fallbacks", () => {
-  test("wraps Gemini with fallback runnable", () => {
+describe("createLLM without fallbacks", () => {
+  test("returns Gemini base model without fallbacks", () => {
     const llm = createLLM({ provider: "gemini" });
-    expect(llm).toBeInstanceOf(RunnableWithFallbacks);
+    expect(llm).toBeInstanceOf(ChatGoogle);
+    expect(llm).not.toBeInstanceOf(RunnableWithFallbacks);
   });
 
-  test("wraps OpenAI with fallback runnable", () => {
+  test("returns OpenAI base model without fallbacks", () => {
     const llm = createLLM({
       provider: "openai",
       apiKey: "test-openai-key",
       model: "gpt-4o",
     });
-    expect(llm).toBeInstanceOf(RunnableWithFallbacks);
+    expect(llm).toBeInstanceOf(ChatOpenAI);
+    expect(llm).not.toBeInstanceOf(RunnableWithFallbacks);
   });
 });
 

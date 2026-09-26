@@ -11,7 +11,7 @@ import {
   publishPost,
 } from "@/modules/agent/nodes";
 import type { State } from "@/modules/agent/core/state";
-import type { IntakeAnalysis } from "@/modules/agent/core/schemas";
+import type { IntakeAnalysis, CritiqueResult } from "@/modules/agent/core/schemas";
 import * as llmService from "@/modules/agent/llm/factory";
 import * as linkedinService from "@/modules/linkedin/api";
 import { invokeWithTimeout } from "@/modules/agent/llm/timeout";
@@ -97,7 +97,7 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
       expect(result.activeDomain).toBe("engineering");
     });
 
-    it("should gracefully fall back to regex-inferred domain and safe defaults on LLM error", async () => {
+    it("should halt with clear user-input error state when LLM fails on auto domain (no guessing)", async () => {
       const mockLlm = {
         withStructuredOutput: jest.fn().mockReturnValue({
           invoke: jest.fn().mockRejectedValue(new Error("Structured output failed")),
@@ -113,11 +113,9 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
         context: "Onboarding engineers",
       });
 
-      expect(result.intake).toBeDefined();
-      expect(result.intake?.domain).toBe("hr");
-      expect(result.intake?.tone).toBe("conversational");
-      expect(result.intake?.angle.length).toBeGreaterThan(10);
-      expect(result.activeDomain).toBe("hr");
+      expect(result.error).toContain("Please specify your domain");
+      expect(result.failedNode).toBe("analyzeIntake");
+      expect(result.intake).toBeUndefined();
     });
 
     it("should prioritize user-specified archetype and tone over model inference", async () => {
@@ -198,51 +196,34 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
       expect(capturedPrompt).toContain("Tone: authoritative");
     });
 
-    it("should reject 0-character draft from primary attempt and recover via fast fallback", async () => {
-      const fallbackDraftText = "[DRAFT]Kafka consumer group tuning saves latency during peak loads.\n\n#kafka #backend[/DRAFT]";
-      const mockFallbackLlm = new FakeListChatModel({ responses: [fallbackDraftText] });
-
+    it("should return error without fallback when primary attempt produces 0-character draft", async () => {
       let callCount = 0;
       jest.spyOn(llmService, "createLLM").mockImplementation(() => {
         callCount++;
-        if (callCount === 1) {
-          // Primary attempt returns empty draft
-          return new FakeListChatModel({ responses: [""] }) as unknown as ReturnType<typeof llmService.createLLM>;
-        }
-        return mockFallbackLlm as unknown as ReturnType<typeof llmService.createLLM>;
+        return new FakeListChatModel({ responses: [""] }) as unknown as ReturnType<typeof llmService.createLLM>;
       });
 
       const result = await generateDraft(baseState);
 
-      expect(callCount).toBe(2);
-      expect(result.draft).toContain("Kafka consumer group tuning saves latency");
-      expect(result.error).toBeUndefined();
+      expect(callCount).toBe(1);
+      expect(result.error).toContain("Primary LLM produced empty or insufficient draft");
+      expect(result.failedNode).toBe("generateDraft");
     });
 
-    it("should recover via fast fallback when primary LLM times out", async () => {
-      const fallbackDraftText = "[DRAFT]Kafka consumer group tuning saves latency during peaks.\n\n#kafka #backend[/DRAFT]";
-      const mockFallbackLlm = new FakeListChatModel({ responses: [fallbackDraftText] });
-      
+    it("should return error without silent fallback when primary LLM times out", async () => {
       let callCount = 0;
       jest.spyOn(llmService, "createLLM").mockImplementation(() => {
         callCount++;
-
-        if (callCount === 1) {
-          // Primary attempt with reasoning throws timeout error
-          return {
-            invoke: jest.fn().mockRejectedValue(new Error("LLM invocation timed out after 60000ms")),
-          } as unknown as ReturnType<typeof llmService.createLLM>;
-        }
-        // Fallback attempt succeeds
-        return mockFallbackLlm as unknown as ReturnType<typeof llmService.createLLM>;
+        return {
+          invoke: jest.fn().mockRejectedValue(new Error("LLM invocation timed out after 60000ms")),
+        } as unknown as ReturnType<typeof llmService.createLLM>;
       });
 
       const result = await generateDraft(baseState);
 
-      expect(callCount).toBe(2);
-      expect(result.draft).toContain("Kafka consumer group tuning saves latency");
-      expect(result.error).toBeUndefined();
-      expect(result.postContent).toBe(result.draft);
+      expect(callCount).toBe(1);
+      expect(result.error).toContain("LLM invocation timed out");
+      expect(result.failedNode).toBe("generateDraft");
     });
 
     it("should return error with failedNode if both primary and fallback attempts fail", async () => {
@@ -404,7 +385,7 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
           strengths: ["Good topic"],
           weaknesses: ["Weak hook"],
           instructions: "Lead with the max.poll.interval.ms configuration gotcha.",
-        },
+        } as unknown as CritiqueResult,
       };
 
       const result = await refineDraft(stateToRefine);
@@ -427,7 +408,7 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
           strengths: [],
           weaknesses: [],
           instructions: "Fix everything",
-        },
+        } as unknown as CritiqueResult,
       };
 
       const result = await refineDraft(stateToRefine);
@@ -712,9 +693,7 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
       expect(critiqueSpy).not.toHaveBeenCalled();
     });
 
-    it("should route emergency-synthesized draft through critiqueDraft before promoteBestDraft", async () => {
-      let draftCallCount = 0;
-
+    it("should terminate with structured error when generateDraft fails without emergency synthesis", async () => {
       jest.spyOn(llmService, "createCriticLLM").mockImplementation(() => {
         return {
           withStructuredOutput: jest.fn().mockImplementation(() => {
@@ -735,24 +714,14 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
         } as unknown as ReturnType<typeof llmService.createCriticLLM>;
       });
 
-      // generateDraft fails, but handleAgentError emergency generation succeeds
+      // generateDraft fails
       jest.spyOn(llmService, "createLLM").mockImplementation(() => {
-        draftCallCount++;
-        if (draftCallCount <= 2) {
-          // Primary and fallback generateDraft attempts fail
-          return {
-            invoke: jest.fn().mockRejectedValue(new Error("Primary draft timeout")),
-          } as unknown as ReturnType<typeof llmService.createLLM>;
-        }
-        // Emergency synthesis by handleAgentError succeeds
         return {
-          invoke: jest.fn().mockResolvedValue({
-            content: "Emergency synthesized post about Kafka.\n\nAlways monitor poll intervals carefully.\n\nWhat do you think?",
-          }),
+          invoke: jest.fn().mockRejectedValue(new Error("Primary draft timeout")),
         } as unknown as ReturnType<typeof llmService.createLLM>;
       });
 
-      const threadId = `emergency-critique-test-${Date.now()}`;
+      const threadId = `fail-no-emergency-test-${Date.now()}`;
       const threadConfig = { configurable: { thread_id: threadId } };
 
       const eventStream = agent.streamEvents(
@@ -784,9 +753,14 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
 
       expect(executedNodes).toContain("generateDraft");
       expect(executedNodes).toContain("handleAgentError");
-      // CRITICAL: critiqueDraft MUST have executed to score the emergency draft!
-      expect(executedNodes).toContain("critiqueDraft");
-      expect(executedNodes).toContain("promoteBestDraft");
+      // critiqueDraft and promoteBestDraft must NEVER be executed
+      expect(executedNodes).not.toContain("critiqueDraft");
+      expect(executedNodes).not.toContain("promoteBestDraft");
+
+      const finalState = await agent.getState(threadConfig);
+      expect(finalState.values.error).toContain("Generation failed — try again.");
+      expect(finalState.values.errorDetails?.status).toBe("failed");
+      expect(finalState.values.errorDetails?.retryable).toBe(true);
     });
   });
 

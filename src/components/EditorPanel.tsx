@@ -39,6 +39,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   webSearchQuery,
   webSearchSkippedReason,
   user,
+  runId,
 }) => {
   return (
     <AssistantThread
@@ -71,6 +72,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
       webSearchQuery={webSearchQuery}
       webSearchSkippedReason={webSearchSkippedReason}
       user={user}
+      runId={runId}
     />
   );
 };

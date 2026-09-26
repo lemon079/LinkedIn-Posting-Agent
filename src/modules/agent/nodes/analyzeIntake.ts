@@ -1,6 +1,6 @@
 import { HumanMessage } from "@langchain/core/messages";
 import { createCriticLLM, withStructuredOutputFallbacks } from "../llm/factory";
-import { IntakeAnalysis } from "../core/schemas";
+import { IntakeAnalysis, resolveIntakeOnLLMFailure } from "../core/schemas";
 import type { State } from "../core/state";
 
 import { inferDomain, inferAngle } from "../core/domains";
@@ -17,6 +17,8 @@ const getLLMOpts = (state: State, config?: RunnableConfig) => ({
   apiKey: (config?.configurable?.apiKey as string) || state.llmApiKey || undefined,
   model: state.llmModel || undefined,
   ollamaBaseUrl: state.ollamaBaseUrl || undefined,
+  temperature: 0.1,
+  maxReasoningTokens: 0,
 });
 
 /**
@@ -34,16 +36,43 @@ export async function analyzeIntake(state: State, config?: RunnableConfig): Prom
   const startTime = Date.now();
   const topic = state.topic || "";
   const context = state.context || "";
-  const userDomain = state.domain;
-  const userArchetype = state.archetype;
-  const userTone = state.tone;
+  const userDomain = state.domain || "auto";
+  const userArchetype = state.archetype || "auto";
+  const userTone = state.tone || "auto";
 
   log.info(`Starting intake analysis`, {
     topic,
-    userDomain: userDomain || "auto",
-    userArchetype: userArchetype || "auto",
-    userTone: userTone || "conversational",
+    userDomain,
+    userArchetype,
+    userTone,
   });
+
+  // If the user explicitly set domain/archetype/tone, use those — the LLM call for classification isn't even needed.
+  const allExplicit =
+    userDomain !== "auto" &&
+    userArchetype !== "auto" &&
+    userTone !== "auto";
+  if (allExplicit) {
+    log.info(`All intake parameters explicitly configured by user, bypassing classification LLM`, {
+      domain: userDomain,
+      archetype: userArchetype,
+      tone: userTone,
+    });
+    const finalIntake: IntakeAnalysis = {
+      topic,
+      context,
+      domain: userDomain as IntakeAnalysis["domain"],
+      angle: inferAngle(topic, context, userDomain),
+      archetype: userArchetype as IntakeAnalysis["archetype"],
+      tone: userTone as IntakeAnalysis["tone"],
+    };
+    return {
+      intake: finalIntake,
+      activeDomain: userDomain,
+      activeArchetype: userArchetype,
+      activeTone: userTone,
+    };
+  }
 
   try {
     const llm = createCriticLLM(getLLMOpts(state, config));
@@ -57,7 +86,7 @@ export async function analyzeIntake(state: State, config?: RunnableConfig): Prom
     const intake = (await invokeWithRetryAndTimeout(
       (signal) => structuredLLM.invoke([new HumanMessage(prompt)], { signal }),
       {
-        timeoutMs: INTAKE_TIMEOUT_MS,
+        timeoutMs: state.llmProvider === "ollama" ? 60000 : INTAKE_TIMEOUT_MS,
         maxRetries: 1,
         deadlineTimestamp: state.deadlineTimestamp,
         onRetry: (attempt, err, delay) => {
@@ -110,7 +139,7 @@ export async function analyzeIntake(state: State, config?: RunnableConfig): Prom
 
     // If the user specified an explicit tone preference, respect it over model inference
     const resolvedTone =
-      userTone && userTone.trim()
+      userTone && userTone !== "auto" && userTone.trim()
         ? userTone
         : intake.tone || "conversational";
 
@@ -138,45 +167,29 @@ export async function analyzeIntake(state: State, config?: RunnableConfig): Prom
   } catch (error: unknown) {
     const durationMs = Date.now() - startTime;
     const msg = error instanceof Error ? error.message : "Unknown error";
-    log.warn(`Structured intake output failed, activating fallback`, {
+    log.warn(`Structured intake output failed, checking fallback resolution`, {
       error: msg,
       durationMs,
     });
 
-    // Complete fallback — all IntakeAnalysis fields get safe defaults
-    const fallbackDomain =
-      userDomain && userDomain !== "auto"
-        ? userDomain
-        : inferDomain(topic, context);
+    const fallbackResolution = resolveIntakeOnLLMFailure(userDomain, userArchetype, userTone || "auto");
+    if ("needsUserInput" in fallbackResolution) {
+      log.warn(`Intake classification failed and inputs were 'auto' — surfacing distinct error state requiring user input`, {
+        userDomain,
+        userArchetype,
+        userTone,
+        error: msg,
+      });
+      return {
+        error: "Intake analysis failed. Please specify your domain, format archetype, and tone to continue.",
+        failedNode: "analyzeIntake",
+      };
+    }
 
+    const fallbackDomain = fallbackResolution.domain;
+    const fallbackArchetype = fallbackResolution.archetype;
+    const fallbackTone = fallbackResolution.tone;
     const fallbackAngle = inferAngle(topic, context, fallbackDomain);
-
-    const isHiringFallback = /\b(?:hiring|we'?re hiring|job opening|recruiting|open role|looking for a|join our team)\b/i.test(topic + " " + context);
-    const isDefinitionalFallback =
-      /^(?:who|what|why|how|when)\s+(?:is|are|does|do|should)\b/i.test(topic.trim()) ||
-      /\b(?:who is an?|what is an?|difference between|overview of|guide to)\b/i.test(topic);
-
-    const fallbackArchetype =
-      userArchetype && userArchetype !== "auto"
-        ? userArchetype
-        : isHiringFallback
-          ? "hiring"
-          : isDefinitionalFallback
-            ? "breakdown"
-            : "framework";
-
-    const fallbackTone =
-      userTone && userTone.trim()
-        ? userTone
-        : "conversational";
-
-    log.info(`Intake fallback activated: Heuristic angle generated due to LLM unavailability`, {
-      domain: fallbackDomain,
-      angle: fallbackAngle,
-      archetype: fallbackArchetype,
-      tone: fallbackTone,
-      reason: msg,
-    });
 
     const fallbackIntake: IntakeAnalysis = {
       topic,
@@ -186,7 +199,6 @@ export async function analyzeIntake(state: State, config?: RunnableConfig): Prom
       archetype: fallbackArchetype as IntakeAnalysis["archetype"],
       tone: fallbackTone as IntakeAnalysis["tone"],
     };
-
 
     return {
       intake: fallbackIntake,

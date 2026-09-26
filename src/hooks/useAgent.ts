@@ -23,6 +23,7 @@ export function useAgent() {
   const [draftVersions, setDraftVersions] = useState<DraftVersion[]>([]);
   const [activeVersionIndex, setActiveVersionIndex] = useState<number>(0);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [runId, setRunId] = useState<string | null>(null);
   const [status, setStatus] = useState({ gen: false, pub: false, err: null as string | null });
 
   // Sub-hooks
@@ -361,6 +362,7 @@ export function useAgent() {
     setAlternativeHooks([]);
     setDraftVersions([]);
     setActiveVersionIndex(0);
+    setRunId(null);
     if (typeof window !== "undefined") {
       localStorage.removeItem("praxis_alternative_hooks");
       if (threadId) {
@@ -375,12 +377,11 @@ export function useAgent() {
 
       if (settings.token) {
         headers["Authorization"] = `Bearer ${settings.token}`;
-      } else {
-        if (settings.provider) headers["x-llm-provider"] = settings.provider;
-        if (settings.apiKey) headers["x-llm-api-key"] = settings.apiKey;
-        if (settings.modelName) headers["x-llm-model"] = settings.modelName;
-        if (settings.ollamaBaseUrl) headers["x-ollama-base-url"] = settings.ollamaBaseUrl;
       }
+      if (settings.provider) headers["x-llm-provider"] = settings.provider;
+      if (settings.apiKey) headers["x-llm-api-key"] = settings.apiKey;
+      if (settings.modelName) headers["x-llm-model"] = settings.modelName;
+      if (settings.ollamaBaseUrl) headers["x-ollama-base-url"] = settings.ollamaBaseUrl;
 
       let stream: ReadableStream<Uint8Array>;
       try {
@@ -395,12 +396,6 @@ export function useAgent() {
             archetype: archetype === "auto" ? undefined : archetype,
             tone: tone || undefined,
             webSearchEnabled,
-            keys: {
-              provider: settings.provider,
-              apiKey: settings.apiKey || undefined,
-              modelName: settings.modelName || undefined,
-              ollamaBaseUrl: settings.ollamaBaseUrl || undefined,
-            },
           },
           {
             headers,
@@ -470,6 +465,7 @@ export function useAgent() {
               return next;
             });
           } else if (event.type === "final") {
+            if (event.runId) setRunId(event.runId);
             const effectiveDraft = event.draft;
             const hooksToUse =
               event.alternativeHooks && event.alternativeHooks.length > 0
@@ -542,6 +538,7 @@ export function useAgent() {
         setAlternativeHooks([]);
         setDraftVersions([]);
         setActiveVersionIndex(0);
+        setRunId(null);
         media.clearFiles();
         if (typeof window !== "undefined") {
           localStorage.removeItem("praxis_draft_text");
@@ -588,6 +585,7 @@ export function useAgent() {
     setAlternativeHooks([]);
     setDraftVersions([]);
     setActiveVersionIndex(0);
+    setRunId(null);
     media.clearFiles();
     if (typeof window !== "undefined") {
       localStorage.removeItem("praxis_draft_text");
@@ -613,6 +611,7 @@ export function useAgent() {
     setAlternativeHooks([]);
     setDraftVersions([]);
     setActiveVersionIndex(0);
+    setRunId(null);
     media.clearFiles();
     setCustomTopic("");
     setContext("");
@@ -713,6 +712,7 @@ export function useAgent() {
     alternativeHooks,
     draftVersions,
     activeVersionIndex,
+    runId,
     setAlternativeHooks,
     handleApplyHook,
     addDraftVersion,

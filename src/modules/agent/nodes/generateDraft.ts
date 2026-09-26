@@ -5,18 +5,8 @@ import type { State } from "../core/state";
 import { HookOptionSchema, type HookOption } from "../core/schemas";
 import { DOMAINS } from "../core/domains";
 import { getRecentHooks, addHook } from "@/modules/user/history";
-import {
-  invokeWithTimeout,
-  DRAFT_TIMEOUT_MS,
-  FALLBACK_DRAFT_TIMEOUT_MS,
-  CROSS_PROVIDER_DRAFT_TIMEOUT_MS,
-} from "../llm/timeout";
-import {
-  createLLM,
-  getCrossProviderFallback,
-  createCrossProviderFallbackLLM,
-  detectServingProvider,
-} from "../llm/factory";
+import { invokeWithRetryAndTimeout, DRAFT_TIMEOUT_MS } from "../llm/timeout";
+import { createLLM, detectServingProvider } from "../llm/factory";
 import { logger } from "@/lib/logger";
 import type { LangChainMessageBlock } from "@/types";
 
@@ -58,8 +48,16 @@ function extractDraftText(content: unknown): string {
   if (draftMatch) {
     clean = draftMatch[1].trim();
   } else {
-    clean = raw.replace(/\[\/?DRAFT\]/gi, "").trim();
+    const unclosedDraftMatch = raw.match(/\[DRAFT\]([\s\S]*)$/i);
+    if (unclosedDraftMatch) {
+      clean = unclosedDraftMatch[1].trim();
+    } else {
+      clean = raw.replace(/\[\/?DRAFT\]/gi, "").trim();
+    }
   }
+
+  // Strip [HOOKS] ... [/HOOKS] if present inside the draft text
+  clean = clean.replace(/\[HOOKS\][\s\S]*?\[\/HOOKS\]/gi, "").trim();
 
   // Strip literal bracket tag wrappers (e.g. [HASHTAG], [HASHTAGS], [/HASHTAGS], [FIRST_COMMENT])
   clean = clean
@@ -411,11 +409,22 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
   // ── 1. Primary Attempt (with reasoning budget) ──────────────────────────
   try {
     const llm = createLLM(getLLMOpts(state, config, 512));
-    const controller = new AbortController();
-    const response = await invokeWithTimeout(
-      llm.invoke([new HumanMessage(prompt)], { signal: controller.signal }),
-      DRAFT_TIMEOUT_MS,
-      controller
+    const response = await invokeWithRetryAndTimeout(
+      async (signal) => {
+        return await llm.invoke([new HumanMessage(prompt)], { signal });
+      },
+      {
+        timeoutMs: state.llmProvider === "ollama" ? 90000 : DRAFT_TIMEOUT_MS,
+        maxRetries: 2,
+        initialDelayMs: 400,
+        deadlineTimestamp: state.deadlineTimestamp,
+        onRetry: (attempt, retryError) => {
+          log.warn("Draft generation retry scheduled", {
+            attempt,
+            error: retryError instanceof Error ? retryError.message : String(retryError),
+          });
+        },
+      }
     );
 
     const rawDraft = extractDraftText(response.content);
@@ -461,114 +470,20 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
       failedNode: null,
     };
   } catch (primaryError: unknown) {
-    const primaryDurationMs = Date.now() - startTime;
+    const totalDurationMs = Date.now() - startTime;
     const primaryMsg =
       primaryError instanceof Error ? primaryError.message : "Primary LLM draft error";
 
-    log.warn(`Primary draft generation failed or timed out, initiating fallback`, {
+    log.error(`Draft generation failed`, {
       error: primaryMsg,
-      durationMs: primaryDurationMs,
+      durationMs: totalDurationMs,
     });
 
-    // ── 2. Fallback Attempt (cross-provider or fast same-provider) ───────────
-    try {
-      const llmOpts = getLLMOpts(state, config, 0);
-      const crossCandidate = getCrossProviderFallback(state.llmProvider || "gemini", llmOpts);
-      let fallbackLlm;
-      let fallbackTimeout = FALLBACK_DRAFT_TIMEOUT_MS;
-      let fallbackLabel = "same-provider fallback";
-      let servingProviderName = state.llmProvider || "gemini";
-      let servingModelName: string | undefined;
-
-      if (crossCandidate) {
-        const created = createCrossProviderFallbackLLM(llmOpts);
-        if (created) {
-          fallbackLlm = created.llm;
-          fallbackTimeout = CROSS_PROVIDER_DRAFT_TIMEOUT_MS;
-          fallbackLabel = "cross-provider fallback";
-          servingProviderName = created.provider;
-          servingModelName = created.model;
-        }
-      }
-
-      if (!fallbackLlm) {
-        log.warn("No cross-provider fallback available; attempting fast same-provider fallback", {
-          primaryProvider: state.llmProvider || "gemini",
-        });
-        fallbackLlm = createLLM(llmOpts);
-        fallbackTimeout = FALLBACK_DRAFT_TIMEOUT_MS;
-        fallbackLabel = "same-provider fallback";
-        servingProviderName = state.llmProvider || "gemini";
-        servingModelName = state.llmModel || undefined;
-      }
-
-      const fallbackController = new AbortController();
-      const fallbackResponse = await invokeWithTimeout(
-        fallbackLlm.invoke([new HumanMessage(prompt)], { signal: fallbackController.signal }),
-        fallbackTimeout,
-        fallbackController
-      );
-
-      const fallbackDraft = extractDraftText(fallbackResponse.content);
-
-      if (!fallbackDraft || fallbackDraft.trim().length < MIN_DRAFT_CHARS) {
-        throw new Error(
-          `Fallback LLM produced empty or insufficient draft (${fallbackDraft?.trim().length || 0} chars, minimum ${MIN_DRAFT_CHARS})`
-        );
-      }
-
-      const hook = fallbackDraft.split("\n")[0]?.trim();
-      if (hook && hook.length > 10) {
-        await addHook(hook, state.userId, domainKey);
-      }
-
-      const fallbackHooks = extractAlternativeHooks(
-        fallbackResponse.content,
-        topicLine,
-        domainKey,
-        activeArchetype
-      );
-
-      const totalDurationMs = Date.now() - startTime;
-      log.info(`Draft generated successfully via ${fallbackLabel}`, {
-        servingProvider: fallbackLabel,
-        provider: servingProviderName,
-        model: servingModelName,
-        draftLengthChars: fallbackDraft.length,
-        alternativeHooksCount: fallbackHooks.length,
-        durationMs: totalDurationMs,
-      });
-
-      return {
-        draft: fallbackDraft,
-        postContent: fallbackDraft,
-        alternativeHooks: fallbackHooks,
-        searchContext,
-        webSearchResults: retrievedSearchResults,
-        webSearchQueries: searchQueries,
-        webSearchSkippedReason,
-        servingProvider: fallbackLabel,
-        actualProvider: servingProviderName,
-        actualModel: servingModelName,
-        failedNode: null,
-      };
-    } catch (fallbackError: unknown) {
-      const totalDurationMs = Date.now() - startTime;
-      const finalMsg =
-        fallbackError instanceof Error ? fallbackError.message : primaryMsg;
-
-      log.error(`Draft generation failed on both primary and fallback attempts`, {
-        primaryError: primaryMsg,
-        fallbackError: finalMsg,
-        durationMs: totalDurationMs,
-      });
-
-      return {
-        error: `Draft generation failed: ${finalMsg}`,
-        failedNode: "generateDraft",
-        lastFailedNode: "generateDraft",
-      };
-    }
+    return {
+      error: `Draft generation failed: ${primaryMsg}`,
+      failedNode: "generateDraft",
+      lastFailedNode: "generateDraft",
+    };
   }
 }
 

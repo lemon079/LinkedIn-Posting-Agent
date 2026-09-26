@@ -121,11 +121,11 @@ graph TD
    - **`generateDraft`**:
      - *Web Search Grounding*: If enabled and archetype is eligible (Contrarian, Playbook, Decision Matrix), executes 1-3 targeted queries with a 6s timeout fallback and content guardrails (rephrased, loosely attributed, non-overriding).
      - *Format Compliance*: Enforces 2026 LinkedIn sweet spot (1,300-2,500 chars), bans repetitive emoji bullets, replaces raw URLs with suggested first-comment notes, crafts specific discussion closers, and places hashtags in a dedicated tag.
-     - *Multi-Provider Resilience*: Dispatches to primary model with automated failover across genuine providers (Gemini -> OpenAI `gpt-4o-mini` -> Claude `claude-3-5-haiku-latest`) under a tight ~28s primary budget.
+     - *Predictable Single-Path Execution*: Dispatches strictly to the configured provider/model with 2 exponential retries on the exact same model. No silent cross-provider handoffs or model-tier downgrades.
    - **`critiqueDraft`**: Evaluates draft across 4 core criteria plus archetype-specific rubrics (e.g. role clarity, concrete requirements, clear CTA for Hiring) and 2026 format checks (flagging repetitive emoji bullets, links in body as hard fail, manufactured contrarian bait).
    - **`refineDraft`**: If score < 7 and critique count < 2, applies concrete surgical improvements.
    - **`promoteBestDraft`**: Selects highest-scoring draft iteration.
-   - **`runGuardrails`**: Enforces strict safety standards (no offensive content, no ungrounded metric fabrications) with cross-provider evaluation fallback.
+   - **`runGuardrails`**: Enforces strict safety standards (no offensive content, no ungrounded metric fabrications) with fail-closed evaluation on the primary model.
    - **`validatePost`**: Validates character limits (1–3,000 characters).
 4. **Checkpoint Interruption:** LangGraph pauses execution immediately before `publishPost` via `interruptBefore: ["publishPost"]`. The checkpoint is persisted to PostgreSQL via `SupabaseCheckpointer`.
 5. **Streaming Response:** The client receives SSE events (`node_start`, `token`, `tool_call`, `critique`, `final`) and populates the editor, WebSearch component, and Hook Lab swapper.
