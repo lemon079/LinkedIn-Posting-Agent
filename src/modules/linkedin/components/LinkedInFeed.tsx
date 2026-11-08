@@ -266,8 +266,7 @@ export const LinkedInFeed: React.FC<LinkedInFeedProps> = ({
   return (
     <div
       className={cn(
-        "bg-card border border-border/80 rounded-2xl p-4 sm:p-6 shadow-sm transition-all duration-200",
-        "relative group hover:border-border selection:bg-brand-blue/15",
+        "p-2 sm:p-3 transition-all duration-200 relative group selection:bg-brand-blue/15",
         className
       )}
     >

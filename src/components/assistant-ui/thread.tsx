@@ -404,19 +404,18 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
               draftText={currentText}
               selectedFiles={selectedFiles}
               user={user}
-              showFoldMarker={true}
-              onChange={onChange}
+              showFoldMarker={false}
               onRemoveFile={handleRemoveFile}
             />
           ) : (
-            <div className="bg-card border border-border/80 rounded-2xl p-6 text-center">
-              <p className="text-sm text-muted-foreground italic">Your AI generated draft will appear here...</p>
+            <div className="rounded-xl p-8 text-center text-muted-foreground/60">
+              <p className="text-sm italic">Your AI generated draft will appear here...</p>
             </div>
           )
         ) : (
           <Textarea
             id="draft-editor"
-            className="w-full bg-card border border-border/80 min-h-60 h-[480px] overflow-y-auto resize-none rounded-xl focus-visible:ring-2 focus-visible:ring-brand-blue/20 focus-visible:border-brand-blue text-base sm:text-sm leading-relaxed text-slate-900 dark:text-slate-100 transition-colors duration-200 p-3 sm:p-4"
+            className="w-full bg-muted/20 border-0 min-h-60 h-[480px] overflow-y-auto resize-none rounded-xl focus-visible:ring-1 focus-visible:ring-brand-blue/30 text-base sm:text-sm leading-relaxed text-slate-900 dark:text-slate-100 transition-colors duration-200 p-3 sm:p-4"
             value={currentText}
             onChange={(e) => onChange(e.target.value)}
             disabled={isPublishing || isGenerating}
