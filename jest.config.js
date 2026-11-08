@@ -17,7 +17,6 @@ const config = {
         "<rootDir>/src/tests/errorHandler.test.ts",
         "<rootDir>/src/tests/security.test.ts",
         "<rootDir>/src/tests/guardrail.resilience.test.ts",
-        "<rootDir>/src/tests/versionChain.test.ts",
         "<rootDir>/src/tests/regressionBugs.test.ts",
         "<rootDir>/src/tests/hiringArchetype.test.ts",
         "<rootDir>/src/tests/crossProviderFallback.test.ts",
@@ -27,6 +26,8 @@ const config = {
         "<rootDir>/src/tests/linkedin.test.ts",
         "<rootDir>/src/tests/redact.test.ts",
         "<rootDir>/src/tests/critiqueSystem.test.ts",
+        "<rootDir>/src/tests/researchGrounding.test.ts",
+        "<rootDir>/src/tests/oauthSecurity.test.ts",
       ],
 
 

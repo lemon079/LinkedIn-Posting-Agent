@@ -8,12 +8,12 @@
     "start": "next start",
     "lint": "eslint",
     "test": "jest",
-    "tests": "jest"
+    "tests": "jest",
+    "eval:run": "tsx scripts/run-evals.ts"
   },
   "dependencies": {
     "@assistant-ui/react": "^0.15.14",
     "@assistant-ui/react-markdown": "^0.14.10",
-    "@google/generative-ai": "^0.24.1",
     "@langchain/anthropic": "^1.5.1",
     "@langchain/core": "^1.2.1",
     "@langchain/google": "^0.2.1",
@@ -31,7 +31,6 @@
     "lucide-react": "^1.21.0",
     "next": "^16.3.3",
     "next-themes": "^0.4.6",
-    "node-cron": "^4.5.0",
     "radix-ui": "^1.6.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -51,7 +50,6 @@
     "@testing-library/react": "^16.3.2",
     "@types/jest": "^30.0.0",
     "@types/node": "^20",
-    "@types/node-cron": "^3.0.11",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",

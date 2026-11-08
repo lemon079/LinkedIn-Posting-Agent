@@ -52,7 +52,14 @@ export async function handleLinkedInCallback(
   const expiresAt = Date.now() + expiresInSeconds * 1000;
 
   // 2. Fetch user profile info (OpenID Connect userinfo endpoint)
-  let profileData: { sub?: string; email?: string } | null = null;
+  let profileData: {
+    sub?: string;
+    email?: string;
+    name?: string;
+    picture?: string;
+    given_name?: string;
+    family_name?: string;
+  } | null = null;
   try {
     const profileRes = await axios.get("https://api.linkedin.com/v2/userinfo", {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -83,10 +90,18 @@ export async function handleLinkedInCallback(
     throw new Error("Supabase is not configured for authentication");
   }
 
+  const userMetadata = {
+    full_name: profileData.name || "",
+    name: profileData.name || "",
+    avatar_url: profileData.picture || "",
+    picture: profileData.picture || "",
+  };
+
   // 3. Try to create the user in Supabase
-  const { error: createError } = await supabase.auth.admin.createUser({
+  const { data: createdUserData, error: createError } = await supabase.auth.admin.createUser({
     email,
     email_confirm: true,
+    user_metadata: userMetadata,
   });
 
   if (createError) {
@@ -110,9 +125,16 @@ export async function handleLinkedInCallback(
     throw linkError || new Error("Failed to generate login link");
   }
 
-  const userId = linkData.user?.id;
+  const userId = linkData.user?.id || createdUserData?.user?.id;
   const refreshToken = tokenData.refresh_token || null;
   if (userId) {
+    try {
+      await supabase.auth.admin.updateUserById(userId, {
+        user_metadata: userMetadata,
+      });
+    } catch (updateErr) {
+      log.warn("Failed to update user profile metadata", { userId, error: updateErr });
+    }
     await saveLinkedInCredentials(supabase, userId, accessToken, personUrn, refreshToken, expiresAt);
   }
 

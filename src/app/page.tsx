@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-
+import type { HookOption } from "@/types";
 import { useAgent } from "@/hooks/useAgent";
 import { useAgentRuntime } from "@/hooks/useAgentRuntime";
 import { AssistantRuntimeProvider, AuiConfig, Tools } from "@assistant-ui/react";
@@ -13,7 +13,6 @@ import { SettingsDialog } from "@/components/SettingsDialog";
 import { Button } from "@/components/ui/button";
 import { FileText, CheckCircle2, ExternalLink, Plus, Sparkles, Loader2, Sliders } from "lucide-react";
 import { cn } from "@/lib/utils";
-
 
 const SHOWCASE_TOPIC = "Why we migrated from synchronous REST to event-driven Kafka in production";
 const SHOWCASE_CONTEXT = "Reduced p99 latency by 68% and handled a 10x traffic spike without node degradation. Key lessons on idempotent workers and dead-letter queues.";
@@ -99,7 +98,13 @@ export default function Home() {
     currentDraft: draftText || undefined,
     threadId: threadId || undefined,
     alternativeHooks,
-    onDraftReceived: (draft, _steps, tId, changeNote, altHooks) => {
+    onDraftReceived: (
+      draft: string,
+      _steps: Array<{ title: string; output: string }>,
+      tId: string,
+      changeNote?: string,
+      altHooks?: HookOption[]
+    ) => {
       setMobileTab("draft");
       const hooksToUse = altHooks && altHooks.length > 0 ? altHooks : [];
       setAlternativeHooks(hooksToUse);
@@ -115,7 +120,6 @@ export default function Home() {
   });
 
   const auiConfig = React.useMemo(() => AuiConfig({ tools: Tools({ toolkit }) }), []);
-
 
   const effectiveTopic = !isAuthenticated && !customTopic ? SHOWCASE_TOPIC : customTopic;
   const effectiveContext = !isAuthenticated && !context ? SHOWCASE_CONTEXT : context;
@@ -136,13 +140,14 @@ export default function Home() {
       }
     : null;
 
-  const onGenerateClick = () => {
+  const onGenerateClick = (instruction?: string | React.MouseEvent<HTMLElement>) => {
     if (!isAuthenticated) {
       handleInitiateLinkedInLogin();
       return;
     }
+    const customPrompt = typeof instruction === "string" ? instruction : undefined;
+    handleGenerate(customPrompt);
     setMobileTab("draft");
-    handleGenerate();
   };
 
   const onNewPostClick = () => {
@@ -212,7 +217,7 @@ export default function Home() {
               )}
             >
               <Sparkles className="size-3.5 text-brand-blue" />
-              <span>Draft Workspace</span>
+              <span>LinkedIn Canvas</span>
               {isGenerating && (
                 <span className="relative flex size-2 ml-1">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-blue opacity-75" />
@@ -222,8 +227,9 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6 items-start">
-            <aside className={cn("lg:col-span-2", mobileTab === "controls" ? "block" : "hidden lg:block")}>
+          {/* Studio Split Layout: Left Side (38-40%) & Right Side (60-62%) */}
+          <div className="flex flex-col lg:flex-row gap-5 items-start">
+            <aside className={cn("w-full lg:w-[40%] xl:w-[38%] shrink-0", mobileTab === "controls" ? "block" : "hidden lg:block")}>
               <ControlPanel
                 customTopic={effectiveTopic}
                 context={effectiveContext}
@@ -239,10 +245,13 @@ export default function Home() {
                 setArchetype={setArchetype}
                 setTone={setTone}
                 onGenerate={onGenerateClick}
+                hasDraft={Boolean(effectiveDraft || streamingText)}
+                reasoningSteps={effectiveSteps}
+                onRefine={(instruction) => onGenerateClick(instruction)}
               />
             </aside>
 
-            <section className={cn("lg:col-span-3 space-y-6", mobileTab === "draft" ? "block" : "hidden lg:block")}>
+            <section className={cn("w-full lg:w-[60%] xl:w-[62%] min-w-0 space-y-5", mobileTab === "draft" ? "block" : "hidden lg:block")}>
               {postUrl && (
                 <div className="bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 p-4 rounded-2xl shadow-level-1 animate-fade-in-up flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
@@ -315,10 +324,11 @@ export default function Home() {
                     onSelectVersion={handleSelectVersion}
                     user={linkedInUser}
                     runId={runId}
+                    onNewPost={onNewPostClick}
                   />
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center py-20 sm:py-24 border border-dashed border-border rounded-xl sm:rounded-2xl text-muted-foreground space-y-3 bg-card shadow-level-1 animate-fade-in-up hover:border-outline transition duration-300">
+                <div className="flex flex-col items-center justify-center py-20 sm:py-24 border border-dashed border-border rounded-2xl text-muted-foreground space-y-3 bg-card shadow-level-1 animate-fade-in-up hover:border-outline transition duration-300">
                   <FileText className="size-10 text-slate-300 animate-bounce duration-1000" />
                   <p className="text-xs sm:text-sm font-medium text-slate-500 text-center px-4">
                     Configure parameters and generate a post draft.
@@ -368,41 +378,51 @@ export default function Home() {
                 className="w-full h-11 bg-[#0A66C2] hover:bg-[#004182] text-white font-semibold rounded-xl text-sm gap-2 shadow-md cursor-pointer transition flex items-center justify-center"
               >
                 {isRedirectingToLogin ? (
-                  <Loader2 className="size-4 animate-spin" />
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    <span>Connecting to LinkedIn...</span>
+                  </>
                 ) : (
-                  <svg className="size-4 fill-current shrink-0" viewBox="0 0 24 24">
-                    <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.45c-.9 0-1.63.73-1.63 1.63 0 .9.73 1.63 1.63 1.63.9 0 1.63-.73 1.63-1.63 0-.9-.73-1.63-1.63-1.63Z" />
-                  </svg>
+                  <>
+                    <svg className="size-4 fill-current" viewBox="0 0 24 24">
+                      <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" />
+                    </svg>
+                    <span>Sign in with LinkedIn to Unlock</span>
+                  </>
                 )}
-                <span>{isRedirectingToLogin ? "Connecting to LinkedIn..." : "Sign in with LinkedIn to Unlock"}</span>
               </Button>
+
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Direct OAuth 2.0 connection. Your credentials are fully protected and never shared.
+              </p>
             </div>
           </div>
         )}
 
-        <SettingsDialog
-          isOpen={isAuthenticated && isSettingsOpen}
-          isAuthenticated={isAuthenticated}
-          onClose={() => setIsSettingsOpen(false)}
-          provider={provider}
-          setProvider={setProvider}
-          apiKey={apiKey}
-          setApiKey={setApiKey}
-          modelName={modelName}
-          setModelName={setModelName}
-          ollamaBaseUrl={ollamaBaseUrl}
-          setOllamaBaseUrl={setOllamaBaseUrl}
-          liToken={liToken}
-          setLiToken={setLiToken}
-          liUrn={liUrn}
-          setLiUrn={setLiUrn}
-          liTokenExpiresAt={liTokenExpiresAt}
-          user={user}
-          token={token}
-          onSave={handleSaveSettings}
-          onSignOut={handleSignOut}
-          onDisconnectLinkedIn={handleDisconnectLinkedIn}
-        />
+        {isAuthenticated && (
+          <SettingsDialog
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+            provider={provider}
+            setProvider={setProvider}
+            apiKey={apiKey}
+            setApiKey={setApiKey}
+            modelName={modelName}
+            setModelName={setModelName}
+            ollamaBaseUrl={ollamaBaseUrl}
+            setOllamaBaseUrl={setOllamaBaseUrl}
+            liToken={liToken}
+            setLiToken={setLiToken}
+            liUrn={liUrn}
+            setLiUrn={setLiUrn}
+            liTokenExpiresAt={liTokenExpiresAt}
+            user={user}
+            token={token}
+            onSave={handleSaveSettings}
+            onSignOut={handleSignOut}
+            onDisconnectLinkedIn={handleDisconnectLinkedIn}
+          />
+        )}
       </div>
     </AssistantRuntimeProvider>
   );

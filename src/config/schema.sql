@@ -91,8 +91,8 @@ begin
     create policy "Users can only access their own checkpoints"
       on public.agent_checkpoints
       for all
-      using (auth.uid() = user_id or user_id is null)
-      with check (auth.uid() = user_id or user_id is null);
+      using (auth.uid() = user_id)
+      with check (auth.uid() = user_id);
   end if;
 end $$;
 
@@ -127,8 +127,8 @@ begin
     create policy "Users can only access their own checkpoint writes"
       on public.agent_checkpoint_writes
       for all
-      using (auth.uid() = user_id or user_id is null)
-      with check (auth.uid() = user_id or user_id is null);
+      using (auth.uid() = user_id)
+      with check (auth.uid() = user_id);
   end if;
 end $$;
 

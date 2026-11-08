@@ -3,13 +3,13 @@ import {
   createCriticLLM,
   withStructuredOutputFallbacks,
 } from "../llm/factory";
-import { CritiqueResult, decideCritique, type Verdict } from "../core/schemas";
+import { CritiqueResult, decideCritique } from "../core/schemas";
 export { decideCritique };
 import type { State } from "../core/state";
 
 import { DOMAINS } from "../core/domains";
 import { getCritiquePrompt } from "../core/prompts";
-import { invokeWithRetryAndTimeout, CRITIC_TIMEOUT_MS } from "../llm/timeout";
+import { invokeWithRetryAndTimeout } from "../llm/timeout";
 import { logger } from "@/lib/logger";
 import type { RunnableConfig } from "@langchain/core/runnables";
 
@@ -145,7 +145,8 @@ function parseCritiqueFromText(rawText: string): CritiqueResult | null {
     let score = typeof parsed.score === "number" ? parsed.score : parseFloat(String(parsed.score));
     if (isNaN(score)) {
       score = Math.round(((hookScore + authenticityScore + domainGroundingScore + structureScore) / 16) * 10);
-      if (fabricationFlag || contrarianBaitFlag) score = Math.min(score, 4);
+      if (fabricationFlag) score = Math.min(score, 3);
+      else if (contrarianBaitFlag) score = Math.min(score, 4);
     }
     if (score < 1) score = 1;
     if (score > 10) score = 10;
@@ -381,7 +382,9 @@ export async function critiqueDraft(state: State, config?: RunnableConfig): Prom
           16) *
           10
       );
-      if (critique.fabricationFlag || critique.contrarianBaitFlag) {
+      if (critique.fabricationFlag) {
+        calculatedScore = Math.min(calculatedScore, 3);
+      } else if (critique.contrarianBaitFlag) {
         calculatedScore = Math.min(calculatedScore, 4);
       } else if (
         [

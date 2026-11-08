@@ -1,12 +1,17 @@
 import { validateSafeUrl } from "@/lib/security/urlValidation";
 import { checkRateLimit } from "@/lib/security/rateLimit";
+import {
+  resolveApiKey,
+  MissingApiKeyError,
+  isMaskedOrInvalidKey,
+} from "@/lib/security/apiKeyResolver";
 import { encrypt, decrypt, safeDecrypt } from "@/modules/auth/crypto";
 import { mapRowToUserSettings, buildSettingsUpsert } from "@/modules/user/settings";
 import type { UserSettingsRow } from "@/types/database.types";
 
 describe("Security Hardening & Protection Tests", () => {
   describe("SSRF Protection & URL Validation", () => {
-    it("allows valid localhost and custom Ollama base URLs", () => {
+    it("allows valid localhost and custom Ollama base URLs in local environment", () => {
       const localhostRes = validateSafeUrl("http://localhost:11434");
       expect(localhostRes.isValid).toBe(true);
       expect(localhostRes.sanitizedUrl).toBe("http://localhost:11434");
@@ -14,6 +19,41 @@ describe("Security Hardening & Protection Tests", () => {
       const ipRes = validateSafeUrl("http://127.0.0.1:11434/");
       expect(ipRes.isValid).toBe(true);
       expect(ipRes.sanitizedUrl).toBe("http://127.0.0.1:11434");
+    });
+
+    it("blocks localhost, 127.0.0.1, and ::1 when allowLocal is false", () => {
+      const lh = validateSafeUrl("http://localhost:11434", { allowLocal: false });
+      expect(lh.isValid).toBe(false);
+      expect(lh.error).toMatch(/localhost|blocked/i);
+
+      const ip = validateSafeUrl("http://127.0.0.1:11434", { allowLocal: false });
+      expect(ip.isValid).toBe(false);
+      expect(ip.error).toMatch(/loopback/i);
+
+      const ipv6 = validateSafeUrl("http://[::1]:11434", { allowLocal: false });
+      expect(ipv6.isValid).toBe(false);
+      expect(ipv6.error).toMatch(/loopback/i);
+    });
+
+    it("rejects private IPv4 ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)", () => {
+      // 10.0.0.0/8
+      const res10 = validateSafeUrl("http://10.0.0.1/api");
+      expect(res10.isValid).toBe(false);
+      expect(res10.error).toMatch(/private/i);
+
+      // 172.16.0.0/12
+      const res172Start = validateSafeUrl("http://172.16.0.1:8080");
+      expect(res172Start.isValid).toBe(false);
+      expect(res172Start.error).toMatch(/private/i);
+
+      const res172End = validateSafeUrl("http://172.31.255.255:8080");
+      expect(res172End.isValid).toBe(false);
+      expect(res172End.error).toMatch(/private/i);
+
+      // 192.168.0.0/16
+      const res192 = validateSafeUrl("http://192.168.1.100");
+      expect(res192.isValid).toBe(false);
+      expect(res192.error).toMatch(/private/i);
     });
 
     it("blocks AWS/GCP/Azure link-local cloud metadata endpoints", () => {
@@ -31,6 +71,80 @@ describe("Security Hardening & Protection Tests", () => {
       expect(validateSafeUrl("ftp://evil.com/payload").isValid).toBe(false);
       expect(validateSafeUrl("javascript:alert(1)").isValid).toBe(false);
       expect(validateSafeUrl("").isValid).toBe(false);
+    });
+  });
+
+  describe("API Key Resolver", () => {
+    const originalEnv = { ...process.env };
+
+    beforeEach(() => {
+      delete process.env.GOOGLE_API_KEY;
+      delete process.env.OPENAI_API_KEY;
+      delete process.env.ANTHROPIC_API_KEY;
+      delete process.env.TAVILY_API_KEY;
+    });
+
+    afterAll(() => {
+      process.env = originalEnv;
+    });
+
+    it("prioritizes explicitKey over userKey and environment", () => {
+      process.env.OPENAI_API_KEY = "env-openai-key";
+      const key = resolveApiKey("openai", {
+        explicitKey: "explicit-key-123",
+        userKey: "user-key-456",
+      });
+      expect(key).toBe("explicit-key-123");
+    });
+
+    it("falls back to userKey if explicitKey is absent or masked", () => {
+      process.env.ANTHROPIC_API_KEY = "env-anthropic-key";
+      const key = resolveApiKey("anthropic", {
+        explicitKey: "••••••••••••",
+        userKey: "user-decrypted-anthropic-key",
+      });
+      expect(key).toBe("user-decrypted-anthropic-key");
+    });
+
+    it("falls back to environment variable when explicit and user keys are absent", () => {
+      process.env.OPENAI_API_KEY = "sk-from-env-var-999";
+      const key = resolveApiKey("openai");
+      expect(key).toBe("sk-from-env-var-999");
+    });
+
+    it("resolves google and gemini identically to GOOGLE_API_KEY", () => {
+      process.env.GOOGLE_API_KEY = "google-secret-key-111";
+      expect(resolveApiKey("gemini")).toBe("google-secret-key-111");
+      expect(resolveApiKey("google")).toBe("google-secret-key-111");
+    });
+
+    it("resolves tavily to TAVILY_API_KEY", () => {
+      process.env.TAVILY_API_KEY = "tvly-test-123";
+      expect(resolveApiKey("tavily")).toBe("tvly-test-123");
+    });
+
+    it("throws MissingApiKeyError with clear message if no key found", () => {
+      expect(() => resolveApiKey("openai")).toThrow(MissingApiKeyError);
+      expect(() => resolveApiKey("openai")).toThrow(/No API key configured for provider "openai"/);
+    });
+
+    it("never logs or exposes raw key values in error messages", () => {
+      try {
+        resolveApiKey("anthropic");
+      } catch (err) {
+        expect(err).toBeInstanceOf(MissingApiKeyError);
+        const msg = (err as Error).message;
+        expect(msg).not.toContain("sk-");
+        expect(msg).not.toContain("secret");
+      }
+    });
+
+    it("validates masked and invalid keys properly", () => {
+      expect(isMaskedOrInvalidKey("••••••••••••")).toBe(true);
+      expect(isMaskedOrInvalidKey("key-with-•-bullet")).toBe(true);
+      expect(isMaskedOrInvalidKey("")).toBe(true);
+      expect(isMaskedOrInvalidKey(undefined)).toBe(true);
+      expect(isMaskedOrInvalidKey("valid-key-abcdef-123456")).toBe(false);
     });
   });
 

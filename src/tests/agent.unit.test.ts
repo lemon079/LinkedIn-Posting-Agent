@@ -39,7 +39,6 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
     plan: "",
     searchContext: "",
     draft: "",
-    alternativeHooks: [],
     userFeedback: null,
     changeNote: null,
     refinementPasses: 0,
@@ -240,38 +239,14 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
       expect(result.draft).toBeUndefined();
     });
 
-    it("should extract alternative hooks from [HOOKS] JSON block", async () => {
-      const responseWithHooks = `[HOOKS]
-[
-  {"type": "metric", "hook": "We reduced rebalances by 87% with one config tweak.", "rationale": "Leads with numbers"},
-  {"type": "contrarian", "hook": "Most Kafka tutorials tell you to tune consumer threads. They are wrong.", "rationale": "Challenges conventional wisdom"}
-]
-[/HOOKS]
-[DRAFT]Kafka rebalances will ruin throughput if max.poll.interval.ms is misconfigured. Use idempotent consumers!\n\n#kafka #backend[/DRAFT]`;
-      const mockLlm = new FakeListChatModel({ responses: [responseWithHooks] });
+    it("should extract draft cleanly when formatted with tags", async () => {
+      const responseWithDraft = `[DRAFT]Kafka rebalances will ruin throughput if max.poll.interval.ms is misconfigured. Use idempotent consumers!\n\n#kafka #backend[/DRAFT]`;
+      const mockLlm = new FakeListChatModel({ responses: [responseWithDraft] });
       jest.spyOn(llmService, "createLLM").mockReturnValue(mockLlm as unknown as ReturnType<typeof llmService.createLLM>);
 
       const result = await generateDraft(baseState);
 
-      expect(result.alternativeHooks).toBeDefined();
-      expect(result.alternativeHooks?.length).toBe(2);
-      expect(result.alternativeHooks?.[0].type).toBe("metric");
-      expect(result.alternativeHooks?.[0].hook).toContain("reduced rebalances by 87%");
-      expect(result.alternativeHooks?.[1].type).toBe("contrarian");
       expect(result.draft).toContain("Kafka rebalances will ruin throughput");
-      expect(result.draft).not.toContain("[HOOKS]");
-    });
-
-    it("should supply fallback hooks when [HOOKS] tag is missing", async () => {
-      const responseWithoutHooks = `[DRAFT]Kafka rebalances will ruin throughput if max.poll.interval.ms is misconfigured. Use idempotent consumers!\n\n#kafka #backend[/DRAFT]`;
-      const mockLlm = new FakeListChatModel({ responses: [responseWithoutHooks] });
-      jest.spyOn(llmService, "createLLM").mockReturnValue(mockLlm as unknown as ReturnType<typeof llmService.createLLM>);
-
-      const result = await generateDraft(baseState);
-
-      expect(result.alternativeHooks).toBeDefined();
-      expect(result.alternativeHooks?.length).toBeGreaterThanOrEqual(3);
-      expect(result.alternativeHooks?.some((h) => h.type === "contrarian")).toBe(true);
     });
 
     it("should skip execution if state already has an error", async () => {
@@ -661,7 +636,7 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
       });
 
       const threadId = `short-circuit-test-${Date.now()}`;
-      const threadConfig = { configurable: { thread_id: threadId } };
+      const threadConfig = { configurable: { thread_id: threadId, apiKey: "mock-key" } };
 
       const eventStream = agent.streamEvents(
         {
@@ -669,7 +644,6 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
           context: "max.poll.interval.ms",
           domain: "engineering",
           llmProvider: "mock",
-          llmApiKey: "mock-key",
           llmModel: "mock-model",
         },
         {
@@ -722,7 +696,7 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
       });
 
       const threadId = `fail-no-emergency-test-${Date.now()}`;
-      const threadConfig = { configurable: { thread_id: threadId } };
+      const threadConfig = { configurable: { thread_id: threadId, apiKey: "mock-key" } };
 
       const eventStream = agent.streamEvents(
         {
@@ -730,7 +704,6 @@ describe("LangChain Agent Unit Tests (Mocked LLM & In-Memory State)", () => {
           context: "max.poll.interval.ms",
           domain: "engineering",
           llmProvider: "mock",
-          llmApiKey: "mock-key",
           llmModel: "mock-model",
         },
         {

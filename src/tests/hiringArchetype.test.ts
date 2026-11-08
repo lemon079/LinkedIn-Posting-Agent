@@ -1,4 +1,4 @@
-import { ARCHETYPE_OPTIONS, HookOptionSchema } from "@/modules/agent/core/schemas";
+import { ARCHETYPE_OPTIONS } from "@/modules/agent/core/schemas";
 import { analyzeIntake } from "@/modules/agent/nodes/analyzeIntake";
 import { HIRING_EXEMPLARS } from "@/modules/agent/core/domains";
 import { getSystemPrompt, getCritiquePrompt } from "@/modules/agent/core/prompts";
@@ -24,16 +24,6 @@ describe("Task A: Hiring Archetype + Auto-Select Fabrication Fix", () => {
         "comparison",
         "hiring",
       ]);
-    });
-
-    test("HookOptionSchema validates 'hiring' type", () => {
-      const validHook = {
-        type: "hiring",
-        hook: "We're expanding our infrastructure team to solve our Kafka partition lag:",
-        rationale: "Mission-driven technical challenge opener",
-      };
-      const result = HookOptionSchema.safeParse(validHook);
-      expect(result.success).toBe(true);
     });
 
     test("HIRING_EXEMPLARS provides authentic reference posts", () => {

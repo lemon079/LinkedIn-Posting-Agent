@@ -1,4 +1,5 @@
 export * from "./analyzeIntake";
+export * from "./researchGrounding";
 export * from "./generateDraft";
 export * from "./critiqueDraft";
 export * from "./refineDraft";

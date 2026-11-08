@@ -4,63 +4,47 @@ import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatOllama } from "@langchain/ollama";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import type { Runnable } from "@langchain/core/runnables";
-import { config } from "@/config/env";
 import type { LLMOptions } from "../types";
 import { logger } from "@/lib/logger";
+import {
+  resolveApiKey,
+  MissingApiKeyError,
+  isMaskedOrInvalidKey as isMaskedOrInvalid,
+  normalizeKeyProvider as normalizeProvider,
+} from "@/lib/security/apiKeyResolver";
+import { validateSafeUrl } from "@/lib/security/urlValidation";
 
 const log = logger.child({ module: "LLM:Factory" });
 
 const ANTHROPIC_MIN_THINKING_BUDGET = 1024;
 
-export const isMaskedOrInvalid = (key?: string): boolean => {
-  if (!key) return true;
-  // If key contains unicode bullets or characters > 255, it's a masked UI placeholder
-  if (key.includes("•") || key === "••••••••••••") return true;
-  // Reject non-Latin1 characters to prevent ByteString HTTP header crashes
-  return /[^\x00-\xFF]/.test(key);
-};
-
-export const normalizeProvider = (provider?: string): string => {
-  const p = (provider || "").toLowerCase().trim();
-  if (p === "google" || p === "gemini") return "gemini";
-  return p || "gemini";
-};
-
-const resolveApiKey = (provider: string, explicitKey?: string): string => {
-  if (explicitKey && !isMaskedOrInvalid(explicitKey)) {
-    return explicitKey;
-  }
-  const norm = normalizeProvider(provider);
-  switch (norm) {
-    case "gemini":
-      return config.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY || "";
-    case "openai":
-      return process.env.OPENAI_API_KEY || "";
-    case "anthropic":
-      return process.env.ANTHROPIC_API_KEY || "";
-    default:
-      return "";
-  }
-};
+export { resolveApiKey, MissingApiKeyError, isMaskedOrInvalid, normalizeProvider };
 
 export const createBaseLLM = (opts: LLMOptions = {}) => {
   const llmProvider = normalizeProvider(opts.provider);
-  const llmKey = resolveApiKey(llmProvider, opts.apiKey);
   const reasoningOff = opts.maxReasoningTokens === 0;
   const normalizedModel = opts.model ? opts.model.trim() : undefined;
   const temperature =
     opts.temperature !== undefined ? opts.temperature : reasoningOff ? 0.2 : 0.9;
 
   switch (llmProvider) {
-    case "ollama":
+    case "ollama": {
+      const rawUrl = opts.ollamaBaseUrl || "http://localhost:11434";
+      const validation = validateSafeUrl(rawUrl);
+      if (!validation.isValid) {
+        log.error("SSRF validation failed for Ollama base URL", { error: validation.error });
+        throw new Error(`Invalid Ollama base URL: ${validation.error || "Blocked URL"}`);
+      }
       return new ChatOllama({
         model: normalizedModel,
-        baseUrl: opts.ollamaBaseUrl || "http://localhost:11434",
+        baseUrl: validation.sanitizedUrl || rawUrl,
         temperature,
         ...(opts.maxTokens ? { numPredict: Math.max(opts.maxTokens * 4, 4096) } : {}),
       });
+    }
 
-    case "openai":
+    case "openai": {
+      const llmKey = resolveApiKey("openai", { explicitKey: opts.apiKey });
       return new ChatOpenAI({
         model: normalizedModel || "gpt-4o",
         temperature,
@@ -69,8 +53,10 @@ export const createBaseLLM = (opts: LLMOptions = {}) => {
         ...(opts.maxTokens ? { maxTokens: opts.maxTokens } : {}),
         ...(reasoningOff ? { reasoning: { effort: "low" as const } } : {}),
       });
+    }
 
     case "anthropic": {
+      const llmKey = resolveApiKey("anthropic", { explicitKey: opts.apiKey });
       const thinking =
         opts.maxReasoningTokens && opts.maxReasoningTokens >= ANTHROPIC_MIN_THINKING_BUDGET
           ? { type: "enabled" as const, budget_tokens: opts.maxReasoningTokens }
@@ -87,6 +73,7 @@ export const createBaseLLM = (opts: LLMOptions = {}) => {
 
     case "gemini":
     default: {
+      const llmKey = resolveApiKey("gemini", { explicitKey: opts.apiKey });
       const googleThinking =
         opts.maxReasoningTokens !== undefined && opts.maxReasoningTokens > 0
           ? { maxReasoningTokens: opts.maxReasoningTokens }
@@ -98,7 +85,7 @@ export const createBaseLLM = (opts: LLMOptions = {}) => {
         model: normalizedModel || "gemini-3.7-flash",
         temperature,
         maxRetries: 2, // 2 retries with exponential backoff on the SAME model
-        apiKey: llmKey || config.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY,
+        apiKey: llmKey,
         ...(opts.maxTokens ? { maxOutputTokens: opts.maxTokens } : {}),
         ...googleThinking,
       });

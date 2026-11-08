@@ -3,6 +3,14 @@ import { getRequestAuth } from "@/modules/auth";
 import { getSignedUploadUrl } from "@/modules/media";
 import { logger } from "@/lib/logger";
 
+const ALLOWED_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "application/pdf",
+]);
+
 export async function GET(request: Request) {
   const startTime = Date.now();
   const requestId = Date.now().toString();
@@ -12,11 +20,21 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const filename = searchParams.get("filename");
-    const mimeType = searchParams.get("mimeType");
+    const mimeType = searchParams.get("mimeType")?.toLowerCase().trim();
 
     if (!filename || !mimeType) {
       log.error(`Validation error: Missing filename or mimeType`);
       return NextResponse.json({ error: "Missing filename or mimeType" }, { status: 400 });
+    }
+
+    if (!ALLOWED_MIME_TYPES.has(mimeType)) {
+      log.warn(`Validation error: Unsupported or dangerous mimeType "${mimeType}"`);
+      return NextResponse.json(
+        {
+          error: `Unsupported media type "${mimeType}". Allowed types: image/jpeg, image/png, image/webp, image/gif, application/pdf.`,
+        },
+        { status: 400 }
+      );
     }
 
     const { user, authError } = await getRequestAuth(request);

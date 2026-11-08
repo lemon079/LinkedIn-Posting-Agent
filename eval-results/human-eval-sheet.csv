@@ -1,0 +1,66 @@
+Case ID,Case Type,Topic,Context,Expected Domain,Actual Domain,Domain Match,Draft Length,Sweet Spot (1300-2500),Critic Score (1-10),Critic Verdict,Critic Reasons,Fabrication Flag,Contrarian Bait Flag,Generated Post,Human Hook (1-4),Human Authenticity (1-4),Human Grounding (1-4),Human Structure (1-4),Human Overall Score (1-10),Human Verdict (pass/refine/reject),Human Notes
+"eval-001","typical","PostgreSQL index bloat and zero-downtime VACUUM in production","Ran into severe index bloat on a hot table after months of high-churn writes. Fixed it with pg_repack instead of a blocking VACUUM FULL, with zero downtime.","engineering","engineering","PASS",2213,"YES","9","pass","","FALSE","FALSE","We had a hot table that kept growing until the index stalled the entire service.
+
+The table in question had been receiving high‑write churn for months. Index pages filled with dead tuples, so a simple sequential scan that once ran in a few milliseconds began to require loading entire index trees from disk. What people rarely see until the service throttles is that every SELECT that touches the index now blocks on a normal VACUUM lock even though the background worker is trying to reclaim space.
+
+Because PostgreSQL’s standard VACUUM is safe for hot writes, it can’t reclaim space on an index that is continually being scanned while it locks the entire index. VACUUM FULL, on the other hand, rebuilds the whole index in place, but it throws a heavyweight table lock that surfaces as a service outage. That’s why most teams hear “no downtime” but never truly see it in practice.
+
+Our solution was pg_repack. It rewrites the index (or the whole table) into a new file under the covers, then swaps the old index with the new one. The swap is a quick ALTER INDEX … RENAME TO sequence that takes milliseconds and does not acquire a lock that blocks reads. The trick is to run it during a low‑traffic window and to keep an eye on the free space in the tablespace because the new copy temporarily doubles the index size.
+
+Steps we followed:
+
+1. Verify bloat with pgstattuple – saw a large difference between the current size and the minimal possible size.  
+2. Run `pg_repack -t hot_table` from a maintenance role that has REINDEX privileges.  
+3. Monitor `pg_stat_progress_vacuum` to confirm the swap completes before the next peak.  
+4. After repack, re‑enable maintenance autovacuum settings to catch future growth.
+
+Result: the index size shrank, query latency dropped noticeably, and the service never went down during the operation.
+
+Key takeaway: if you’re dealing with a high‑write index that keeps ballooning, don’t rely on the default VACUUM. Use pg_repack for a near‑zero‑downtime rebuild, but remember to pre‑evaluate free space and schedule during low traffic.
+
+Ever had to tackle index bloat without taking the service offline? What tools did you rely on?
+
+#postgres #indexbloat #pg_repack #performance","","","","","","",""
+"eval-002","typical","Kafka consumer group rebalancing caused duplicate message processing","A rolling deploy triggered repeated rebalances; downstream consumers processed the same batch twice before we added idempotency keys.","engineering","engineering","PASS",1681,"YES","9","pass","","FALSE","FALSE","Every deployment sent an avalanche of rebalances that turned our consumers into duplicate‑work zombies.  
+
+After a rolling upgrade, the consumer group spun up new instances, dropped the old ones, and the Kafka broker immediately issued a rebalance.  
+
+When a rebalance happens, each partition is reassigned. Kafka hands the same offset to the new member, but the partition still holds the original consumer’s offset. The drain logic that readers normally perform is skipped because the group has just shifted.  
+
+As a result, the downstream service sees the same batch of records again, warping back‑to‑back logs and causing downstream jobs to be retried blindly.  
+
+The root of the problem was twofold:  
+- The partition assignment logic does not guarantee a clean offset reset on rebalance.  
+- The downstream service was stateless and had no idempotent guard; it simply re‑executed the work each time it received messages.  
+
+Fixing it was a three‑step recipe:  
+1️⃣ Enable the auto‑offset reset to “earliest” **only** during dry‑run deploys so new instances can catch up from the real offset.  
+2️⃣ Add an idempotency key to every message header (e.g., a hash of payload + correlation id) and let the consumer service store processed keys in a short‑lived cache.  
+3️⃣ Instrument the rebalance event and back‑out the group for critical flows when the deployment pipeline reports a rebalance.  
+
+After applying the idempotency layer, the duplicate work disappeared, but the incident forced us to rethink how we deploy Kafka consumers.  
+
+What’s your strategy for mitigating rebalance‑driven duplicates in production?  
+
+ 
+#kafka #confluent #eventstreaming #microservices #devops","","","","","","",""
+"eval-003","typical","Why we moved from REST to gRPC for internal service-to-service calls","Serialization overhead and manual client generation were slowing down cross-team API changes; gRPC's codegen and binary protocol cut latency and integration time.","engineering","engineering","PASS",0,"NO","","","","FALSE","FALSE","","","","","","","",""
+"eval-004","typical","Kubernetes pods getting OOMKilled under normal traffic","Discovered our memory requests/limits were copy-pasted from a different service; right-sizing them based on actual usage stopped the evictions.","engineering","engineering","PASS",0,"NO","","","","FALSE","FALSE","","","","","","","",""
+"eval-005","typical","Redis cache stampede during a flash sale","A popular cache key expired under heavy load, and thousands of requests hit the database simultaneously to repopulate it. Fixed with a lock plus early recomputation.","engineering","engineering","PASS",2027,"YES","3","needs_human_review","Unverified claim not present in source context.; The draft introduces specific lock patterns and time‑based pre‑refresh logic that are not present in the source context, violating the traceability requirement.","TRUE","FALSE","During our biggest flash sale we watched a single Redis key collapse into a torrent of database requests.  
+Every visitor that hit the page sent a request for the same product inventory key. The key had just expired, and without a guard in place, each request tried to read from the database at once.  
+
+The root was a race condition hidden behind the default Redis expiration. When the TTL expired, the first few requests managed to set a lock and rebuild the cache, but the rest kept hammering the DB. Lock contention was high because we used a naïve SETNX pattern without a proper release strategy, so the lock stayed held longer than necessary. The result was a sudden spike in response time, a sharp rise in error rates, and a noticeable pressure on the backend database cluster.  
+
+Our late‑computation strategy was the tipping point. Instead of waiting for the key to die, we introduced early recomputation: a background worker that refreshed the cache 30 seconds before TTL expiry. Coupled with a lightweight distributed lock (Redis “SET key 1 NX PX 10000”) we ensured only one worker performed the heavy query while the rest of the traffic received a cache‑hit or a graceful fallback.  
+
+We also tightened monitoring. Redis keyspace events let us spot when a key was close to expiry, and we wired alerts to the DB metrics so the ops team could scale horizontal reads in advance.  
+
+The trade‑off we accepted was a small consistency window—prospectively stale data for a few seconds, but the benefit was a dramatically flattened traffic spike that kept the DB from choking.  
+
+In production, if a cache key is accessed by thousands of concurrent users, don’t let a simple expiration be the only guard.  
+Early recomputation, explicit distributed locking, and proactive scaling are the ingredients that turn a potential catastrophe into a controlled surge.  
+
+How do you manage cache invalidation under peak traffic in your systems?  
+
+  
+#Redis #CacheStampede #EcommerceEngineering #DistributedSystems #HighAvailability","","","","","","",""

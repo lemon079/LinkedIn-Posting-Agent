@@ -55,54 +55,45 @@ export const FeedbackToolbar: React.FC<FeedbackToolbarProps> = ({ runId, disable
   // Don't render if no runId or explicitly disabled
   if (!runId || disabled) return null;
 
+  if (submitted) {
+    return (
+      <div className="inline-flex items-center gap-1 text-[11px] text-muted-foreground select-none">
+        <Check className="size-3 text-emerald-500" />
+        <span>Feedback saved</span>
+      </div>
+    );
+  }
+
   return (
-    <div
-      className={cn(
-        "flex items-center gap-2 px-3 py-1.5 rounded-lg",
-        "bg-muted/50 border border-border/50",
-        "animate-in fade-in slide-in-from-bottom-1 duration-300"
-      )}
-    >
-      {submitted ? (
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Check className="size-3.5 text-emerald-500" />
-          <span className="font-medium">Thanks for your feedback!</span>
-        </div>
-      ) : (
-        <>
-          <span className="text-xs text-muted-foreground font-medium select-none">
-            Rate this draft
-          </span>
-          <button
-            type="button"
-            onClick={() => sendFeedback(1)}
-            disabled={submitting}
-            className={cn(
-              "inline-flex items-center justify-center size-7 rounded-md transition-colors cursor-pointer",
-              "text-muted-foreground hover:text-emerald-600 hover:bg-emerald-500/10",
-              "disabled:opacity-40 disabled:pointer-events-none"
-            )}
-            title="Good draft"
-            aria-label="Thumbs up"
-          >
-            <ThumbsUp className="size-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => sendFeedback(0)}
-            disabled={submitting}
-            className={cn(
-              "inline-flex items-center justify-center size-7 rounded-md transition-colors cursor-pointer",
-              "text-muted-foreground hover:text-red-500 hover:bg-red-500/10",
-              "disabled:opacity-40 disabled:pointer-events-none"
-            )}
-            title="Needs improvement"
-            aria-label="Thumbs down"
-          >
-            <ThumbsDown className="size-3.5" />
-          </button>
-        </>
-      )}
+    <div className="inline-flex items-center gap-1 select-none">
+      <button
+        type="button"
+        onClick={() => sendFeedback(1)}
+        disabled={submitting}
+        className={cn(
+          "inline-flex items-center justify-center size-6 rounded-md transition-colors cursor-pointer",
+          "text-muted-foreground hover:text-emerald-600 hover:bg-emerald-500/10",
+          "disabled:opacity-40 disabled:pointer-events-none"
+        )}
+        title="Good draft"
+        aria-label="Thumbs up"
+      >
+        <ThumbsUp className="size-3.5" />
+      </button>
+      <button
+        type="button"
+        onClick={() => sendFeedback(0)}
+        disabled={submitting}
+        className={cn(
+          "inline-flex items-center justify-center size-6 rounded-md transition-colors cursor-pointer",
+          "text-muted-foreground hover:text-red-500 hover:bg-red-500/10",
+          "disabled:opacity-40 disabled:pointer-events-none"
+        )}
+        title="Needs improvement"
+        aria-label="Thumbs down"
+      >
+        <ThumbsDown className="size-3.5" />
+      </button>
     </div>
   );
 };

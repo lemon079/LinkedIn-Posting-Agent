@@ -9,6 +9,7 @@ import axios from "axios";
 import { config } from "@/config/env";
 import { logger } from "@/lib/logger";
 import { sanitizeUrl, redactSecrets } from "@/lib/utils";
+import { validateSafeUrl } from "@/lib/security/urlValidation";
 
 const log = logger.child({ module: "LinkedInAPI" });
 
@@ -81,6 +82,38 @@ async function uploadBinary(mediaFile: MediaFileMetadata, uploadUrl: string) {
   let bodyData: ArrayBuffer | Uint8Array;
 
   if (mediaFile.readUrl) {
+    // SSRF Validation: Enforce HTTP/HTTPS, reject private/loopback/metadata URLs
+    const safeValidation = validateSafeUrl(mediaFile.readUrl, { allowLocal: false });
+    if (!safeValidation.isValid) {
+      log.error(`SSRF validation failed for media readUrl`, {
+        readUrl: sanitizeUrl(mediaFile.readUrl),
+        error: safeValidation.error,
+      });
+      throw new Error(`Disallowed media readUrl: ${safeValidation.error || "Blocked URL"}`);
+    }
+
+    // Verify hostname matches trusted Supabase storage host
+    if (config.SUPABASE_URL) {
+      try {
+        const trustedHost = new URL(config.SUPABASE_URL).hostname.toLowerCase();
+        const readUrlHost = new URL(mediaFile.readUrl).hostname.toLowerCase();
+        if (readUrlHost !== trustedHost) {
+          log.error(`Media readUrl host mismatch`, {
+            trustedHost,
+            readUrlHost,
+          });
+          throw new Error(
+            `Disallowed media readUrl host "${readUrlHost}". Host must match trusted Supabase storage host "${trustedHost}".`
+          );
+        }
+      } catch (err: unknown) {
+        if (err instanceof Error && err.message.includes("Disallowed media readUrl host")) {
+          throw err;
+        }
+        throw new Error("Invalid Supabase configuration URL or malformed media readUrl.");
+      }
+    }
+
     const downloadRes = await axios.get(mediaFile.readUrl, { responseType: "arraybuffer" });
     bodyData = downloadRes.data;
   } else if (mediaFile.base64) {

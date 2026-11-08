@@ -1,43 +1,33 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Copy, Check, Eye, Send, Edit3, Bot, Undo2, Redo2, History } from "lucide-react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import {
+  Eye,
+  Send,
+  Edit3,
+  Bot,
+  Clock,
+  BarChart3,
+  Flame,
+  Wrench,
+  Plus,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { LinkedInFeed } from "@/components/LinkedInFeed";
 import { AssistantReasoning } from "./reasoning";
 import { AssistantAttachments } from "./attachment";
-import { HookLab } from "./hook-lab";
 import { WebSearch } from "./web-search";
 import { FeedbackToolbar } from "./feedback-toolbar";
-
 import { ErrorState } from "./error-state";
 import { parseApiError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 import type { BaseThreadEditorProps } from "@/types/ui";
-
 
 export interface AssistantThreadProps extends BaseThreadEditorProps {
   defaultMode?: "preview" | "edit";
   className?: string;
-}
-
-function getShortVersionLabel(changeNote?: string, versionNumber?: number): string {
-  if (!changeNote) return `Version ${versionNumber ?? 1}`;
-  const lower = changeNote.toLowerCase();
-  if (lower.includes("metric")) return "Metric hook";
-  if (lower.includes("contrarian")) return "Contrarian hook";
-  if (lower.includes("incident")) return "Incident hook";
-  if (lower.includes("curiosity")) return "Curiosity hook";
-  if (lower.includes("hook")) return "Hook swap";
-  if (lower.includes("initial")) return "Initial draft";
-  if (lower.includes("refin")) return "Refined draft";
-  if (lower.includes("conversational")) return "Chat edit";
-  if (lower.includes("manual")) return "Manual edit";
-  if (changeNote.length > 14) return `${changeNote.slice(0, 13)}…`;
-  return changeNote;
 }
 
 export const AssistantThread: React.FC<AssistantThreadProps> = ({
@@ -52,16 +42,12 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
   onUploadFile,
   onChange,
   onPublish,
+  onDiscard,
   onRetry,
   error,
   reasoningSteps,
-  alternativeHooks,
+  alternativeHooks = [],
   onApplyHook,
-  draftVersions = [],
-  activeVersionIndex = 0,
-  onUndo,
-  onRedo,
-  onSelectVersion,
   webSearchResults,
   isSearchingWeb,
   webSearchQuery,
@@ -70,22 +56,43 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
   runId,
   defaultMode = "preview",
   className,
+  onNewPost,
 }) => {
   const [viewMode, setViewMode] = useState<"preview" | "edit">(defaultMode);
-  const [copied, setCopied] = useState(false);
-  const [streamedLength, setStreamedLength] = useState(0);
-  const [prevStreamingText, setPrevStreamingText] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const [prevIsGenerating, setPrevIsGenerating] = useState(isGenerating);
   const [lastErrorParsed, setLastErrorParsed] = useState(() => (error ? parseApiError(error) : null));
   const [prevError, setPrevError] = useState(error);
+  const [streamingSlice, setStreamingSlice] = useState(0);
 
+  // Scroll management
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isUserScrolledUp = useRef(false);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    isUserScrolledUp.current = !isNearBottom;
+  }, []);
+
+  // Sync state transitions during render
   if (prevIsGenerating !== isGenerating) {
     setPrevIsGenerating(isGenerating);
-    if (!isGenerating && isRetrying) {
+    if (isGenerating) {
+      setStreamingSlice(0);
+      setViewMode("preview");
+    } else if (isRetrying) {
       setIsRetrying(false);
     }
   }
+
+  // Reset auto-scroll flag when generation starts
+  useEffect(() => {
+    if (isGenerating) {
+      isUserScrolledUp.current = false;
+    }
+  }, [isGenerating]);
 
   if (prevError !== error) {
     setPrevError(error);
@@ -93,6 +100,50 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
       setLastErrorParsed(parseApiError(error));
     }
   }
+
+  // Derived effective view mode: always lock to preview while generating
+  const effectiveViewMode = isGenerating ? "preview" : viewMode;
+
+  // Character-by-character live streaming output
+  const targetText = draftText !== null && draftText !== undefined ? draftText : (streamingText ?? "");
+
+  useEffect(() => {
+    if (!isGenerating || !targetText) return;
+
+    let frameId: number;
+    const streamChars = () => {
+      setStreamingSlice((prev) => {
+        if (prev >= targetText.length) {
+          return targetText.length;
+        }
+        const delta = targetText.length - prev;
+        const step = delta > 60 ? 8 : delta > 20 ? 4 : delta > 5 ? 2 : 1;
+        return Math.min(targetText.length, prev + step);
+      });
+      frameId = requestAnimationFrame(streamChars);
+    };
+
+    frameId = requestAnimationFrame(streamChars);
+
+    return () => cancelAnimationFrame(frameId);
+  }, [isGenerating, targetText]);
+
+  // Complete streaming callback when generation finishes
+  useEffect(() => {
+    if (!isGenerating && streamingText && onStreamingComplete) {
+      onStreamingComplete();
+    }
+  }, [isGenerating, streamingText, onStreamingComplete]);
+
+  const currentText = isGenerating ? targetText.slice(0, streamingSlice) : targetText;
+  const charCount = currentText.length;
+
+  // Auto-scroll to bottom as new text streams in (unless user scrolled up)
+  useEffect(() => {
+    if (isGenerating && !isUserScrolledUp.current && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    }
+  }, [isGenerating, currentText]);
 
   const parsedError = error ? parseApiError(error) : null;
   const activeError = parsedError || lastErrorParsed;
@@ -103,75 +154,82 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
     onRetry?.();
   };
 
-  const isStreaming = streamingText !== null;
-
-  if (streamingText !== prevStreamingText) {
-    setPrevStreamingText(streamingText);
-    setStreamedLength(0);
-  }
-
-  const totalLength = streamingText ? streamingText.length : 0;
-
-  useEffect(() => {
-    if (!isStreaming || totalLength === 0) return;
-
-    const interval = setInterval(() => {
-      setStreamedLength((prev) => {
-        if (prev < totalLength) {
-          return prev + 1;
-        } else {
-          clearInterval(interval);
-          if (onStreamingComplete) {
-            setTimeout(onStreamingComplete, 300);
-          }
-          return prev;
-        }
-      });
-    }, 6);
-
-    return () => clearInterval(interval);
-  }, [isStreaming, totalLength, onStreamingComplete]);
-
-  const currentText = draftText ? draftText : (streamingText ? streamingText.slice(0, streamedLength) : "");
-  const charCount = currentText.length;
-
-
-  const handleCopy = async () => {
-    if (!currentText) return;
-    try {
-      await navigator.clipboard.writeText(currentText);
-      setCopied(true);
-      toast.success("Draft copied to clipboard!");
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error("Failed to copy text.");
-    }
-  };
-
   const handleRemoveFile = (index: number) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Estimated read time
+  const readTimeMinutes = useMemo(() => {
+    const words = currentText.trim().split(/\s+/).filter(Boolean).length;
+    return Math.max(1, Math.ceil(words / 200));
+  }, [currentText]);
+
+  // Hook Lab Audition options
+  const hookOptions = useMemo(() => {
+    const metricHook = alternativeHooks.find((h) => h.type === "metric");
+    const contrarianHook = alternativeHooks.find((h) => h.type === "contrarian");
+    const incidentHook = alternativeHooks.find((h) => h.type === "incident");
+
+    return [
+      {
+        id: "metric",
+        label: "📊 Metric",
+        icon: BarChart3,
+        hook: metricHook?.hook || null,
+        fallbackText: "We improved system throughput by 3.4x with a single query pattern change:",
+      },
+      {
+        id: "contrarian",
+        label: "🥊 Contrarian",
+        icon: Flame,
+        hook: contrarianHook?.hook || null,
+        fallbackText: "Stop rewriting code in Rust when your database indexing is the real bottleneck.",
+      },
+      {
+        id: "incident",
+        label: "🛠️ Incident",
+        icon: Wrench,
+        hook: incidentHook?.hook || null,
+        fallbackText: "Last Thursday at 2:00 AM, our caching tier dropped 90% of requests. Here's why:",
+      },
+    ];
+  }, [alternativeHooks]);
+
+  const handleHookSelect = (hookText: string) => {
+    if (!onApplyHook || !hookText) return;
+    onApplyHook(hookText);
   };
 
   const isControlsDisabled = isPublishing || isUploading || isGenerating;
 
   return (
-    <div className={cn("space-y-4 bg-card border border-border p-3.5 sm:p-5 rounded-xl sm:rounded-2xl shadow-level-1", className)}>
-      {/* Workspace Header & Action Bar */}
-      <div className="flex flex-col gap-2.5 pb-2.5 border-b border-border/50">
-        {/* Row 1: Workspace Title & Preview / Edit Switcher */}
+    <div
+      className={cn(
+        "space-y-3 bg-card border border-border p-4 sm:p-5 rounded-2xl shadow-level-1 transition duration-200",
+        className
+      )}
+    >
+      {/* Top Action Bar */}
+      <div className="flex flex-col gap-2 pb-2.5 border-b border-border/60">
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-            <div className="size-6 sm:size-7 rounded-lg bg-brand-blue/10 text-brand-blue flex items-center justify-center shrink-0">
-              <Bot className="size-3.5 sm:size-4" />
+          {/* Canvas Title, Status, and Read Time Tag */}
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-wrap">
+            <div className="size-7 rounded-lg bg-brand-blue/10 text-brand-blue flex items-center justify-center shrink-0">
+              <Bot className="size-4" />
             </div>
-            <Label htmlFor="draft-editor" className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
-              AI Draft Workspace
-            </Label>
+            <div>
+              <Label
+                htmlFor="draft-editor"
+                className="text-xs sm:text-sm font-bold text-foreground tracking-tight flex items-center gap-1.5"
+              >
+                <span>Interactive LinkedIn Canvas</span>
+              </Label>
+            </div>
 
-            {/* Active Generation State badge */}
+            {/* Generation Spinner */}
             {isGenerating && (
               <div
-                className="flex items-center gap-1.5 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-brand-blue/10 border border-brand-blue/20 text-[10px] sm:text-[11px] text-brand-blue font-medium animate-pulse select-none shrink-0"
+                className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-brand-blue/10 border border-brand-blue/20 text-[11px] text-brand-blue font-medium animate-pulse select-none shrink-0"
                 role="status"
                 aria-live="polite"
               >
@@ -182,165 +240,77 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
                 <span>Generating...</span>
               </div>
             )}
-          </div>
 
-          {/* Mode Switcher Tabs */}
-          <div className="flex items-center bg-muted/60 p-0.5 rounded-lg border border-border/50 text-xs shrink-0">
-            <button
-              type="button"
-              onClick={() => setViewMode("preview")}
-              className={cn(
-                "flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-md font-medium transition cursor-pointer text-xs",
-                viewMode === "preview"
-                  ? "bg-card text-foreground shadow-xs font-semibold"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-              title="View formatted markdown preview"
-            >
-              <Eye className="size-3.5" />
-              <span>Preview</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("edit")}
-              className={cn(
-                "flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-md font-medium transition cursor-pointer text-xs",
-                viewMode === "edit"
-                  ? "bg-card text-foreground shadow-xs font-semibold"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-              title="Edit raw draft content"
-            >
-              <Edit3 className="size-3.5" />
-              <span>Edit</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Row 2: Version History & Actions Toolbar */}
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          {/* Version History Toolbar */}
-          {draftVersions && draftVersions.length > 0 ? (
-            <div className="flex items-center gap-0.5 sm:gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/50 text-xs shrink-0 max-w-full">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={onUndo}
-                disabled={!onUndo || activeVersionIndex <= 0 || isGenerating}
-                className="size-6 p-0 text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-30 disabled:pointer-events-none shrink-0"
-                title={
-                  activeVersionIndex > 0
-                    ? `Undo: Step back to v${draftVersions[activeVersionIndex - 1]?.versionNumber} (${draftVersions[activeVersionIndex - 1]?.changeNote || "Previous draft"})`
-                    : "Undo: At earliest version"
-                }
-                aria-label="Undo edit"
-              >
-                <Undo2 className="size-3" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={onRedo}
-                disabled={!onRedo || activeVersionIndex >= draftVersions.length - 1 || isGenerating}
-                className="size-6 p-0 text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-30 disabled:pointer-events-none shrink-0"
-                title={
-                  activeVersionIndex < draftVersions.length - 1
-                    ? `Redo: Step forward to v${draftVersions[activeVersionIndex + 1]?.versionNumber} (${draftVersions[activeVersionIndex + 1]?.changeNote || "Next draft"})`
-                    : "Redo: At latest version"
-                }
-                aria-label="Redo edit"
-              >
-                <Redo2 className="size-3" />
-              </Button>
-              <div
-                className="flex items-center gap-1 pl-1 pr-1 border-l border-border/50 min-w-0"
-                title={
-                  draftVersions[activeVersionIndex]
-                    ? `Active: v${draftVersions[activeVersionIndex].versionNumber} · ${draftVersions[activeVersionIndex].changeNote || "Draft"}`
-                    : "Draft version history"
-                }
-              >
-                <History className="size-3 text-slate-400 shrink-0" />
-                <select
-                  value={activeVersionIndex}
-                  onChange={(e) => onSelectVersion?.(Number(e.target.value))}
-                  className="bg-transparent text-foreground text-xs font-medium outline-none cursor-pointer max-w-26.25 sm:max-w-35 truncate"
-                  aria-label="Draft version history"
-                >
-                  {draftVersions.map((v, i) => {
-                    const fullNote = v.changeNote || "Draft";
-                    const shortLabel = getShortVersionLabel(fullNote, v.versionNumber);
-                    return (
-                      <option
-                        key={v.id || i}
-                        value={i}
-                        className="bg-popover text-popover-foreground"
-                        title={`v${v.versionNumber} · ${fullNote} (${new Date(v.timestamp).toLocaleTimeString()})`}
-                      >
-                        v{v.versionNumber} · {shortLabel}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-            </div>
-          ) : <div />}
-
-          {/* Action Tools & Progress */}
-          <div className="flex items-center gap-2 sm:gap-2.5 ml-auto flex-wrap justify-end">
-            {/* Character counter with LinkedIn limit progress bar */}
-            <div
-              className="flex items-center gap-1.5 sm:gap-2 text-xs"
-              aria-live="polite"
-              aria-atomic="true"
-              aria-label={`Character count: ${charCount} out of 3000`}
-              title={`${charCount.toLocaleString()} of 3,000 characters (${Math.min(100, Math.round((charCount / 3000) * 100))}% of LinkedIn limit)`}
-            >
-              <div className="w-10 sm:w-16 h-1.5 bg-muted rounded-full overflow-hidden border border-border/40">
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-all duration-300",
-                    charCount > 3000
-                      ? "bg-red-500"
-                      : charCount > 2500
-                        ? "bg-amber-500"
-                        : "bg-brand-blue"
-                  )}
-                  style={{ width: `${Math.min(100, (charCount / 3000) * 100)}%` }}
-                />
-              </div>
-              <span
-                className={cn(
-                  "font-mono text-[10px] sm:text-[11px] font-medium tracking-tight",
-                  charCount > 3000 ? "text-red-500 font-bold" : "text-muted-foreground"
-                )}
-              >
-                {charCount.toLocaleString()}/3k
+            {/* Read Time Tag (small, no full row) */}
+            {currentText && !isGenerating && (
+              <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/60 border border-border/40 select-none">
+                <Clock className="size-3 text-muted-foreground shrink-0" />
+                <span>{readTimeMinutes} min read</span>
               </span>
+            )}
+          </div>
+
+          {/* Top Actions: View/Edit Toggle, Discard/New Post, Publish */}
+          <div className="flex items-center gap-1.5 sm:gap-2 ml-auto flex-wrap justify-end">
+            {/* View / Edit Mode Switcher */}
+            <div className="flex items-center bg-muted/60 p-0.5 rounded-lg border border-border/50 text-xs shrink-0">
+              <button
+                type="button"
+                onClick={() => setViewMode("preview")}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1 rounded-md font-medium transition cursor-pointer text-xs",
+                  effectiveViewMode === "preview"
+                    ? "bg-card text-foreground shadow-xs font-semibold"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                title="View formatted markdown preview"
+              >
+                <Eye className="size-3.5" />
+                <span>View</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isGenerating && currentText) {
+                    setViewMode("edit");
+                  }
+                }}
+                disabled={isGenerating || !currentText}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1 rounded-md font-medium transition text-xs",
+                  effectiveViewMode === "edit"
+                    ? "bg-card text-foreground shadow-xs font-semibold"
+                    : "text-muted-foreground hover:text-foreground",
+                  isGenerating || !currentText
+                    ? "opacity-40 cursor-not-allowed hover:text-muted-foreground"
+                    : "cursor-pointer"
+                )}
+                title={isGenerating ? "Editing disabled while generating" : "Edit raw draft content"}
+              >
+                <Edit3 className="size-3.5" />
+                <span>Edit</span>
+              </button>
             </div>
 
-            <div className="h-4 w-px bg-border/60 hidden sm:block" />
-
-            {/* Copy Button */}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 sm:h-9 px-2.5 sm:px-3 text-xs font-semibold border-outline-variant hover:bg-surface-container gap-1.5 cursor-pointer shrink-0"
-              onClick={handleCopy}
-              disabled={charCount === 0 || isGenerating}
-              title="Copy draft to clipboard"
-            >
-              {copied ? <Check className="size-3.5 text-emerald-600" /> : <Copy className="size-3.5" />}
-              <span className="hidden sm:inline">{copied ? "Copied" : "Copy"}</span>
-            </Button>
+            {/* New Post / Discard Button */}
+            {(onDiscard || onNewPost) && currentText && !isGenerating && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer shrink-0"
+                onClick={onNewPost || onDiscard}
+                title="Start a new draft"
+              >
+                <Plus className="size-3.5" />
+                <span className="hidden sm:inline">New Post</span>
+              </Button>
+            )}
 
             {/* LinkedIn Publish Button */}
             <Button
               size="sm"
-              className="h-8 sm:h-9 px-3 sm:px-4 text-xs font-semibold bg-brand-blue hover:bg-brand-blue-hover text-white gap-1.5 shadow-sm duration-200 cursor-pointer disabled:opacity-50 shrink-0"
+              className="h-8 px-3.5 text-xs font-semibold bg-brand-blue hover:bg-brand-blue-hover text-white gap-1.5 shadow-sm duration-200 cursor-pointer disabled:opacity-50 shrink-0"
               onClick={onPublish}
               disabled={isControlsDisabled || charCount > 3000 || charCount === 0}
               aria-busy={isPublishing ? "true" : "false"}
@@ -357,6 +327,33 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
             </Button>
           </div>
         </div>
+
+        {/* Compact Inline Hook Lab Chips (no full row, no 'HOOK LAB:' label row) */}
+        {alternativeHooks && alternativeHooks.length > 0 && currentText && !isGenerating && onApplyHook && (
+          <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+            {hookOptions.map((opt) => {
+              const targetText = opt.hook || opt.fallbackText;
+              const isMatching = currentText.trim().startsWith(targetText.trim());
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => handleHookSelect(targetText)}
+                  className={cn(
+                    "px-2 py-0.5 rounded-full text-[11px] font-medium border transition cursor-pointer flex items-center gap-1 select-none",
+                    isMatching
+                      ? "bg-brand-blue/15 border-brand-blue text-brand-blue font-semibold ring-1 ring-brand-blue/30"
+                      : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground border-border/50"
+                  )}
+                  title={`Audition ${opt.label}`}
+                >
+                  <opt.icon className="size-3 shrink-0" />
+                  <span>{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Assistant UI Error State */}
@@ -393,45 +390,50 @@ export const AssistantThread: React.FC<AssistantThreadProps> = ({
         />
       )}
 
-      {/* Hook Lab: Alternative Openings */}
-      {alternativeHooks && alternativeHooks.length > 0 && currentText && !isGenerating && (
-        <HookLab
-          hooks={alternativeHooks}
-          currentDraft={currentText}
-          onApplyHook={onApplyHook}
-        />
-      )}
-
-      {/* Feedback Toolbar: Rate the draft */}
-      {!isGenerating && currentText && (
-        <FeedbackToolbar runId={runId} disabled={isGenerating} />
-      )}
-
-      {/* Workspace Content: Clean Preview or Edit (no skeleton loading card) */}
-      {viewMode === "preview" ? (
-        <div
-          className="w-full bg-card border border-border min-h-50 max-h-95 sm:max-h-115 overflow-y-auto rounded-xl p-3 sm:p-4 transition-colors duration-200 focus-within:ring-2 focus-within:ring-brand-blue/20"
-          tabIndex={0}
-          aria-label="Formatted Post Preview in Markdown"
-        >
-          {currentText ? (
-            <LinkedInFeed draftText={currentText} selectedFiles={selectedFiles} user={user} />
+      {/* Scrollable Post Area: Internal scroll with max-height, auto-scrolls during streaming, no duplicate border */}
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="w-full max-h-[520px] overflow-y-auto rounded-xl focus-within:ring-2 focus-within:ring-brand-blue/20 transition-colors duration-200"
+        tabIndex={0}
+        aria-label="Post Canvas Viewport"
+      >
+        {effectiveViewMode === "preview" ? (
+          currentText ? (
+            <LinkedInFeed
+              draftText={currentText}
+              selectedFiles={selectedFiles}
+              user={user}
+              showFoldMarker={true}
+              onChange={onChange}
+              onRemoveFile={handleRemoveFile}
+            />
           ) : (
-            <p className="text-sm text-muted-foreground italic">Your AI generated draft will appear here...</p>
-          )}
-        </div>
-      ) : (
-        <Textarea
-          id="draft-editor"
-          className="w-full bg-card border-border min-h-50 h-65 sm:h-75 overflow-y-auto resize-none rounded-xl focus-visible:ring-2 focus-visible:ring-brand-blue/20 focus-visible:border-brand-blue text-base sm:text-sm leading-relaxed text-slate-900 dark:text-slate-100 transition-colors duration-200 p-3 sm:p-4"
-          value={currentText}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={isPublishing}
-          placeholder="Your AI generated draft will appear here..."
-          aria-label="Interactive Draft Editor"
-          aria-invalid={charCount > 3000 ? "true" : "false"}
-        />
-      )}
+            <div className="bg-card border border-border/80 rounded-2xl p-6 text-center">
+              <p className="text-sm text-muted-foreground italic">Your AI generated draft will appear here...</p>
+            </div>
+          )
+        ) : (
+          <Textarea
+            id="draft-editor"
+            className="w-full bg-card border border-border/80 min-h-60 h-[480px] overflow-y-auto resize-none rounded-xl focus-visible:ring-2 focus-visible:ring-brand-blue/20 focus-visible:border-brand-blue text-base sm:text-sm leading-relaxed text-slate-900 dark:text-slate-100 transition-colors duration-200 p-3 sm:p-4"
+            value={currentText}
+            onChange={(e) => onChange(e.target.value)}
+            disabled={isPublishing || isGenerating}
+            placeholder="Your AI generated draft will appear here..."
+            aria-label="Interactive Draft Editor"
+          />
+        )}
+      </div>
+
+      {/* Post Footer: Inline Rating Thumbs & Attachments */}
+      <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
+        {!isGenerating && currentText ? (
+          <FeedbackToolbar runId={runId} disabled={isGenerating} />
+        ) : (
+          <div />
+        )}
+      </div>
 
       {/* Assistant UI Attachments Controls */}
       <AssistantAttachments

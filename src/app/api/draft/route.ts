@@ -5,8 +5,7 @@ import { getRequestAuth } from "@/modules/auth";
 import { resolveAgentCredentials } from "@/modules/user";
 import { redactSecrets } from "@/lib/utils";
 import { logger } from "@/lib/logger";
-import type { DraftRequest } from "@/modules/agent/types";
-import type { StreamEvent, StreamErrorCode, HookOption } from "@/types";
+import type { StreamEvent, StreamErrorCode, DraftRequest } from "@/types";
 import { classifyIntent } from "@/modules/agent/core/intent";
 import { refineDraft, critiqueDraft } from "@/modules/agent/nodes";
 import type { State } from "@/modules/agent/core/state";
@@ -91,7 +90,6 @@ export async function POST(request: Request) {
       domain,
       archetype,
       tone,
-      webSearchEnabled,
       currentDraft,
       threadId: incomingThreadId,
       followUpMessage,
@@ -216,16 +214,6 @@ export async function POST(request: Request) {
             });
             sendEvent({ type: "node_start", node: "refineDraft", title: "Refining Draft" });
 
-            let existingHooks: HookOption[] = [];
-            try {
-              const priorState = await agent.getState(threadConfig);
-              if (priorState?.values?.alternativeHooks && priorState.values.alternativeHooks.length > 0) {
-                existingHooks = priorState.values.alternativeHooks;
-              }
-            } catch {
-              // in-memory or new
-            }
-
             const refineState: State = {
               topic,
               context: userContext || "",
@@ -236,7 +224,6 @@ export async function POST(request: Request) {
               activeTone: tone || "conversational",
               draft: currentDraft,
               postContent: currentDraft,
-              alternativeHooks: existingHooks,
               userFeedback: latestUserMessage,
               changeNote: null,
               refinementPasses: 0,
@@ -265,7 +252,6 @@ export async function POST(request: Request) {
               lastFailedNode: null,
               errorRecoveryCount: 0,
               nodeRecoveryCounts: {},
-              webSearchEnabled: false,
               webSearchResults: [],
               webSearchQueries: [],
               webSearchSkippedReason: null,
@@ -315,7 +301,6 @@ export async function POST(request: Request) {
               await agent.updateState(threadConfig, {
                 draft: finalPost,
                 postContent: finalPost,
-                alternativeHooks: existingHooks,
                 error: null,
               });
             } catch (e) {
@@ -328,7 +313,6 @@ export async function POST(request: Request) {
               draft: finalPost,
               changeNote: finalChangeNote,
               intent: "refine",
-              alternativeHooks: existingHooks,
             });
             return;
           }
@@ -351,12 +335,10 @@ export async function POST(request: Request) {
             intake: null,
             plan: "",
             searchContext: "",
-            webSearchEnabled: Boolean(webSearchEnabled),
             webSearchResults: [],
             webSearchQueries: [],
             webSearchSkippedReason: null,
             draft: "",
-            alternativeHooks: [],
             userFeedback: null,
             changeNote: null,
             refinementPasses: 0,
@@ -483,14 +465,7 @@ export async function POST(request: Request) {
               draftLengthChars: state.values.postContent?.length || 0,
               finalScore: state.values.critique?.score,
               critiqueCount: state.values.critiqueCount,
-              alternativeHooksCount: state.values.alternativeHooks?.length || 0,
             });
-            if (state.values.alternativeHooks && state.values.alternativeHooks.length > 0) {
-              sendEvent({
-                type: "alternative_hooks",
-                hooks: state.values.alternativeHooks,
-              });
-            }
             sendEvent({
               type: "final",
               threadId,
@@ -499,7 +474,6 @@ export async function POST(request: Request) {
               reasoningSteps: state.values.reasoningSteps,
               critique: state.values.critique,
               critiqueScores: state.values.critiqueScores,
-              alternativeHooks: state.values.alternativeHooks,
               webSearchSkippedReason: state.values.webSearchSkippedReason || null,
             });
           }

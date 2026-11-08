@@ -126,7 +126,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
             localStorage.setItem("llm_model", modelName);
             localStorage.setItem("ollama_base_url", ollamaBaseUrl);
             if (apiKey) localStorage.setItem("llm_api_key", apiKey);
-            if (liToken) localStorage.setItem("li_token", liToken);
+            // Secure: tokens remain server-side / in-memory only; do NOT persist li_token to client localStorage
             if (liUrn) localStorage.setItem("li_urn", liUrn);
             if (liTokenExpiresAt) localStorage.setItem("li_token_expires_at", String(liTokenExpiresAt));
           }

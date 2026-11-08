@@ -1,5 +1,5 @@
 import { Annotation } from "@langchain/langgraph";
-import type { IntakeAnalysis, CritiqueResult, HookOption } from "./schemas";
+import type { IntakeAnalysis, CritiqueResult } from "./schemas";
 import type { MediaFileMetadata } from "@/types/media";
 
 export const AgentState = Annotation.Root({
@@ -45,10 +45,6 @@ export const AgentState = Annotation.Root({
     reducer: (_x, y) => y,
     default: () => "",
   }),
-  alternativeHooks: Annotation<HookOption[]>({
-    reducer: (x, y) => (y && y.length > 0 ? y : x || []),
-    default: () => [],
-  }),
   activeDomain: Annotation<string>({
     reducer: (_x, y) => y,
     default: () => "general",
@@ -78,7 +74,6 @@ export const AgentState = Annotation.Root({
 
   // ── Critique loop ─────────────────────────────────────────────────────
   critique: Annotation<CritiqueResult | null>({
-
     reducer: (_x, y) => y,
     default: () => null,
   }),
@@ -122,10 +117,6 @@ export const AgentState = Annotation.Root({
     reducer: (_x, y) => y,
     default: () => "",
   }),
-  webSearchEnabled: Annotation<boolean | undefined>({
-    reducer: (_x, y) => (y !== undefined ? y : false),
-    default: () => false,
-  }),
   webSearchResults: Annotation<Array<{ title: string; domain: string }> | undefined>({
     reducer: (_x, y) => y || [],
     default: () => [],
@@ -139,20 +130,12 @@ export const AgentState = Annotation.Root({
     default: () => null,
   }),
 
-  // ── LLM / LinkedIn credentials (pass-through from API) ───────────────
-  linkedinToken: Annotation<string | null>({
-    reducer: (_x, y) => y,
-    default: () => null,
-  }),
+  // ── LLM / LinkedIn configuration (non-sensitive; credentials passed via RunnableConfig) ──
   linkedinUrn: Annotation<string | null>({
     reducer: (_x, y) => y,
     default: () => null,
   }),
   llmProvider: Annotation<string | null>({
-    reducer: (_x, y) => y,
-    default: () => null,
-  }),
-  llmApiKey: Annotation<string | null>({
     reducer: (_x, y) => y,
     default: () => null,
   }),
@@ -215,7 +198,6 @@ export const AgentState = Annotation.Root({
 type BaseAgentState = typeof AgentState.State;
 export type State = Omit<
   BaseAgentState,
-  | "webSearchEnabled"
   | "webSearchResults"
   | "webSearchQueries"
   | "webSearchSkippedReason"
@@ -224,7 +206,9 @@ export type State = Omit<
   | "actualModel"
   | "errorDetails"
 > & {
-  webSearchEnabled?: boolean;
+  // Backwards-compatible credential fields for callers (scrubbed from serialized checkpoints)
+  linkedinToken?: string | null;
+  llmApiKey?: string | null;
   webSearchResults?: Array<{ title: string; domain: string }>;
   webSearchQueries?: string[];
   webSearchSkippedReason?: string | null;

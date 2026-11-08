@@ -8,7 +8,6 @@ export interface EditorPanelProps extends BaseThreadEditorProps {
   onStreamingComplete: () => void;
 }
 
-
 export const EditorPanel: React.FC<EditorPanelProps> = ({
   draftText,
   streamingText,
@@ -40,6 +39,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
   webSearchSkippedReason,
   user,
   runId,
+  onNewPost,
 }) => {
   return (
     <AssistantThread
@@ -73,6 +73,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
       webSearchSkippedReason={webSearchSkippedReason}
       user={user}
       runId={runId}
+      onNewPost={onNewPost}
     />
   );
 };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import axios from "axios";
 import { useLocalRuntime, type ChatModelAdapter, type ChatModelRunResult } from "@assistant-ui/react";
 import { getApiBaseUrl } from "@/lib/api/config";
@@ -35,118 +35,111 @@ export interface AgentRuntimeOptions {
 }
 
 export function useAgentRuntime(options: AgentRuntimeOptions) {
-  const {
-    customTopic,
-    context,
-    domain,
-    archetype = "auto",
-    tone = "conversational",
-    provider,
-    apiKey,
-    modelName,
-    ollamaBaseUrl,
-    liToken,
-    liUrn,
-    token,
-    currentDraft,
-    threadId,
-    alternativeHooks,
-    webSearchEnabled = false,
-    onDraftReceived,
-    onError,
-  } = options;
+  // Stabilize volatile inputs with useRef so adapter and useLocalRuntime are never re-instantiated on keystrokes
+  const optionsRef = useRef(options);
+  useEffect(() => {
+    optionsRef.current = options;
+  });
 
   const adapter: ChatModelAdapter = useMemo(() => {
     return {
       async *run({ messages, abortSignal }) {
+        const {
+          customTopic,
+          context,
+          domain,
+          archetype = "auto",
+          tone = "conversational",
+          provider,
+          apiKey,
+          modelName,
+          ollamaBaseUrl,
+          liToken,
+          liUrn,
+          token,
+          currentDraft,
+          threadId,
+          alternativeHooks,
+          webSearchEnabled,
+          onDraftReceived,
+          onError,
+        } = optionsRef.current;
+
         // Extract the user prompt from the latest user message
         let promptTopic = customTopic;
         if (messages.length > 0) {
-          const lastMsg = messages[messages.length - 1];
-          if (lastMsg.role === "user") {
-            const content = lastMsg.content;
-            if (typeof content === "string") {
-              promptTopic = content;
-            } else if (Array.isArray(content)) {
-              promptTopic = content
-                .filter((p) => p.type === "text")
-                .map((p) => ("text" in p ? p.text : ""))
-                .join("\n");
+          const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
+          if (lastUserMsg) {
+            const rawContent = lastUserMsg.content;
+            if (typeof rawContent === "string") {
+              promptTopic = rawContent;
+            } else if (Array.isArray(rawContent)) {
+              const textPart = rawContent.find(
+                (p): p is { type: "text"; text: string } =>
+                  typeof p === "object" && p !== null && "type" in p && p.type === "text"
+              );
+              if (textPart && textPart.text) {
+                promptTopic = textPart.text;
+              }
             }
           }
         }
-
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-        };
-        if (provider) headers["x-llm-provider"] = provider;
-        if (apiKey) headers["x-llm-api-key"] = apiKey;
-        if (modelName) headers["x-llm-model"] = modelName;
-        if (ollamaBaseUrl) {
-          headers["x-ollama-url"] = ollamaBaseUrl;
-          headers["x-ollama-base-url"] = ollamaBaseUrl;
-        }
-        if (liToken) headers["x-linkedin-token"] = liToken;
-        if (liUrn) headers["x-linkedin-urn"] = liUrn;
-        if (token) headers["Authorization"] = `Bearer ${token}`;
 
         try {
-          let stream: ReadableStream<Uint8Array>;
-          try {
-            const response = await axios.post<ReadableStream<Uint8Array>>(
-              `${getApiBaseUrl()}/api/draft`,
-              {
-                topic: promptTopic,
-                context,
-                domain: domain === "auto" ? null : domain,
-                archetype: archetype === "auto" ? null : archetype,
-                tone: tone || "conversational",
-                webSearchEnabled,
-                threadId: threadId || undefined,
-                currentDraft: currentDraft || undefined,
-                followUpMessage: promptTopic,
-                alternativeHooks: alternativeHooks || undefined,
-                messages: messages.map((m) => ({
-                  role: m.role,
-                  content:
-                    typeof m.content === "string"
-                      ? m.content
-                      : Array.isArray(m.content)
-                      ? m.content
-                          .filter((p) => p.type === "text")
-                          .map((p) => ("text" in p ? p.text : ""))
-                          .join("\n")
-                      : "",
-                })),
-              },
-              {
-                headers,
-                signal: abortSignal,
-                adapter: "fetch",
-                responseType: "stream",
-              }
-            );
+          const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+          };
 
-            if (!response.data) {
-              throw new Error("ReadableStream not supported or empty response.");
+          if (token) headers["Authorization"] = `Bearer ${token}`;
+          if (provider) headers["x-llm-provider"] = provider;
+          if (apiKey) headers["x-llm-api-key"] = apiKey;
+          if (modelName) headers["x-llm-model"] = modelName;
+          if (ollamaBaseUrl) headers["x-ollama-base-url"] = ollamaBaseUrl;
+          if (liToken) headers["x-li-token"] = liToken;
+          if (liUrn) headers["x-li-urn"] = liUrn;
+
+          const response = await axios.post<ReadableStream<Uint8Array>>(
+            `${getApiBaseUrl()}/api/draft`,
+            {
+              topic: promptTopic || undefined,
+              context: context || undefined,
+              domain: domain === "auto" ? null : domain,
+              archetype: archetype === "auto" ? null : archetype,
+              tone: tone || "conversational",
+              webSearchEnabled,
+              threadId: threadId || undefined,
+              currentDraft: currentDraft || undefined,
+              followUpMessage: promptTopic,
+              alternativeHooks: alternativeHooks || undefined,
+              messages: messages.map((m) => ({
+                role: m.role,
+                content:
+                  typeof m.content === "string"
+                    ? m.content
+                    : Array.isArray(m.content)
+                      ? m.content
+                          .map((p) => (typeof p === "object" && p && "text" in p ? (p as { text: string }).text : ""))
+                          .join("")
+                      : "",
+              })),
+            },
+            {
+              headers,
+              adapter: "fetch",
+              responseType: "stream",
+              signal: abortSignal,
             }
-            stream = response.data;
-          } catch (err: unknown) {
-            if (axios.isAxiosError(err)) {
-              const errorText =
-                (err.response?.data && typeof err.response.data === "object" && "error" in err.response.data
-                  ? (err.response.data as { error?: string }).error
-                  : undefined) || err.message;
-              throw new Error(cleanErrorMessage(errorText));
-            }
-            throw err;
+          );
+
+          if (!response.data) {
+            throw new Error("No response body received from stream");
           }
 
+          const stream = response.data;
           const reader = stream.getReader();
-          if (!reader) throw new Error("ReadableStream not supported in this browser.");
-
-          const decoder = new TextDecoder();
+          const decoder = new TextDecoder("utf-8");
           let buffer = "";
+
           let accumulatedDraft = "";
           let accumulatedReasoning = "";
           let latestChangeNote = "";
@@ -155,18 +148,11 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
           let currentThreadId = threadId || "";
           const activeToolCalls: Record<
             string,
-            {
-              type: "tool-call";
-              toolCallId: string;
-              toolName: string;
-              args: Record<string, unknown>;
-              argsText: string;
-              result?: unknown;
-            }
+            { type: "tool-call"; toolCallId: string; toolName: string; args: Record<string, unknown>; argsText: string; result?: unknown }
           > = {};
 
           while (true) {
-            const { value, done } = await reader.read();
+            const { done, value } = await reader.read();
             if (done) break;
 
             buffer += decoder.decode(value, { stream: true });
@@ -175,7 +161,8 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
 
             for (const line of lines) {
               if (!line.trim() || !line.startsWith("data: ")) continue;
-              const jsonStr = line.slice(6).trim();
+              const jsonStr = line.replace(/^data: /, "").trim();
+              if (!jsonStr || jsonStr === "[DONE]") continue;
 
               let event: StreamEvent;
               try {
@@ -282,33 +269,16 @@ export function useAgentRuntime(options: AgentRuntimeOptions) {
             }
           }
         } catch (err: unknown) {
-          const rawMsg = err instanceof Error ? err.message : "Unknown generation error";
-          const cleaned = cleanErrorMessage(rawMsg);
-          onError?.(cleaned);
-          throw new Error(cleaned);
+          const rawMsg = err instanceof Error ? err.message : "Generation failed";
+          const friendlyMsg = cleanErrorMessage(rawMsg);
+          onError?.(friendlyMsg);
+          yield {
+            content: [{ type: "text", text: `⚠️ **Error**: ${friendlyMsg}` }],
+          };
         }
       },
     };
-  }, [
-    customTopic,
-    context,
-    domain,
-    archetype,
-    tone,
-    provider,
-    apiKey,
-    modelName,
-    ollamaBaseUrl,
-    liToken,
-    liUrn,
-    token,
-    currentDraft,
-    threadId,
-    alternativeHooks,
-    webSearchEnabled,
-    onDraftReceived,
-    onError,
-  ]);
+  }, []); // Stable memoized adapter with empty dependencies — prevents useLocalRuntime re-instantiations on keystrokes
 
   const runtime = useLocalRuntime(adapter);
 

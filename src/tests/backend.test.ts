@@ -186,13 +186,13 @@ describe("Backend API Endpoints", () => {
       (agent.streamEvents as jest.Mock).mockReturnValue({
         [Symbol.asyncIterator]: async function* () {
           // Yield no events during mock stream, just simulate run
-        }
+        },
       });
       (agent.getState as jest.Mock).mockResolvedValue({
         values: {
           postContent: "Mock Draft content",
           error: null,
-          reasoningSteps: [{ title: "Outline & Planning", output: "Planning output" }]
+          reasoningSteps: [{ title: "Outline & Planning", output: "Planning output" }],
         },
         next: ["publishPost"],
       });
@@ -207,7 +207,7 @@ describe("Backend API Endpoints", () => {
       expect(response.status).toBe(200);
 
       const text = await response.text();
-      const finalLine = text.split("\n").find(l => l.startsWith("data: ") && l.includes('"type":"final"'));
+      const finalLine = text.split("\n").find((l) => l.startsWith("data: ") && l.includes('"type":"final"'));
       expect(finalLine).toBeDefined();
 
       const finalJson = JSON.parse(finalLine!.slice(6));
@@ -249,7 +249,7 @@ describe("Backend API Endpoints", () => {
       expect(json.error).toBe("Missing threadId or draft");
     });
 
-    test("returns 401 when LinkedIn is not connected", async () => {
+    test("returns 401 when unauthenticated (Option 2A)", async () => {
       (verifyAuth as jest.Mock).mockResolvedValue(null);
 
       const request = new Request("http://localhost/api/publish", {
@@ -261,11 +261,27 @@ describe("Backend API Endpoints", () => {
       expect(response.status).toBe(401);
 
       const json = await response.json();
+      expect(json.error).toBe("Authentication required to publish.");
+    });
+
+    test("returns 401 when user is authenticated but LinkedIn is not connected", async () => {
+      (verifyAuth as jest.Mock).mockResolvedValue({ id: "user-123" });
+
+      const request = new Request("http://localhost/api/publish", {
+        method: "POST",
+        headers: { Authorization: "Bearer test-jwt" },
+        body: JSON.stringify({ threadId: "123", draft: "My Final Draft" }),
+      });
+
+      const response = await publishPost(request);
+      expect(response.status).toBe(401);
+
+      const json = await response.json();
       expect(json.error).toContain("LinkedIn not connected");
     });
 
-    test("resumes agent execution and returns published url", async () => {
-      (verifyAuth as jest.Mock).mockResolvedValue(null);
+    test("resumes agent execution and returns published url for authenticated user", async () => {
+      (verifyAuth as jest.Mock).mockResolvedValue({ id: "user-123" });
       (agent.getState as jest.Mock).mockResolvedValue({
         values: { postContent: "Draft" },
         next: ["publishPost"],
@@ -278,6 +294,7 @@ describe("Backend API Endpoints", () => {
       const request = new Request("http://localhost/api/publish", {
         method: "POST",
         headers: {
+          Authorization: "Bearer test-jwt",
           "x-linkedin-token": "mock-li-token",
           "x-linkedin-urn": "urn:li:person:123",
         },
@@ -288,27 +305,22 @@ describe("Backend API Endpoints", () => {
       expect(response.status).toBe(200);
 
       const json = await response.json();
-      if (response.status !== 200) console.error("publish error:", json);
-      try {
-        expect(json.postUrl).toBe("https://linkedin.com/123");
-        expect(agent.updateState).toHaveBeenCalledWith(
-          {
-            configurable: {
-              thread_id: "123",
-              liToken: "mock-li-token",
-              liUrn: "urn:li:person:123",
-            },
+      expect(json.postUrl).toBe("https://linkedin.com/123");
+      expect(agent.updateState).toHaveBeenCalledWith(
+        {
+          configurable: {
+            thread_id: "123",
+            userId: "user-123",
+            liToken: "mock-li-token",
+            liUrn: "urn:li:person:123",
           },
-          expect.objectContaining({ postContent: "My Final Draft" })
-        );
-      } catch (err: unknown) {
-        console.error("ASSERTION FAILED:", err instanceof Error ? err.message : err);
-        throw err;
-      }
+        },
+        expect.objectContaining({ postContent: "My Final Draft" })
+      );
     });
 
     test("resumes agent execution and passes mediaFile when file is present", async () => {
-      (verifyAuth as jest.Mock).mockResolvedValue(null);
+      (verifyAuth as jest.Mock).mockResolvedValue({ id: "user-123" });
       (agent.getState as jest.Mock).mockResolvedValue({
         values: { postContent: "Draft" },
         next: ["publishPost"],
@@ -322,6 +334,7 @@ describe("Backend API Endpoints", () => {
       const request = new Request("http://localhost/api/publish", {
         method: "POST",
         headers: {
+          Authorization: "Bearer test-jwt",
           "x-linkedin-token": "mock-li-token",
           "x-linkedin-urn": "urn:li:person:123",
         },
@@ -337,6 +350,7 @@ describe("Backend API Endpoints", () => {
         {
           configurable: {
             thread_id: "123",
+            userId: "user-123",
             liToken: "mock-li-token",
             liUrn: "urn:li:person:123",
           },
@@ -355,6 +369,22 @@ describe("Backend API Endpoints", () => {
       expect(response.status).toBe(400);
       const json = await response.json();
       expect(json.error).toBe("Missing filename or mimeType");
+    });
+
+    test("returns 400 on unsupported or dangerous MIME type", async () => {
+      (verifyAuth as jest.Mock).mockResolvedValue({ id: "user-123" });
+      const dangerousTypes = ["text/html", "image/svg+xml", "application/x-msdownload", "application/javascript"];
+
+      for (const mime of dangerousTypes) {
+        const request = new Request(`http://localhost/api/media/upload/sign?filename=file&mimeType=${encodeURIComponent(mime)}`, {
+          method: "GET",
+          headers: { Authorization: "Bearer test-token" },
+        });
+        const response = await mediaUploadSign(request);
+        expect(response.status).toBe(400);
+        const json = await response.json();
+        expect(json.error).toContain("Unsupported media type");
+      }
     });
 
     test("returns 500 when storage generation fails or client is not configured", async () => {
@@ -382,7 +412,7 @@ describe("Backend API Endpoints", () => {
       expect(json.error).toBe("Unauthorized");
     });
 
-    test("generates signed upload URL successfully", async () => {
+    test("generates signed upload URL successfully for allowed types", async () => {
       (verifyAuth as jest.Mock).mockResolvedValue({ id: "user-123" });
       (getSupabaseClient as jest.Mock).mockReturnValue({});
       (getSignedUploadUrl as jest.Mock).mockResolvedValue({
@@ -391,17 +421,20 @@ describe("Backend API Endpoints", () => {
         readUrl: "http://mock-public-url",
       });
 
-      const request = new Request("http://localhost/api/media/upload/sign?filename=test.png&mimeType=image/png", {
-        method: "GET",
-        headers: { Authorization: "Bearer test-token" },
-      });
-      const response = await mediaUploadSign(request);
-      expect(response.status).toBe(200);
+      const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"];
+      for (const mimeType of allowedTypes) {
+        const request = new Request(`http://localhost/api/media/upload/sign?filename=test.file&mimeType=${encodeURIComponent(mimeType)}`, {
+          method: "GET",
+          headers: { Authorization: "Bearer test-token" },
+        });
+        const response = await mediaUploadSign(request);
+        expect(response.status).toBe(200);
 
-      const json = await response.json();
-      expect(json.uploadUrl).toBe("http://supabase-signed-upload-url");
-      expect(json.storagePath).toBe("temp/user-123/123-test.png");
-      expect(json.readUrl).toBe("http://mock-public-url");
+        const json = await response.json();
+        expect(json.uploadUrl).toBe("http://supabase-signed-upload-url");
+        expect(json.storagePath).toBe("temp/user-123/123-test.png");
+        expect(json.readUrl).toBe("http://mock-public-url");
+      }
     });
   });
 });

@@ -45,12 +45,20 @@ export async function verifyAuth(request: Request): Promise<User | null> {
     return null;
   }
 
+  let token: string | undefined;
   const authHeader = request.headers.get("authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return null;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.split(" ")[1];
   }
 
-  const token = authHeader.split(" ")[1];
+  if (!token || token === "undefined" || token === "null") {
+    const cookiesHeader = request.headers.get("cookie") || "";
+    const match = cookiesHeader.match(/(?:^|;\s*)(?:praxis_session|sb_access_token)=([^;]+)/);
+    if (match) {
+      token = decodeURIComponent(match[1]);
+    }
+  }
+
   if (!token || token === "undefined" || token === "null") {
     return null;
   }

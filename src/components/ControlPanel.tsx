@@ -6,7 +6,6 @@ import type { BaseComposerProps } from "@/types/ui";
 
 export type ControlPanelProps = BaseComposerProps;
 
-
 export const ControlPanel: React.FC<ControlPanelProps> = ({
   customTopic,
   context,
@@ -22,6 +21,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   webSearchEnabled,
   setWebSearchEnabled,
   onGenerate,
+  hasDraft,
+  reasoningSteps,
+  onRefine,
 }) => {
   return (
     <AssistantComposer
@@ -39,6 +41,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       setArchetype={setArchetype}
       setTone={setTone}
       onGenerate={onGenerate}
+      hasDraft={hasDraft}
+      reasoningSteps={reasoningSteps}
+      onRefine={onRefine}
     />
   );
 };

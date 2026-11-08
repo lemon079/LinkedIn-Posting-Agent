@@ -162,24 +162,6 @@ export function resolveIntakeOnLLMFailure(
   return { needsUserInput: true, usedFallback: true };
 }
 
-export const HookOptionSchema = z.object({
-  type: z
-    .enum(["metric", "contrarian", "incident", "curiosity", "question", "hiring"])
-    .describe("The archetype or psychological angle of the hook"),
-  hook: z
-    .string()
-    .describe("The opening 1-2 lines (under 25 words) before the first paragraph break"),
-  rationale: z
-    .string()
-    .describe("Short 1-sentence explanation of why this hook drives feed click-through"),
-});
-
-export const AlternativeHooksResult = z.object({
-  hooks: z.array(HookOptionSchema).describe("List of high-impact alternative hooks"),
-});
-
 export type IntakeAnalysis = z.infer<typeof IntakeAnalysis>;
 export type AxisScore = z.infer<typeof AxisScore>;
-export type HookOption = z.infer<typeof HookOptionSchema>;
-export type AlternativeHooksResult = z.infer<typeof AlternativeHooksResult>;
 

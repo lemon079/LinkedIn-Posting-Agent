@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase/server";
 import { AgentState, type State } from "./core/state";
 import {
   analyzeIntake,
+  researchGrounding,
   generateDraft,
   critiqueDraft,
   refineDraft,
@@ -27,6 +28,11 @@ import {
 
 const routeIntake = (state: State) => {
   if (state.error || !state.intake) return "handleAgentError";
+  return "researchGrounding";
+};
+
+const routeGrounding = (state: State) => {
+  if (state.error) return "handleAgentError";
   return "generateDraft";
 };
 
@@ -79,13 +85,14 @@ const routeErrorRecovery = (state: State) => {
     }
     return "promoteBestDraft";
   }
-  if (state.intake) return "generateDraft";
+  if (state.intake) return "researchGrounding";
   return END;
 };
 
 const builder = new StateGraph(AgentState)
   // ── Nodes ─────────────────────────────────────────────────────────────
   .addNode("analyzeIntake", analyzeIntake)
+  .addNode("researchGrounding", researchGrounding)
   .addNode("generateDraft", generateDraft)
   .addNode("critiqueDraft", critiqueDraft)
   .addNode("refineDraft", refineDraft)
@@ -98,6 +105,10 @@ const builder = new StateGraph(AgentState)
   // ── Edges ─────────────────────────────────────────────────────────────
   .addEdge(START, "analyzeIntake")
   .addConditionalEdges("analyzeIntake", routeIntake, {
+    researchGrounding: "researchGrounding",
+    handleAgentError: "handleAgentError",
+  })
+  .addConditionalEdges("researchGrounding", routeGrounding, {
     generateDraft: "generateDraft",
     handleAgentError: "handleAgentError",
   })
@@ -125,18 +136,22 @@ const builder = new StateGraph(AgentState)
   .addConditionalEdges("handleAgentError", routeErrorRecovery, {
     critiqueDraft: "critiqueDraft",
     promoteBestDraft: "promoteBestDraft",
+    researchGrounding: "researchGrounding",
     generateDraft: "generateDraft",
     [END]: END,
   })
   .addEdge("publishPost", END);
 
+// In test environments, ALWAYS use MemorySaver to avoid network calls to Supabase.
 // In production / Supabase environments, use PostgreSQL checkpointer. In local development fallback to MemorySaver singleton.
+const isTest = process.env.NODE_ENV === "test";
 const globalForGraph = globalThis as unknown as { agentCheckpointer?: BaseCheckpointSaver };
-const checkpointer: BaseCheckpointSaver =
-  globalForGraph.agentCheckpointer ??
-  (supabase ? new SupabaseCheckpointer() : new MemorySaver());
+const checkpointer: BaseCheckpointSaver = isTest
+  ? new MemorySaver()
+  : globalForGraph.agentCheckpointer ??
+    (supabase ? new SupabaseCheckpointer() : new MemorySaver());
 
-if (process.env.NODE_ENV !== "production") {
+if (process.env.NODE_ENV !== "production" && !isTest) {
   globalForGraph.agentCheckpointer = checkpointer;
 }
 

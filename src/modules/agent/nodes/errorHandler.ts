@@ -1,8 +1,7 @@
 import type { State } from "../core/state";
-import { DOMAIN_OPTIONS, ARCHETYPE_OPTIONS, TONE_OPTIONS, resolveIntakeOnLLMFailure } from "../core/schemas";
+import { DOMAIN_OPTIONS, ARCHETYPE_OPTIONS, TONE_OPTIONS } from "../core/schemas";
 import { inferDomain, inferAngle } from "../core/domains";
 import { logger } from "@/lib/logger";
-import type { RunnableConfig } from "@langchain/core/runnables";
 
 const log = logger.child({ module: "Graph:errorHandler" });
 
@@ -20,8 +19,7 @@ const MAX_NODE_RECOVERY_ATTEMPTS = 2;
  * Guardrail failures are NEVER bypassed, sanitized, or cleared here.
  */
 export async function handleAgentError(
-  state: State,
-  config?: RunnableConfig
+  state: State
 ): Promise<Partial<State>> {
   const currentTotal = (state.errorRecoveryCount ?? 0) + 1;
   const failedNode = state.failedNode || state.lastFailedNode || "unknown";

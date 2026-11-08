@@ -171,7 +171,6 @@ What is your preferred index maintenance routine?
       postContent: null,
       postUrl: null,
       draft: "",
-      alternativeHooks: [],
       activeDomain: "engineering",
       activeArchetype: "breakdown",
       activeTone: "conversational",

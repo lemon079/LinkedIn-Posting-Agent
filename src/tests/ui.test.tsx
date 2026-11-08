@@ -114,15 +114,6 @@ describe("Frontend Dashboard UI", () => {
     setSelectedFiles: jest.fn(),
     handleUploadFile: jest.fn(),
     handleClearDraft: jest.fn(),
-    alternativeHooks: [],
-    handleApplyHook: jest.fn(),
-    draftVersions: [],
-    activeVersionIndex: 0,
-    handleUndo: jest.fn(),
-    handleRedo: jest.fn(),
-    handleSelectVersion: jest.fn(),
-    addDraftVersion: jest.fn(),
-    initDraftVersions: jest.fn(),
   };
 
   beforeEach(() => {
@@ -177,30 +168,7 @@ describe("Frontend Dashboard UI", () => {
     ).toBeInTheDocument();
   });
 
-  test("renders HookLab and allows previewing alternative hooks", () => {
-    const handleApplyHook = jest.fn();
-    (useAgent as jest.Mock).mockReturnValue({
-      ...mockDefaultState,
-      draftText: "Initial hook text\n\nRest of the body text",
-      activeTab: "edit",
-      threadId: "test-thread-123",
-      alternativeHooks: [
-        {
-          type: "contrarian",
-          hook: "Stop writing boilerplate microservices.",
-          rationale: "Challenges common practice",
-        },
-      ],
-      handleApplyHook,
-    });
 
-    render(<Home />);
-
-    expect(screen.getByText("Hook Lab: Alternative Openings")).toBeInTheDocument();
-    expect(screen.getByText("Contrarian Challenge")).toBeInTheDocument();
-    expect(screen.getByText(/Stop writing boilerplate microservices\./i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Apply to Draft/i })).toBeInTheDocument();
-  });
 
   test("renders rate limit error with Retry button when error occurs", () => {
     (useAgent as jest.Mock).mockReturnValue({
@@ -227,53 +195,7 @@ describe("Frontend Dashboard UI", () => {
     expect(screen.getByText("Tone & Voice")).toBeInTheDocument();
   });
 
-  test("renders version history dropdown and undo/redo buttons when multiple versions exist", () => {
-    const handleUndo = jest.fn();
-    const handleRedo = jest.fn();
-    const handleSelectVersion = jest.fn();
 
-    (useAgent as jest.Mock).mockReturnValue({
-      ...mockDefaultState,
-      draftText: "Draft v2 text",
-      activeTab: "edit",
-      threadId: "test-thread-123",
-      draftVersions: [
-        {
-          id: "v1-123",
-          versionNumber: 1,
-          draft: "Initial draft content",
-          label: "v1",
-          changeNote: "Initial Draft",
-          timestamp: 1000,
-        },
-        {
-          id: "v2-456",
-          versionNumber: 2,
-          draft: "Draft v2 text",
-          label: "v2",
-          changeNote: "Made punchier",
-          timestamp: 2000,
-        },
-      ],
-      activeVersionIndex: 1,
-      handleUndo,
-      handleRedo,
-      handleSelectVersion,
-    });
-
-    render(<Home />);
-
-    const selectEl = screen.getByLabelText("Draft version history");
-    expect(selectEl).toBeInTheDocument();
-    expect(screen.getByText(/v1 · Initial Draft/i)).toBeInTheDocument();
-    expect(screen.getByText(/v2 · Made punchier/i)).toBeInTheDocument();
-
-    const undoButton = screen.getByRole("button", { name: "Undo edit" });
-    expect(undoButton).toBeInTheDocument();
-    expect(undoButton).not.toBeDisabled();
-    undoButton.click();
-    expect(handleUndo).toHaveBeenCalled();
-  });
 
   test("SettingsDialog displays loader on Apply Settings and closes modal only after settings are saved", async () => {
     let resolveSave: () => void = () => {};
@@ -413,8 +335,8 @@ describe("AssistantComposer Archetype-Aware Context Fields", () => {
     expect(screen.getByText("Role & what they'll actually work on")).toBeInTheDocument();
     expect(screen.getByText("What makes this role/team different")).toBeInTheDocument();
 
-    const field1 = screen.getByPlaceholderText("e.g. real day-to-day responsibilities, not a generic job description");
-    const field2 = screen.getByPlaceholderText("culture, stage, problem space — NOT compensation, to avoid inviting fabricated salary/perks");
+    const field1 = screen.getByLabelText("Role & what they'll actually work on");
+    const field2 = screen.getByLabelText("What makes this role/team different");
 
     expect(field1).toBeInTheDocument();
     expect(field2).toBeInTheDocument();
@@ -445,8 +367,8 @@ describe("AssistantComposer Archetype-Aware Context Fields", () => {
     expect(screen.getByText("What happened?")).toBeInTheDocument();
     expect(screen.getByText("Takeaway")).toBeInTheDocument();
 
-    const field1 = screen.getByPlaceholderText("What happened? (e.g. Migrated databases with zero downtime, lost a major lead...)");
-    const field2 = screen.getByPlaceholderText("What did you take away or want your audience to learn?");
+    const field1 = screen.getByLabelText("What happened?");
+    const field2 = screen.getByLabelText("Takeaway");
 
     expect(field1).toBeInTheDocument();
     expect(field2).toBeInTheDocument();

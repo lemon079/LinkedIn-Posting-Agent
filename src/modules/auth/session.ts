@@ -4,10 +4,21 @@ import { getSupabaseClient, verifyAuth } from "@/lib/supabase/server";
 export function getBearerToken(request: Request): string | undefined {
   const authHeader = request.headers.get("authorization");
   const token = authHeader?.startsWith("Bearer ") ? authHeader.split(" ")[1] : undefined;
-  if (!token || token === "undefined" || token === "null") {
-    return undefined;
+  if (token && token !== "undefined" && token !== "null") {
+    return token;
   }
-  return token;
+
+  // Fallback to secure session cookie
+  const cookieHeader = request.headers.get("cookie") || "";
+  const match = cookieHeader.match(/(?:^|;\s*)(?:praxis_session|sb_access_token)=([^;]+)/);
+  if (match) {
+    const cookieToken = decodeURIComponent(match[1]);
+    if (cookieToken && cookieToken !== "undefined" && cookieToken !== "null") {
+      return cookieToken;
+    }
+  }
+
+  return undefined;
 }
 
 export async function getRequestAuth(request: Request): Promise<{
@@ -33,7 +44,7 @@ export async function getRequestAuth(request: Request): Promise<{
     }
   }
 
-  // If a Bearer token was provided by the caller, but could not be validated into a user:
+  // If a Bearer or session token was provided by the caller, but could not be validated into a user:
   if (token && !user && !authError) {
     authError = "Invalid or expired session token";
   }

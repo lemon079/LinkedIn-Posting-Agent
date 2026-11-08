@@ -12,7 +12,13 @@ async function ensureDataDirectory() {
   try {
     await fs.access(dir);
   } catch {
-    await fs.mkdir(dir, { recursive: true });
+    try {
+      await fs.mkdir(dir, { recursive: true });
+    } catch (err) {
+      log.debug("Could not create local data directory (read-only filesystem)", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 }
 
@@ -110,10 +116,18 @@ export async function recordPostHistory(params: {
     const currentHooks = await getRecentHooks(null, null);
     const updatedHooks = [hook, ...currentHooks.filter((h) => h !== hook)].slice(0, MAX_HOOKS);
     await ensureDataDirectory();
-    await fs.writeFile(HISTORY_FILE_PATH, JSON.stringify(updatedHooks, null, 2), "utf-8");
-    log.debug("Saved hook to local history mirror", { hookLength: hook.length });
+    try {
+      await fs.writeFile(HISTORY_FILE_PATH, JSON.stringify(updatedHooks, null, 2), "utf-8");
+      log.debug("Saved hook to local history mirror", { hookLength: hook.length });
+    } catch (writeError) {
+      log.debug("Failed to write hook to local file (read-only filesystem or inaccessible)", {
+        error: writeError instanceof Error ? writeError.message : String(writeError),
+      });
+    }
   } catch (error) {
-    log.error("Failed to save hook to local file", { error });
+    log.debug("Failed to mirror hook to local history", {
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 

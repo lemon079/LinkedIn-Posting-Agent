@@ -1,8 +1,6 @@
-import { z } from "zod";
 import { HumanMessage } from "@langchain/core/messages";
 import { getSystemPrompt } from "../core/prompts";
 import type { State } from "../core/state";
-import { HookOptionSchema, type HookOption } from "../core/schemas";
 import { DOMAINS } from "../core/domains";
 import { getRecentHooks, addHook } from "@/modules/user/history";
 import { invokeWithRetryAndTimeout, DRAFT_TIMEOUT_MS } from "../llm/timeout";
@@ -11,7 +9,6 @@ import { logger } from "@/lib/logger";
 import type { LangChainMessageBlock } from "@/types";
 
 import type { RunnableConfig } from "@langchain/core/runnables";
-import { isSearchEligibleArchetype, webSearchTool, type WebSearchResultItem } from "../tools/webSearch";
 
 const log = logger.child({ module: "Graph:generateDraft" });
 
@@ -67,85 +64,6 @@ function extractDraftText(content: unknown): string {
     .trim();
 
   return clean;
-}
-
-function extractAlternativeHooks(
-  content: unknown,
-  topic: string,
-  domain: string,
-  archetype?: string
-): HookOption[] {
-  let raw = "";
-  if (typeof content === "string") {
-    raw = content;
-  } else if (Array.isArray(content)) {
-    raw = (content as LangChainMessageBlock[])
-      .filter((part) => part.type === "text" && !part.thought && part.text)
-      .map((part) => part.text)
-      .join("");
-  }
-
-  const hooksMatch = raw.match(/\[HOOKS\]([\s\S]*?)\[\/HOOKS\]/i);
-  if (hooksMatch && hooksMatch[1]) {
-    try {
-      const parsed = JSON.parse(hooksMatch[1].trim());
-      const rawList = Array.isArray(parsed)
-        ? parsed
-        : parsed && typeof parsed === "object" && Array.isArray((parsed as Record<string, unknown>).hooks)
-          ? (parsed as { hooks: unknown[] }).hooks
-          : null;
-
-      if (rawList) {
-        const schema = z.array(HookOptionSchema);
-        const result = schema.safeParse(rawList);
-        if (result.success && result.data.length > 0) {
-          return result.data;
-        }
-      }
-    } catch {
-      // Fall through to fallback generation
-    }
-  }
-
-  const cleanTopic = topic || `${domain} workflow`;
-
-  if (archetype === "hiring") {
-    return [
-      {
-        type: "hiring",
-        hook: `We're expanding our team to solve a critical bottleneck in ${cleanTopic}:`,
-        rationale: "Mission-driven challenge hook frames the open role around a compelling technical problem.",
-      },
-      {
-        type: "hiring",
-        hook: `Most job descriptions for ${cleanTopic} list 20 generic bullet points. Here is what this role actually looks like on a Tuesday:`,
-        rationale: "Authentic day-to-day transparency hook builds immediate practitioner trust.",
-      },
-      {
-        type: "hiring",
-        hook: `If you've spent the last few years working on ${cleanTopic} and want high autonomy without bureaucracy:`,
-        rationale: "Values-aligned pattern interrupt attracts senior talent fatigued by corporate friction.",
-      },
-    ];
-  }
-
-  return [
-    {
-      type: "metric",
-      hook: `We reduced latency and overhead on ${cleanTopic} by 45% with one architectural adjustment:`,
-      rationale: `Quantifiable metric hooks stop feed scrolling with concrete proof in ${domain}.`,
-    },
-    {
-      type: "contrarian",
-      hook: `Most industry advice on ${cleanTopic} is completely wrong when tested in production at scale:`,
-      rationale: "Contrarian pattern interrupts immediately spark curiosity and debate.",
-    },
-    {
-      type: "incident",
-      hook: `Last week an unexpected edge case stalled our ${cleanTopic} workflow. Here is what broke:`,
-      rationale: "Authentic incident teardowns build high practitioner trust.",
-    },
-  ];
 }
 
 const MIN_DRAFT_CHARS = 50;
@@ -224,119 +142,8 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
     hasAngle: Boolean(intake?.angle),
   });
 
-  // ── Web Search Grounding Execution & Archetype Gating ───────────────────
-  let searchContext = state.searchContext || "";
-  let retrievedSearchResults: WebSearchResultItem[] = state.webSearchResults || [];
-  const searchQueries: string[] = [];
-
-  const isSearchToggleOn = Boolean(state.webSearchEnabled);
-  const isEligibleArchetype = isSearchEligibleArchetype(activeArchetype);
-  const skippedReason = "Skipped — this archetype doesn't use search";
-  let webSearchSkippedReason: string | null = null;
-
-  if (!isSearchToggleOn) {
-    log.info("Web search telemetry", {
-      used: false,
-      skippedByToggle: true,
-      skippedByArchetype: false,
-      archetype: activeArchetype,
-      succeeded: false,
-      timedOut: false,
-      queryCount: 0,
-      resultCount: 0,
-    });
-  } else if (!isEligibleArchetype) {
-    webSearchSkippedReason = skippedReason;
-    try {
-      await webSearchTool.invoke(
-        {
-          query: "Web search skipped",
-          skippedReason,
-        },
-        config
-      );
-    } catch (err: unknown) {
-      log.warn("Web search skip notification tool call failed", { error: (err as Error).message });
-    }
-
-    log.info("Web search telemetry", {
-      used: false,
-      skippedByToggle: false,
-      skippedByArchetype: true,
-      archetype: activeArchetype,
-      succeeded: false,
-      timedOut: false,
-      queryCount: 0,
-      resultCount: 0,
-    });
-  } else {
-    // Formulate 1-3 targeted queries based on topic and context (strictly capped at 3)
-    const baseQuery = topicLine.trim();
-    if (baseQuery) {
-      searchQueries.push(baseQuery);
-      if (activeArchetype === "contrarian") {
-        searchQueries.push(`${baseQuery} counter perspective benchmarks`);
-      } else if (activeArchetype === "comparison") {
-        searchQueries.push(`${baseQuery} comparison trade-offs`);
-      } else {
-        searchQueries.push(`${baseQuery} industry data report`);
-      }
-    }
-    const cappedQueries = searchQueries.slice(0, 3);
-
-    let searchSucceeded = false;
-    let searchTimedOut = false;
-
-    // Execute queries with tool invocation so LangGraph emits on_tool_start / on_tool_end
-    for (const q of cappedQueries) {
-      try {
-        const toolResult = await webSearchTool.invoke({ query: q }, config);
-        if (toolResult && Array.isArray(toolResult.results) && toolResult.results.length > 0) {
-          retrievedSearchResults.push(...toolResult.results);
-          searchSucceeded = true;
-        }
-      } catch (err: unknown) {
-        const e = err as Error;
-        if (e.name === "AbortError" || e.message?.includes("timed out") || e.message?.includes("timeout")) {
-          searchTimedOut = true;
-        }
-        log.warn("Web search query failed or timed out; proceeding without blocking draft", {
-          query: q,
-          error: e.message,
-        });
-      }
-    }
-
-    // Deduplicate search results by title + domain
-    const uniqueResults: WebSearchResultItem[] = [];
-    const seen = new Set<string>();
-    for (const r of retrievedSearchResults) {
-      const key = `${r.domain}:${r.title}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        uniqueResults.push(r);
-      }
-    }
-    retrievedSearchResults = uniqueResults.slice(0, 6);
-
-    log.info("Web search telemetry", {
-      used: true,
-      skippedByToggle: false,
-      skippedByArchetype: false,
-      archetype: activeArchetype,
-      succeeded: searchSucceeded,
-      timedOut: searchTimedOut,
-      queryCount: cappedQueries.length,
-      resultCount: retrievedSearchResults.length,
-    });
-
-    if (retrievedSearchResults.length > 0) {
-      searchContext = [
-        "REFERENCE FACTS (FROM WEB SEARCH - GROUNDING ONLY):",
-        ...retrievedSearchResults.map((r) => `- [${r.domain}] ${r.title}`),
-      ].join("\n");
-    }
-  }
+  // ── Web Search Grounding Context (populated by researchGrounding node) ──
+  const searchContext = state.searchContext || "";
 
   const promptSections = [
     systemPrompt,
@@ -369,6 +176,11 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
     );
   } else {
     promptSections.push(`Grounding Info: "None"`);
+    promptSections.push(
+      "",
+      "REMINDER: No grounding data was found. You MUST stay qualitative — describe outcomes with words like 'noticeably', 'significantly', 'dramatically' instead of inventing specific numbers, percentages, or latencies.",
+      ""
+    );
   }
 
   promptSections.push(
@@ -442,7 +254,6 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
       await addHook(hook, state.userId, domainKey);
     }
 
-    const hooks = extractAlternativeHooks(response.content, topicLine, domainKey, activeArchetype);
     const serving = detectServingProvider(response, state.llmProvider || "gemini");
     const actualModel = serving.model || state.llmModel || undefined;
 
@@ -452,18 +263,12 @@ export async function generateDraft(state: State, config?: RunnableConfig): Prom
       provider: serving.provider,
       model: actualModel,
       draftLengthChars: rawDraft.length,
-      alternativeHooksCount: hooks.length,
       durationMs,
     });
 
     return {
       draft: rawDraft,
       postContent: rawDraft,
-      alternativeHooks: hooks,
-      searchContext,
-      webSearchResults: retrievedSearchResults,
-      webSearchQueries: searchQueries,
-      webSearchSkippedReason,
       servingProvider: serving.servingProvider,
       actualProvider: serving.provider,
       actualModel,

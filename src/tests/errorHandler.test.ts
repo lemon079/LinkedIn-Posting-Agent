@@ -21,7 +21,6 @@ describe("handleAgentError (Error Agent Node)", () => {
     plan: "",
     searchContext: "",
     draft: "",
-    alternativeHooks: [],
     userFeedback: null,
     changeNote: null,
     refinementPasses: 0,

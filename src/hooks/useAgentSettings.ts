@@ -1,5 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { fetchUserSettings, saveUserSettings, disconnectLinkedIn } from "@/lib/api";
+import {
+  fetchUserSettings,
+  saveUserSettings,
+  disconnectLinkedIn,
+  fetchAuthSession,
+  clearAuthSession,
+} from "@/lib/api";
 import { supabase } from "@/lib/supabase/client";
 import { DEFAULT_OLLAMA_URL } from "@/lib/constants";
 import type { User } from "@supabase/supabase-js";
@@ -25,191 +31,98 @@ export function useAgentSettings() {
   const pendingOAuth = useRef<{ token: string; urn: string; expiresAt?: number } | null>(null);
   const isHydrated = useRef(false);
 
-  // 0. Hydrate state from localStorage and intercept OAuth handoff on client mount
+  // 0. Primary Hydration: Check HTTP-only server session and intercept legacy OAuth handoffs
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    let oauthToken: string | null = null;
-    let oauthUrn: string | null = null;
-    let expiresAt: number | undefined = undefined;
-    let email: string | null = null;
-    let otp: string | null = null;
-    let hashedToken: string | null = null;
+    let isMounted = true;
 
-    const parseHandoffRaw = (raw: string) => {
-      if (!raw || typeof raw !== "string") return null;
-
+    async function initSession() {
+      // 1. Check server-side HTTP-only session cookie first
       try {
-        let str = raw.trim();
+        const sessionData = await fetchAuthSession();
+        if (!isMounted) return;
 
-        // Strip surrounding quotes if present (standard cookie quotes per RFC 6265)
-        if (
-          (str.startsWith('"') && str.endsWith('"')) ||
-          (str.startsWith("'") && str.endsWith("'"))
-        ) {
-          str = str.slice(1, -1).trim();
+        if (sessionData.authenticated && sessionData.user) {
+          setUser(sessionData.user as User);
+          if (sessionData.token) {
+            setToken(sessionData.token);
+            if (supabase) {
+              supabase.auth
+                .setSession({ access_token: sessionData.token, refresh_token: "" })
+                .catch(() => {});
+            }
+          }
+
+          if (sessionData.settings) {
+            if (sessionData.settings.provider) setProviderState(sessionData.settings.provider);
+            if (sessionData.settings.modelName) setModelName(sessionData.settings.modelName);
+            if (sessionData.settings.ollamaBaseUrl) setOllamaBaseUrl(sessionData.settings.ollamaBaseUrl);
+            if (sessionData.settings.apiKey) setApiKey(sessionData.settings.apiKey);
+            if (sessionData.settings.liUrn) setLiUrn(sessionData.settings.liUrn);
+            if (sessionData.settings.liTokenExpiresAt) {
+              setLiTokenExpiresAt(sessionData.settings.liTokenExpiresAt);
+            }
+            if (sessionData.settings.liToken || sessionData.linkedInConnected) {
+              setLiToken(sessionData.settings.liToken || "••••••••••••");
+            }
+          } else if (sessionData.linkedInConnected) {
+            setLiToken("••••••••••••");
+          }
+
+          isHydrated.current = true;
+          setIsHydrating(false);
+          return;
         }
-
-        // Direct parse if raw string is already unencoded JSON
-        try {
-          return JSON.parse(str);
-        } catch {}
-
-        // Decode URL encoding (handles single or double encoded query params / cookies)
-        let urlDecoded = str;
-        try {
-          urlDecoded = decodeURIComponent(urlDecoded);
-          try {
-            urlDecoded = decodeURIComponent(urlDecoded);
-          } catch {}
-        } catch {}
-
-        // Direct parse if URL decoded string is unencoded JSON
-        try {
-          return JSON.parse(urlDecoded);
-        } catch {}
-
-        // Try base64 decoding on URL decoded candidate, then raw candidate
-        const candidates = [urlDecoded, str];
-        for (const cand of candidates) {
-          // Normalize URL-safe base64 and pad with '='
-          let b64 = cand.replace(/-/g, "+").replace(/_/g, "/");
-          const padRemainder = b64.length % 4;
-          if (padRemainder === 2) b64 += "==";
-          else if (padRemainder === 3) b64 += "=";
-
-          try {
-            const binary = atob(b64);
-            const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
-            const decodedText = new TextDecoder().decode(bytes);
-            return JSON.parse(decodedText);
-          } catch {}
-
-          try {
-            return JSON.parse(atob(b64));
-          } catch {}
+      } catch (sessionErr) {
+        if (process.env.NODE_ENV !== "test") {
+          console.warn("Could not retrieve server auth session:", sessionErr);
         }
-
-        return null;
-      } catch (e) {
-        console.error("Failed to decode OAuth handoff string:", e);
-        return null;
-      }
-    };
-
-    // Primary: Check URL search params for auth_handoff (robust against 302 cookie drops on live URLs)
-    const searchParams = new URLSearchParams(window.location.search);
-    const urlHandoff = searchParams.get("auth_handoff");
-    if (urlHandoff) {
-      const parsed = parseHandoffRaw(urlHandoff);
-      if (parsed) {
-        oauthToken = parsed.token || null;
-        oauthUrn = parsed.urn || null;
-        expiresAt = parsed.expiresAt;
-        email = parsed.email || null;
-        otp = parsed.otp || null;
-        hashedToken = parsed.hashedToken || null;
       }
 
-      // Immediately sanitize the URL
-      const cleanUrl = new URL(window.location.href);
-      cleanUrl.searchParams.delete("auth_handoff");
-      window.history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
-    }
+      if (!isMounted) return;
 
-    // Secondary: Check one-time handoff cookie
-    if (!oauthToken) {
-      const match = document.cookie.match(/(?:^|;\s*)praxis_oauth_handoff=([^;]+)/);
-      if (match) {
-        const parsed = parseHandoffRaw(match[1]);
-        if (parsed) {
-          oauthToken = parsed.token || null;
-          oauthUrn = parsed.urn || null;
-          expiresAt = parsed.expiresAt;
-          email = parsed.email || null;
-          otp = parsed.otp || null;
-          hashedToken = parsed.hashedToken || null;
-        }
+      // 2. Check legacy URL search params or fallback handoffs
+      const searchParams = new URLSearchParams(window.location.search);
+      const urlHandoff = searchParams.get("auth_handoff");
+      let legacyToken = searchParams.get("li_token");
+      let legacyUrn = searchParams.get("li_urn");
 
-        // Clear handoff cookie immediately
-        document.cookie =
-          "praxis_oauth_handoff=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      }
-    }
-
-    // Tertiary: Fallback check for legacy individual URL query parameters
-    if (!oauthToken) {
-      oauthToken = searchParams.get("li_token");
-      oauthUrn = searchParams.get("li_urn");
-      email = searchParams.get("email");
-      otp = searchParams.get("otp");
-
-      if (oauthToken) {
+      if (urlHandoff) {
+        try {
+          const parsed = JSON.parse(decodeURIComponent(urlHandoff));
+          if (parsed.token && parsed.urn) {
+            legacyToken = parsed.token;
+            legacyUrn = parsed.urn;
+          }
+        } catch {}
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete("auth_handoff");
+        window.history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+      } else if (legacyToken) {
         const cleanUrl = new URL(window.location.href);
         cleanUrl.searchParams.delete("li_token");
         cleanUrl.searchParams.delete("li_urn");
-        cleanUrl.searchParams.delete("email");
-        cleanUrl.searchParams.delete("otp");
         window.history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
       }
-    }
 
-    queueMicrotask(() => {
-      if (oauthToken && oauthUrn) {
-        setLiToken(oauthToken);
-        setLiUrn(oauthUrn);
-        if (expiresAt) {
-          setLiTokenExpiresAt(expiresAt);
-          localStorage.setItem("li_token_expires_at", String(expiresAt));
-        }
-        localStorage.setItem("li_token", oauthToken);
-        localStorage.setItem("li_urn", oauthUrn);
-
-        const client = supabase;
-        if (client) {
-          if (hashedToken) {
-            client.auth
-              .verifyOtp({ token_hash: hashedToken, type: "magiclink" })
-              .then(({ data, error }) => {
-                if (error) {
-                  console.warn("verifyOtp with hashedToken encountered an error:", error.message);
-                  if (email && otp) {
-                    client.auth
-                      .verifyOtp({ email, token: otp, type: "email" })
-                      .then(({ data: fallbackData }) => {
-                        if (fallbackData?.session) {
-                          setUser(fallbackData.session.user);
-                          setToken(fallbackData.session.access_token);
-                        }
-                      })
-                      .catch(() => {});
-                  }
-                } else if (data?.session) {
-                  setUser(data.session.user);
-                  setToken(data.session.access_token);
-                }
-              })
-              .catch((e) => console.error("Error verifying OTP with token hash:", e));
-          } else if (email && otp) {
-            client.auth
-              .verifyOtp({ email, token: otp, type: "email" })
-              .then(({ data }) => {
-                if (data?.session) {
-                  setUser(data.session.user);
-                  setToken(data.session.access_token);
-                }
-              })
-              .catch((e) => console.error("Error verifying email OTP:", e));
-          }
-        }
-      } else {
-        // Clean up legacy localStorage secrets if any exist
-        localStorage.removeItem("li_token");
-        localStorage.removeItem("li_urn");
-        localStorage.removeItem("li_token_expires_at");
-        localStorage.removeItem("llm_api_key");
+      if (legacyToken && legacyUrn) {
+        setLiToken(legacyToken);
+        setLiUrn(legacyUrn);
       }
 
+      // 3. Fallback: Check client-side Supabase getSession
+      if (supabase) {
+        try {
+          const { data } = await supabase.auth.getSession();
+          if (data.session) {
+            setUser(data.session.user);
+            setToken(data.session.access_token);
+          }
+        } catch {}
+      }
+
+      // Load unauthenticated client preferences from localStorage
       const savedProvider = localStorage.getItem("llm_provider");
       if (savedProvider) setProviderState(savedProvider);
 
@@ -220,10 +133,17 @@ export function useAgentSettings() {
       if (savedOllama) setOllamaBaseUrl(savedOllama);
 
       isHydrated.current = true;
-    });
+      setIsHydrating(false);
+    }
+
+    initSession();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // 1. Fetch user settings from Supabase on sign-in
+  // 1. Fetch user settings from Supabase when token is explicitly refreshed
   useEffect(() => {
     const fetchSettings = async (t: string) => {
       try {
@@ -261,37 +181,25 @@ export function useAgentSettings() {
     }
   }, [token]);
 
-  // 2. Load auth session and listen for refresh
+  // 2. Listen for client-side Supabase auth state changes
   useEffect(() => {
-    if (!supabase) {
-      queueMicrotask(() => setIsHydrating(false));
-      return;
-    }
-    supabase.auth
-      .getSession()
-      .then(({ data: { session } }) => {
-        setUser(session?.user ?? null);
-        setToken(session?.access_token ?? null);
-        setIsHydrating(false);
-      })
-      .catch(() => {
-        setIsHydrating(false);
-      });
+    if (!supabase) return;
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setToken(session?.access_token ?? null);
-      setIsHydrating(false);
+      if (session) {
+        setUser(session.user);
+        setToken(session.access_token);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // 3. Flush pending LinkedIn OAuth credentials once Supabase session is ready
+  // 3. Flush pending LinkedIn OAuth credentials once session is ready
   useEffect(() => {
-    if (!token || !pendingOAuth.current) return;
+    if ((!token && !user) || !pendingOAuth.current) return;
 
     const { token: oauthToken, urn: oauthUrn, expiresAt } = pendingOAuth.current;
     pendingOAuth.current = null;
@@ -306,22 +214,22 @@ export function useAgentSettings() {
         liUrn: oauthUrn,
         liTokenExpiresAt: expiresAt,
       },
-      token
+      token || undefined
     ).catch(() => {});
-  }, [token, provider, apiKey, modelName, ollamaBaseUrl]);
+  }, [token, user, provider, apiKey, modelName, ollamaBaseUrl]);
 
-  // 4. Dedicated async save settings function with deliberate tactile feedback delay
+  // 4. Dedicated async save settings function with tactile feedback delay
   const isExplicitSavingRef = useRef(false);
   const handleSaveSettings = useCallback(async () => {
     isExplicitSavingRef.current = true;
     const minDelay = new Promise((resolve) => setTimeout(resolve, 500));
 
     try {
-      if (token) {
+      if (token || user) {
         await Promise.all([
           saveUserSettings(
             { provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, liTokenExpiresAt },
-            token
+            token || undefined
           ),
           minDelay,
         ]);
@@ -331,7 +239,6 @@ export function useAgentSettings() {
           localStorage.setItem("llm_model", modelName);
           localStorage.setItem("ollama_base_url", ollamaBaseUrl);
           if (apiKey) localStorage.setItem("llm_api_key", apiKey);
-          if (liToken) localStorage.setItem("li_token", liToken);
           if (liUrn) localStorage.setItem("li_urn", liUrn);
           if (liTokenExpiresAt) localStorage.setItem("li_token_expires_at", String(liTokenExpiresAt));
         }
@@ -342,17 +249,17 @@ export function useAgentSettings() {
         isExplicitSavingRef.current = false;
       }, 600);
     }
-  }, [token, provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, liTokenExpiresAt]);
+  }, [token, user, provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, liTokenExpiresAt]);
 
   // Fallback: Save settings locally or to Postgres when settings panel is dismissed without clicking Apply
   const prevSettingsOpen = useRef(isSettingsOpen);
   useEffect(() => {
     if (prevSettingsOpen.current && !isSettingsOpen) {
       if (!isExplicitSavingRef.current) {
-        if (token) {
+        if (token || user) {
           saveUserSettings(
             { provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, liTokenExpiresAt },
-            token
+            token || undefined
           ).catch(() => {});
         } else {
           localStorage.setItem("llm_provider", provider);
@@ -362,7 +269,7 @@ export function useAgentSettings() {
       }
     }
     prevSettingsOpen.current = isSettingsOpen;
-  }, [isSettingsOpen, provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, liTokenExpiresAt, token]);
+  }, [isSettingsOpen, provider, apiKey, modelName, ollamaBaseUrl, liToken, liUrn, liTokenExpiresAt, token, user]);
 
   // 5. Atomic Purge / Teardown on Sign-Out
   const handleSignOut = useCallback(async () => {
@@ -382,6 +289,10 @@ export function useAgentSettings() {
         "praxis_oauth_handoff=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     }
 
+    try {
+      await clearAuthSession();
+    } catch {}
+
     if (supabase) {
       await supabase.auth.signOut().catch(() => {});
     }
@@ -389,10 +300,10 @@ export function useAgentSettings() {
 
   // 6. Dedicated LinkedIn Disconnect Action
   const handleDisconnectLinkedIn = useCallback(async () => {
-    if (token) {
-      await disconnectLinkedIn(token).catch((e) => {
-        console.error("Failed to disconnect LinkedIn from cloud account:", e);
-      });
+    try {
+      await disconnectLinkedIn(token || undefined);
+    } catch (e) {
+      console.error("Failed to disconnect LinkedIn from cloud account:", e);
     }
 
     setLiToken("");
@@ -428,7 +339,7 @@ export function useAgentSettings() {
     setToken,
     isHydrated,
     isHydrating,
-    isAuthenticated: Boolean(liToken || (user && token)),
+    isAuthenticated: Boolean(user || liToken || token),
     handleSaveSettings,
     handleSignOut,
     handleDisconnectLinkedIn,

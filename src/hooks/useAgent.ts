@@ -7,6 +7,8 @@ import type { CustomKeys, StreamEvent, HookOption, DraftVersion } from "@/types"
 import { useAgentSettings } from "./useAgentSettings";
 import { useAgentMedia } from "./useAgentMedia";
 
+const MAX_DRAFTS = 10;
+
 export function useAgent() {
   const [customTopic, setCustomTopic] = useState("");
   const [context, setContext] = useState("");
@@ -102,131 +104,125 @@ export function useAgent() {
     });
   }, []);
 
-  // Automatically persist draft and workspace state across page reloads
+  // Debounce workspace state persistence with a 400ms timer to eliminate keystroke I/O thrashing
   useEffect(() => {
     if (typeof window === "undefined" || !settings.isHydrated.current) return;
-    localStorage.setItem("praxis_custom_topic", customTopic);
-  }, [customTopic, settings.isHydrated]);
 
-  useEffect(() => {
-    if (typeof window === "undefined" || !settings.isHydrated.current) return;
-    localStorage.setItem("praxis_context", context);
-  }, [context, settings.isHydrated]);
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem("praxis_custom_topic", customTopic);
+        localStorage.setItem("praxis_context", context);
+        localStorage.setItem("praxis_domain", domain);
+        localStorage.setItem("praxis_archetype", archetype);
+        localStorage.setItem("praxis_tone", tone);
+        localStorage.setItem("praxis_web_search_enabled", String(webSearchEnabled));
 
-  useEffect(() => {
-    if (typeof window === "undefined" || !settings.isHydrated.current) return;
-    localStorage.setItem("praxis_domain", domain);
-  }, [domain, settings.isHydrated]);
+        if (draftText) {
+          localStorage.setItem("praxis_draft_text", draftText);
+        } else {
+          localStorage.removeItem("praxis_draft_text");
+        }
 
-  useEffect(() => {
-    if (typeof window === "undefined" || !settings.isHydrated.current) return;
-    localStorage.setItem("praxis_archetype", archetype);
-  }, [archetype, settings.isHydrated]);
+        if (threadId) {
+          localStorage.setItem("praxis_thread_id", threadId);
+        } else {
+          localStorage.removeItem("praxis_thread_id");
+        }
 
-  useEffect(() => {
-    if (typeof window === "undefined" || !settings.isHydrated.current) return;
-    localStorage.setItem("praxis_tone", tone);
-  }, [tone, settings.isHydrated]);
+        if (reasoningSteps.length > 0) {
+          localStorage.setItem("praxis_reasoning_steps", JSON.stringify(reasoningSteps));
+        } else {
+          localStorage.removeItem("praxis_reasoning_steps");
+        }
 
-  useEffect(() => {
-    if (typeof window === "undefined" || !settings.isHydrated.current) return;
-    localStorage.setItem("praxis_web_search_enabled", String(webSearchEnabled));
-  }, [webSearchEnabled, settings.isHydrated]);
+        if (alternativeHooks.length > 0) {
+          localStorage.setItem("praxis_alternative_hooks", JSON.stringify(alternativeHooks));
+          if (threadId) {
+            localStorage.setItem(`praxis_alternative_hooks_${threadId}`, JSON.stringify(alternativeHooks));
+          }
+        } else {
+          localStorage.removeItem("praxis_alternative_hooks");
+          if (threadId) {
+            localStorage.removeItem(`praxis_alternative_hooks_${threadId}`);
+          }
+        }
 
-  useEffect(() => {
-    if (typeof window === "undefined" || !settings.isHydrated.current) return;
-    if (draftText) {
-      localStorage.setItem("praxis_draft_text", draftText);
-    } else {
-      localStorage.removeItem("praxis_draft_text");
-    }
-  }, [draftText, settings.isHydrated]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !settings.isHydrated.current) return;
-    if (threadId) {
-      localStorage.setItem("praxis_thread_id", threadId);
-    } else {
-      localStorage.removeItem("praxis_thread_id");
-    }
-  }, [threadId, settings.isHydrated]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !settings.isHydrated.current) return;
-    if (reasoningSteps.length > 0) {
-      localStorage.setItem("praxis_reasoning_steps", JSON.stringify(reasoningSteps));
-    } else {
-      localStorage.removeItem("praxis_reasoning_steps");
-    }
-  }, [reasoningSteps, settings.isHydrated]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !settings.isHydrated.current) return;
-    if (alternativeHooks.length > 0) {
-      localStorage.setItem("praxis_alternative_hooks", JSON.stringify(alternativeHooks));
-      if (threadId) {
-        localStorage.setItem(`praxis_alternative_hooks_${threadId}`, JSON.stringify(alternativeHooks));
+        if (draftVersions.length > 0) {
+          localStorage.setItem("praxis_draft_versions", JSON.stringify(draftVersions));
+          localStorage.setItem("praxis_active_version_index", String(activeVersionIndex));
+          if (threadId) {
+            localStorage.setItem(`praxis_draft_versions_${threadId}`, JSON.stringify(draftVersions));
+            localStorage.setItem(`praxis_active_version_index_${threadId}`, String(activeVersionIndex));
+          }
+        } else {
+          localStorage.removeItem("praxis_draft_versions");
+          localStorage.removeItem("praxis_active_version_index");
+          if (threadId) {
+            localStorage.removeItem(`praxis_draft_versions_${threadId}`);
+            localStorage.removeItem(`praxis_active_version_index_${threadId}`);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to persist workspace state to localStorage:", err);
       }
-    } else {
-      localStorage.removeItem("praxis_alternative_hooks");
-      if (threadId) {
-        localStorage.removeItem(`praxis_alternative_hooks_${threadId}`);
-      }
-    }
-  }, [alternativeHooks, threadId, settings.isHydrated]);
+    }, 400);
 
-  useEffect(() => {
-    if (typeof window === "undefined" || !settings.isHydrated.current) return;
-    if (draftVersions.length > 0) {
-      localStorage.setItem("praxis_draft_versions", JSON.stringify(draftVersions));
-      localStorage.setItem("praxis_active_version_index", String(activeVersionIndex));
-      if (threadId) {
-        localStorage.setItem(`praxis_draft_versions_${threadId}`, JSON.stringify(draftVersions));
-        localStorage.setItem(`praxis_active_version_index_${threadId}`, String(activeVersionIndex));
-      }
-    } else {
-      localStorage.removeItem("praxis_draft_versions");
-      localStorage.removeItem("praxis_active_version_index");
-      if (threadId) {
-        localStorage.removeItem(`praxis_draft_versions_${threadId}`);
-        localStorage.removeItem(`praxis_active_version_index_${threadId}`);
-      }
-    }
-  }, [draftVersions, activeVersionIndex, threadId, settings.isHydrated]);
+    return () => clearTimeout(timer);
+  }, [
+    customTopic,
+    context,
+    domain,
+    archetype,
+    tone,
+    webSearchEnabled,
+    draftText,
+    threadId,
+    reasoningSteps,
+    alternativeHooks,
+    draftVersions,
+    activeVersionIndex,
+    settings.isHydrated,
+  ]);
 
-  const MAX_DRAFTS = 10;
+  const initDraftVersions = useCallback((rawDraft: string, hooks: HookOption[], initialChangeNote?: string) => {
+    const trimmed = rawDraft.trim();
+    if (!trimmed) return;
 
-  const initDraftVersions = useCallback((draft: string, hooks?: HookOption[], changeNote?: string) => {
-    const rawDraft = draft.trim();
-    if (!rawDraft) return;
-
-    const doubleBreakIdx = rawDraft.indexOf("\n\n");
+    const doubleBreak = trimmed.indexOf("\n\n");
+    let initialHook = "";
     let body = "";
-    if (doubleBreakIdx !== -1) {
-      body = rawDraft.slice(doubleBreakIdx + 2).trimStart();
+    if (doubleBreak !== -1) {
+      initialHook = trimmed.slice(0, doubleBreak).trim();
+      body = trimmed.slice(doubleBreak + 2).trim();
     } else {
-      const singleBreakIdx = rawDraft.indexOf("\n");
-      if (singleBreakIdx !== -1) {
-        body = rawDraft.slice(singleBreakIdx + 1).trimStart();
+      const singleBreak = trimmed.indexOf("\n");
+      if (singleBreak !== -1) {
+        initialHook = trimmed.slice(0, singleBreak).trim();
+        body = trimmed.slice(singleBreak + 1).trim();
+      } else {
+        initialHook = trimmed;
+        body = "";
       }
     }
 
+    const hooksToUse = hooks && hooks.length > 0 ? hooks : [];
     const now = Date.now();
+
     const initialVersion: DraftVersion = {
       id: `v1-${now}`,
       versionNumber: 1,
       draft: rawDraft,
       label: "v1",
-      changeNote: changeNote || "Initial Draft",
+      changeNote: initialChangeNote || "Initial Draft",
       timestamp: now,
-      alternativeHooks: hooks && hooks.length > 0 ? hooks : undefined,
+      alternativeHooks: hooksToUse,
+      hookText: initialHook,
     };
 
-    const hooksToUse = hooks && hooks.length > 0 ? hooks : [];
-    const hookVersions: DraftVersion[] = hooksToUse.map((h, idx) => {
-      const num = idx + 2;
+    const hookVersions: DraftVersion[] = hooksToUse.slice(0, 2).map((h, idx) => {
       const trimmedHook = h.hook.trim();
       const hookDraft = body ? `${trimmedHook}\n\n${body}` : trimmedHook;
+      const num = idx + 2;
       return {
         id: `v${num}-${now + idx + 1}`,
         versionNumber: num,
@@ -409,49 +405,72 @@ export function useAgent() {
         }
         stream = response.data;
       } catch (err: unknown) {
-        if (axios.isAxiosError(err)) {
-          if (err.response?.status === 401) {
-            settings.setToken(null);
-            settings.setUser(null);
-            throw new Error("Your session has expired. Please sign in again.");
-          }
-          const errorData = err.response?.data as { error?: string } | undefined;
-          throw new Error(errorData?.error || err.message || `HTTP error! status: ${err.response?.status}`);
+        const axiosErr = err as { response?: { status?: number; data?: unknown } };
+        if (axiosErr.response?.status === 401) {
+          settings.setToken(null);
+          settings.setUser(null);
+          setStatus((p) => ({ ...p, err: "Your session has expired. Please sign in again." }));
+          return;
         }
-        throw err;
+        const errorMsg =
+          typeof axiosErr.response?.data === "string"
+            ? axiosErr.response.data
+            : err instanceof Error
+              ? err.message
+              : "Failed to generate draft. Please check your credentials and try again.";
+        throw new Error(errorMsg);
       }
 
       const reader = stream.getReader();
-      const decoder = new TextDecoder();
+      const decoder = new TextDecoder("utf-8");
       let buffer = "";
 
       while (true) {
-        const { value, done } = await reader.read();
+        const { done, value } = await reader.read();
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n\n");
+        const lines = buffer.split("\n");
         buffer = lines.pop() || "";
 
         for (const line of lines) {
           if (!line.trim() || !line.startsWith("data: ")) continue;
-          const jsonStr = line.slice(6).trim();
+          const jsonStr = line.replace(/^data: /, "").trim();
+          if (!jsonStr || jsonStr === "[DONE]") continue;
+
           let event: StreamEvent;
           try {
             event = JSON.parse(jsonStr);
-          } catch (e) {
-            console.warn("Skipping unparseable SSE chunk:", jsonStr, e);
+          } catch (err) {
+            console.warn("Skipping unparseable SSE chunk:", jsonStr, err);
             continue;
           }
 
           if (event.type === "thread") {
             setThreadId(event.threadId);
           } else if (event.type === "node_start") {
+            if (event.node === "generateDraft" || event.node === "refineDraft") {
+              setStreamingText("");
+              setDraftText(null);
+            }
             setReasoningSteps((prev) => {
               if (prev.some((s) => s.title === event.title)) return prev;
               return [...prev, { title: event.title, output: "" }];
             });
           } else if (event.type === "token" || event.type === "thinking") {
+            if (event.type === "token") {
+              const isDraftToken =
+                event.node === "Writing First Draft" ||
+                event.node === "Refining Based on Feedback" ||
+                event.node === "Refining Draft" ||
+                event.node === "Polishing Refinement" ||
+                event.node === "generateDraft" ||
+                event.node === "refineDraft";
+
+              if (isDraftToken) {
+                setStreamingText((prev) => (prev ? prev + event.text : event.text));
+              }
+            }
             setReasoningSteps((prev) => {
               const stepIdx = prev.findIndex((s) => s.title === event.node);
               if (stepIdx === -1) {
@@ -750,4 +769,3 @@ export function useAgent() {
     handleDisconnectLinkedIn: settings.handleDisconnectLinkedIn,
   };
 }
-

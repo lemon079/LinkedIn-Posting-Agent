@@ -1,6 +1,9 @@
 import type React from "react";
 import type { MediaFileMetadata } from "./media";
 import type { DraftVersion } from "./agent";
+import type { HookOption } from "./stream";
+
+export type { HookOption };
 
 /**
  * Shared base props for topic composition across ControlPanel and AssistantComposer.
@@ -19,7 +22,11 @@ export interface BaseComposerProps {
   setTone?: (val: string) => void;
   webSearchEnabled?: boolean;
   setWebSearchEnabled?: (val: boolean) => void;
-  onGenerate: () => void;
+  onGenerate: (instruction?: string | React.MouseEvent<HTMLElement>) => void;
+  hasDraft?: boolean;
+  reasoningSteps?: Array<{ title: string; output: string }>;
+  onRefine?: (instruction: string) => void;
+  onNewPost?: () => void;
 }
 
 /**
@@ -65,4 +72,6 @@ export interface BaseThreadEditorProps {
     avatarUrl?: string;
     headline?: string;
   } | null;
+  onNewPost?: () => void;
+  onRefine?: (instruction: string) => void;
 }

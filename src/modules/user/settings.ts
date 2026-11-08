@@ -4,6 +4,7 @@ import { safeDecrypt, encrypt } from "@/modules/auth/crypto";
 import { DEFAULT_OLLAMA_URL } from "@/lib/constants";
 import { refreshLinkedInAccessToken } from "@/modules/linkedin/token";
 import type { Database } from "@/types/database.types";
+import { resolveApiKey, MissingApiKeyError } from "@/lib/security/apiKeyResolver";
 import type {
   UserSettings,
   UserSettingsRow,
@@ -11,6 +12,8 @@ import type {
   UserSettingsUpdate,
   AgentCredentials,
 } from "./types";
+
+export { resolveApiKey, MissingApiKeyError };
 
 const log = logger.child({ module: "Database" });
 
@@ -259,6 +262,20 @@ export async function resolveAgentCredentials(
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       log.error(`Error resolving settings for user ${userId}`, { userId, error: msg });
+    }
+  }
+
+  const rawProvider = creds.provider || "gemini";
+  if (rawProvider.toLowerCase() !== "ollama") {
+    try {
+      const headerKey = readHeaderCredentials(request).apiKey;
+      creds.apiKey = resolveApiKey(rawProvider, {
+        explicitKey: headerKey,
+        userKey: creds.apiKey,
+      });
+    } catch {
+      // If no valid key is resolved yet, leave creds.apiKey as is or undefined
+      // so downstream callers (like factory or draft route) can handle MissingApiKeyError appropriately
     }
   }
 

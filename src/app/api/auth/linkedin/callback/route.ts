@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { handleLinkedInCallback } from "@/modules/auth";
+import { supabase } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 
 const log = logger.child({ module: "OAuthCallback" });
@@ -41,20 +42,30 @@ export async function GET(request: Request) {
     log.info(`Exchanging authorization code for credentials`);
     const result = await handleLinkedInCallback(code, baseUrl);
 
-    // Base64 encode the payload to ensure 100% safety across all browsers and runtime decoders
-    const payload = JSON.stringify({
-      token: result.accessToken,
-      urn: result.personUrn,
-      expiresAt: result.expiresAt,
-      email: result.email,
-      otp: result.emailOtp,
-      hashedToken: result.hashedToken,
-    });
-    const base64Payload = Buffer.from(payload, "utf-8").toString("base64");
+    // Tokens are safely saved in user_settings table via saveLinkedInCredentials.
+    // Attempt session exchange on the server if hashedToken and supabase are available.
+    let sessionToken: string | undefined;
+    if (supabase && result.hashedToken) {
+      try {
+        const { data: authData, error: verifyError } = await supabase.auth.verifyOtp({
+          token_hash: result.hashedToken,
+          type: "magiclink",
+        });
+        if (!verifyError && authData?.session) {
+          sessionToken = authData.session.access_token;
+        }
+      } catch (verifyErr) {
+        log.warn("Server session exchange via verifyOtp encountered an error", {
+          error: verifyErr instanceof Error ? verifyErr.message : String(verifyErr),
+        });
+      }
+    }
 
-    // Safe cookie-only handoff: tokens are not exposed in URL query parameters
-    const redirectUrl = new URL(`${baseUrl}/`);
-    const response = NextResponse.redirect(redirectUrl.toString());
+    // Determine redirect destination:
+    // If session token was acquired directly, redirect to origin.
+    // If not, fall back to actionLink which performs browser-based session verification.
+    const redirectTarget = sessionToken ? `${baseUrl}/` : (result.actionLink || `${baseUrl}/`);
+    const response = NextResponse.redirect(redirectTarget);
 
     // Clear the CSRF state cookie
     response.cookies.set("li_oauth_state", "", {
@@ -64,16 +75,27 @@ export async function GET(request: Request) {
       sameSite: "lax",
     });
 
-    response.cookies.set("praxis_oauth_handoff", base64Payload, {
+    // Clear legacy insecure handoff cookie
+    response.cookies.set("praxis_oauth_handoff", "", {
       path: "/",
-      maxAge: 300, // 5 minute one-time handoff window
+      maxAge: 0,
+      httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      httpOnly: false, // Readable by client app during initialization
     });
 
-    log.info(`OAuth flow completed successfully, redirecting to origin`, {
-      baseUrl,
+    // If sessionToken is available, set secure, httpOnly session cookie
+    if (sessionToken) {
+      response.cookies.set("praxis_session", sessionToken, {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        httpOnly: true,
+      });
+    }
+
+    log.info(`OAuth flow completed successfully, redirecting`, {
+      destination: sessionToken ? "origin" : "action_link",
     });
 
     return response;
